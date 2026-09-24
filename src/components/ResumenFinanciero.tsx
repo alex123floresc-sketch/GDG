@@ -1,14 +1,12 @@
 import { useMemo } from 'react'
-import { useTransacciones } from '../hooks/useTransacciones'
+import type { Transaccion } from '../types'
 import { formatearMoneda } from '../utils/formato'
 
 interface ResumenFinancieroProps {
-  usuarioId: string
+  transacciones: Transaccion[]
 }
 
-function ResumenFinanciero({ usuarioId }: ResumenFinancieroProps) {
-  const transacciones = useTransacciones(usuarioId)
-
+function ResumenFinanciero({ transacciones }: ResumenFinancieroProps) {
   const { totalIngresos, totalGastos, balance } = useMemo(() => {
     const totalIngresos = transacciones
       .filter((t) => t.tipo === 'ingreso')

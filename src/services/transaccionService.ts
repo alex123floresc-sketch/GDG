@@ -19,10 +19,25 @@ export async function crearTransaccion(
 }
 
 /**
- * Borra las transacciones cacheadas localmente. Se usa al cerrar sesión para
- * que, en un dispositivo compartido, el siguiente usuario que inicie sesión
- * no vea datos financieros de la sesión anterior.
+ * Borra por completo la base de datos local (transacciones, categorías,
+ * cuentas y presupuestos). Se usa al cerrar sesión para que, en un
+ * dispositivo compartido, el siguiente usuario que inicie sesión no vea
+ * datos financieros de la sesión anterior.
  */
 export async function limpiarDatosLocales(): Promise<void> {
-  await db.transacciones.clear()
+  await db.transaction(
+    'rw',
+    db.transacciones,
+    db.categorias,
+    db.cuentas,
+    db.presupuestos,
+    async () => {
+      await Promise.all([
+        db.transacciones.clear(),
+        db.categorias.clear(),
+        db.cuentas.clear(),
+        db.presupuestos.clear(),
+      ])
+    },
+  )
 }

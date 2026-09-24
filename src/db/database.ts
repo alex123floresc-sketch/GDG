@@ -1,21 +1,11 @@
 import Dexie, { type Table } from 'dexie'
-import type { Categoria, Transaccion } from '../types'
-
-const CATEGORIAS_INICIALES: Categoria[] = [
-  { id: 'cat-salario', nombre: 'Salario', tipo: 'ingreso', icono: '💼', color: '#22c55e' },
-  { id: 'cat-freelance', nombre: 'Freelance', tipo: 'ingreso', icono: '🧾', color: '#14b8a6' },
-  { id: 'cat-inversiones', nombre: 'Inversiones', tipo: 'ingreso', icono: '📈', color: '#0ea5e9' },
-  { id: 'cat-alimentacion', nombre: 'Alimentación', tipo: 'gasto', icono: '🍽️', color: '#f97316' },
-  { id: 'cat-transporte', nombre: 'Transporte', tipo: 'gasto', icono: '🚌', color: '#eab308' },
-  { id: 'cat-vivienda', nombre: 'Vivienda', tipo: 'gasto', icono: '🏠', color: '#a855f7' },
-  { id: 'cat-salud', nombre: 'Salud', tipo: 'gasto', icono: '💊', color: '#ef4444' },
-  { id: 'cat-entretenimiento', nombre: 'Entretenimiento', tipo: 'gasto', icono: '🎬', color: '#ec4899' },
-  { id: 'cat-otros', nombre: 'Otros', tipo: 'ambos', icono: '📦', color: '#64748b' },
-]
+import type { Categoria, Cuenta, Presupuesto, Transaccion } from '../types'
 
 export class GestorGastosDB extends Dexie {
   transacciones!: Table<Transaccion, string>
   categorias!: Table<Categoria, string>
+  cuentas!: Table<Cuenta, string>
+  presupuestos!: Table<Presupuesto, string>
 
   constructor() {
     super('GestorGastosDB')
@@ -27,15 +17,25 @@ export class GestorGastosDB extends Dexie {
       categorias: 'id, nombre, tipo',
     })
 
-    // v2: indexa 'usuarioId' para poder aislar por dispositivo los datos de
-    // cada usuario autenticado (ver transaccionService.limpiarDatosLocales).
     this.version(2).stores({
       transacciones: 'id, usuarioId, tipo, categoria, fecha, fechaActualizacion',
       categorias: 'id, nombre, tipo',
     })
 
-    this.on('populate', () => {
-      void this.categorias.bulkAdd(CATEGORIAS_INICIALES)
+    // v3: arquitectura multiusuario completa.
+    // - 'categorias' y nueva tabla 'cuentas' pasan a ser por usuario (antes
+    //   categorias era una taxonomía global sembrada una sola vez).
+    // - 'transacciones' gana cuentaId, categoriaId (reemplaza a 'categoria'),
+    //   concepto (reemplaza a 'nota'), nroOperacion y origen, para soportar
+    //   la importación de reportes de Yape. Índice compuesto
+    //   [usuarioId+nroOperacion] para la validación anti-duplicados.
+    // - nueva tabla 'presupuestos'.
+    this.version(3).stores({
+      transacciones:
+        'id, usuarioId, cuentaId, categoriaId, tipo, fecha, fechaActualizacion, [usuarioId+nroOperacion]',
+      categorias: 'id, usuarioId, nombre, tipo',
+      cuentas: 'id, usuarioId, nombre, tipo',
+      presupuestos: 'id, usuarioId, categoriaId, mes, anio',
     })
   }
 }

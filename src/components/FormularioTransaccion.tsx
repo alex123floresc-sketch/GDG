@@ -1,26 +1,37 @@
-import { useMemo, useState, type FormEvent } from 'react'
-import { useCategorias } from '../hooks/useCategorias'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { crearTransaccion } from '../services/transaccionService'
-import type { TipoTransaccion } from '../types'
+import type { Categoria, Cuenta, TipoTransaccion } from '../types'
+
+interface FormularioTransaccionProps {
+  usuarioId: string
+  cuentas: Cuenta[]
+  categorias: Categoria[]
+}
 
 function fechaHoy(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-interface FormularioTransaccionProps {
-  usuarioId: string
-}
-
-function FormularioTransaccion({ usuarioId }: FormularioTransaccionProps) {
-  const categorias = useCategorias()
-
+function FormularioTransaccion({
+  usuarioId,
+  cuentas,
+  categorias,
+}: FormularioTransaccionProps) {
   const [tipo, setTipo] = useState<TipoTransaccion>('gasto')
   const [monto, setMonto] = useState('')
+  const [cuentaId, setCuentaId] = useState('')
   const [categoriaId, setCategoriaId] = useState('')
   const [fecha, setFecha] = useState(fechaHoy)
-  const [nota, setNota] = useState('')
+  const [concepto, setConcepto] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Selecciona una cuenta por defecto en cuanto están disponibles.
+  useEffect(() => {
+    if (!cuentaId && cuentas.length > 0) {
+      setCuentaId(cuentas[0].id)
+    }
+  }, [cuentas, cuentaId])
 
   const categoriasDisponibles = useMemo(
     () => categorias.filter((c) => c.tipo === tipo || c.tipo === 'ambos'),
@@ -33,6 +44,10 @@ function FormularioTransaccion({ usuarioId }: FormularioTransaccionProps) {
     ? categoriaId
     : ''
 
+  const cuentaSeleccionada = cuentas.some((c) => c.id === cuentaId)
+    ? cuentaId
+    : ''
+
   async function manejarEnvio(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
     setError(null)
@@ -41,6 +56,11 @@ function FormularioTransaccion({ usuarioId }: FormularioTransaccionProps) {
 
     if (!Number.isFinite(montoNumerico) || montoNumerico <= 0) {
       setError('Ingresa un monto válido mayor a 0.')
+      return
+    }
+
+    if (!cuentaSeleccionada) {
+      setError('Selecciona una cuenta.')
       return
     }
 
@@ -56,15 +76,17 @@ function FormularioTransaccion({ usuarioId }: FormularioTransaccionProps) {
         {
           monto: montoNumerico,
           tipo,
-          categoria: categoriaSeleccionada,
+          cuentaId: cuentaSeleccionada,
+          categoriaId: categoriaSeleccionada,
           fecha: new Date(fecha),
-          nota: nota.trim() || undefined,
+          concepto: concepto.trim() || undefined,
+          origen: 'manual',
         },
         usuarioId,
       )
 
       setMonto('')
-      setNota('')
+      setConcepto('')
       setFecha(fechaHoy())
     } catch (err) {
       setError(
@@ -132,7 +154,26 @@ function FormularioTransaccion({ usuarioId }: FormularioTransaccionProps) {
           />
         </label>
 
-        <label className="col-span-2 flex flex-col gap-1 text-sm text-slate-300">
+        <label className="col-span-1 flex flex-col gap-1 text-sm text-slate-300">
+          Cuenta
+          <select
+            value={cuentaSeleccionada}
+            onChange={(e) => setCuentaId(e.target.value)}
+            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-sky-500"
+            required
+          >
+            <option value="" disabled>
+              Selecciona una cuenta
+            </option>
+            {cuentas.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="col-span-1 flex flex-col gap-1 text-sm text-slate-300">
           Categoría
           <select
             value={categoriaSeleccionada}
@@ -153,11 +194,11 @@ function FormularioTransaccion({ usuarioId }: FormularioTransaccionProps) {
         </label>
 
         <label className="col-span-2 flex flex-col gap-1 text-sm text-slate-300">
-          Nota (opcional)
+          Concepto (opcional)
           <input
             type="text"
-            value={nota}
-            onChange={(e) => setNota(e.target.value)}
+            value={concepto}
+            onChange={(e) => setConcepto(e.target.value)}
             placeholder="Ej. Almuerzo con el equipo"
             maxLength={140}
             className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-sky-500"

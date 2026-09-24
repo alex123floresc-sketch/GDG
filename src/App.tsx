@@ -1,11 +1,11 @@
 import type { Session } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 import Auth from './components/Auth'
-import FormularioTransaccion from './components/FormularioTransaccion'
+import Dashboard from './components/Dashboard'
 import Header from './components/Header'
-import ListaTransacciones from './components/ListaTransacciones'
-import ResumenFinanciero from './components/ResumenFinanciero'
 import { useSync } from './hooks/useSync'
+import { asegurarCategoriasPorDefecto } from './services/categoriaService'
+import { asegurarCuentasPorDefecto } from './services/cuentaService'
 import { supabase } from './services/supabaseClient'
 import { limpiarDatosLocales } from './services/transaccionService'
 
@@ -36,6 +36,16 @@ function App() {
   }, [])
 
   const usuarioId = sesion?.user.id ?? null
+
+  // Primer inicio de sesión de este usuario en este dispositivo: crea sus
+  // categorías y cuentas por defecto si todavía no tiene ninguna.
+  useEffect(() => {
+    if (!usuarioId) return
+
+    void asegurarCategoriasPorDefecto(usuarioId)
+    void asegurarCuentasPorDefecto(usuarioId)
+  }, [usuarioId])
+
   const { enLinea, sincronizando, ultimaSincronizacion, sincronizarAhora } =
     useSync(usuarioId)
 
@@ -52,8 +62,8 @@ function App() {
       await supabase?.auth.signOut({ scope: 'local' })
     } finally {
       // Evita que, en un dispositivo compartido, el siguiente usuario que
-      // inicie sesión vea las transacciones cacheadas de esta sesión, aun
-      // si el signOut remoto falló.
+      // inicie sesión vea datos financieros de esta sesión, aun si el
+      // signOut remoto falló.
       await limpiarDatosLocales()
     }
   }
@@ -81,9 +91,7 @@ function App() {
       />
 
       <main className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-6">
-        <ResumenFinanciero usuarioId={usuarioId} />
-        <FormularioTransaccion usuarioId={usuarioId} />
-        <ListaTransacciones usuarioId={usuarioId} />
+        <Dashboard usuarioId={usuarioId} sincronizarAhora={sincronizarAhora} />
       </main>
     </div>
   )

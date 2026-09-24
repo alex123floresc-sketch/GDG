@@ -1,21 +1,28 @@
 import { useMemo } from 'react'
-import { useCategorias } from '../hooks/useCategorias'
-import { useTransacciones } from '../hooks/useTransacciones'
+import type { Categoria, Cuenta, Transaccion } from '../types'
 import { formatearFecha, formatearMoneda } from '../utils/formato'
+
+interface ListaTransaccionesProps {
+  transacciones: Transaccion[]
+  categorias: Categoria[]
+  cuentas: Cuenta[]
+}
 
 const LIMITE_VISIBLE = 15
 
-interface ListaTransaccionesProps {
-  usuarioId: string
-}
-
-function ListaTransacciones({ usuarioId }: ListaTransaccionesProps) {
-  const transacciones = useTransacciones(usuarioId)
-  const categorias = useCategorias()
-
+function ListaTransacciones({
+  transacciones,
+  categorias,
+  cuentas,
+}: ListaTransaccionesProps) {
   const nombresCategorias = useMemo(
     () => new Map(categorias.map((c) => [c.id, c])),
     [categorias],
+  )
+
+  const nombresCuentas = useMemo(
+    () => new Map(cuentas.map((c) => [c.id, c.nombre])),
+    [cuentas],
   )
 
   const recientes = transacciones.slice(0, LIMITE_VISIBLE)
@@ -35,7 +42,8 @@ function ListaTransacciones({ usuarioId }: ListaTransaccionesProps) {
       ) : (
         <ul className="divide-y divide-slate-800">
           {recientes.map((t) => {
-            const categoria = nombresCategorias.get(t.categoria)
+            const categoria = nombresCategorias.get(t.categoriaId)
+            const nombreCuenta = nombresCuentas.get(t.cuentaId)
             const esIngreso = t.tipo === 'ingreso'
 
             return (
@@ -53,7 +61,8 @@ function ListaTransacciones({ usuarioId }: ListaTransaccionesProps) {
                     </p>
                     <p className="truncate text-xs text-slate-500">
                       {formatearFecha(t.fecha)}
-                      {t.nota ? ` · ${t.nota}` : ''}
+                      {nombreCuenta ? ` · ${nombreCuenta}` : ''}
+                      {t.concepto ? ` · ${t.concepto}` : ''}
                     </p>
                   </div>
                 </div>
@@ -67,18 +76,25 @@ function ListaTransacciones({ usuarioId }: ListaTransaccionesProps) {
                     {esIngreso ? '+' : '-'}
                     {formatearMoneda(t.monto)}
                   </span>
-                  <span
-                    className={`flex items-center gap-1 text-[11px] ${
-                      t.sincronizado ? 'text-slate-500' : 'text-amber-400'
-                    }`}
-                  >
+                  <div className="flex items-center gap-1.5">
+                    {t.origen === 'yape' && (
+                      <span className="rounded bg-purple-500/10 px-1.5 py-0.5 text-[10px] font-medium text-purple-300">
+                        Yape
+                      </span>
+                    )}
                     <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        t.sincronizado ? 'bg-slate-600' : 'bg-amber-400'
+                      className={`flex items-center gap-1 text-[11px] ${
+                        t.sincronizado ? 'text-slate-500' : 'text-amber-400'
                       }`}
-                    />
-                    {t.sincronizado ? 'Sincronizado' : 'Pendiente'}
-                  </span>
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          t.sincronizado ? 'bg-slate-600' : 'bg-amber-400'
+                        }`}
+                      />
+                      {t.sincronizado ? 'Sincronizado' : 'Pendiente'}
+                    </span>
+                  </div>
                 </div>
               </li>
             )

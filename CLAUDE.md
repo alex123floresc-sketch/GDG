@@ -16,13 +16,15 @@ Repo: https://github.com/alex123floresc-sketch/GDG
 
 ## Estructura
 
-- `src/components` — UI: `Header`, `Auth`, `FormularioTransaccion`,
-  `ResumenFinanciero`, `ListaTransacciones`
+- `src/components` — UI: `Header`, `Auth`, `Dashboard` (orquesta el resto),
+  `FormularioTransaccion`, `ResumenFinanciero`, `ListaTransacciones`,
+  `YapeImporter` (cargado con `React.lazy`, ver Rendimiento)
 - `src/db/database.ts` — esquema Dexie (`GestorGastosDB`, tablas
-  `transacciones` y `categorias`)
+  `transacciones`, `categorias`, `cuentas`, `presupuestos`)
 - `src/services` — lógica sin React: `supabaseClient.ts`, `syncService.ts`,
-  `transaccionService.ts`
-- `src/hooks` — `useSync`, `useTransacciones`, `useCategorias`
+  `transaccionService.ts`, `categoriaService.ts`, `cuentaService.ts`,
+  `yapeImporter.ts`
+- `src/hooks` — `useSync`, `useTransacciones`, `useCategorias`, `useCuentas`
 - `src/types/index.ts` — única fuente de tipos del dominio
 - `src/utils/formato.ts` — formato de moneda (`es-PE`/PEN) y fecha
 
@@ -31,16 +33,66 @@ Repo: https://github.com/alex123floresc-sketch/GDG
 - Todo el código de dominio (variables, funciones, componentes de negocio)
   está en español: `Transaccion`, `Categoria`, `crearTransaccion`,
   `sincronizar`.
-- `Transaccion.categoria` referencia `Categoria.id` (ids fijos como
-  `cat-alimentacion`, sembrados vía `db.on('populate')` en `database.ts`).
+- Los tipos TS del dominio usan camelCase (`usuarioId`, `categoriaId`,
+  `nroOperacion`, `fechaActualizacion`); Supabase usa snake_case
+  (`user_id`, `categoria_id`, `nro_operacion`, `fecha_actualizacion`).
+  `syncService.ts` (`aFilaRemota`/`aTransaccionLocal`) es el único lugar que
+  traduce entre ambos — no dupliques ese mapeo en otro archivo.
+- `Transaccion.categoriaId` referencia `Categoria.id` y `Transaccion.cuentaId`
+  referencia `Cuenta.id`, ambas por usuario (ver siguiente punto). `origen`
+  distingue transacciones creadas a mano (`'manual'`) de las importadas
+  desde un reporte de Yape (`'yape'`).
 - `sincronizado` (boolean) NO está indexado en Dexie — IndexedDB no admite
   booleans como clave de índice. Se filtra con `.filter()` en memoria.
-- Cada usuario autenticado tiene su propio `usuarioId` en `Transaccion`
-  (indexado, Dexie schema v2). Los hooks/servicios siempre reciben
-  `usuarioId` de forma explícita, nunca lo infieren de un estado global.
+- Multiusuario: `Transaccion`, `Categoria` y `Cuenta` tienen `usuarioId`
+  (indexado, Dexie schema v3). `categorias`/`cuentas` ya NO son una
+  taxonomía global compartida — cada usuario tiene su propia copia, sembrada
+  por `categoriaService.asegurarCategoriasPorDefecto` /
+  `cuentaService.asegurarCuentasPorDefecto` en el primer login de ese
+  usuario en el dispositivo (llamado desde `App.tsx`). Los hooks/servicios
+  siempre reciben `usuarioId` de forma explícita, nunca lo infieren de un
+  estado global.
 - `supabaseClient.ts` exporta `supabase: SupabaseClient | null`. Si faltan
   las env vars, es `null` y la app debe seguir funcionando 100% offline —
   nunca lanzar en el nivel de módulo (rompería el arranque completo).
+
+## Importador de Yape (`yapeImporter.ts` + `YapeImporter.tsx`)
+
+- Usa `xlsx` (SheetJS) — instalado desde `cdn.sheetjs.com`, NO desde el
+  registro de npm: la última versión publicada en npm (0.18.5) tiene 2
+  vulnerabilidades conocidas sin fix (prototype pollution + ReDoS). Si se
+  reinstala o actualiza, mantener esa fuente
+  (`npm install https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz`), no
+  hacer `npm install xlsx` a secas.
+- El parseo de columnas es heurístico (busca encabezados que calcen con
+  regex de fecha/monto/concepto/operación/tipo), no una lista fija de
+  nombres de columna exactos — los reportes de Yape pueden variar. No se
+  probó contra un archivo real de Yape; si el formato real difiere,
+  ajustar los regex en `yapeImporter.ts` (`RE_FECHA`, `RE_MONTO`, etc.).
+- Anti-duplicados: se verifica `[usuarioId+nroOperacion]` en Dexie antes de
+  insertar (índice compuesto en `database.ts`). Filas sin número de
+  operación se descartan (se cuentan en `erroresFilas`).
+
+## Autenticación y multiusuario
+
+- `App.tsx` gestiona la sesión con `supabase.auth.onAuthStateChange` +
+  `getSession()`. Sin sesión → `<Auth />`; con sesión → `<Dashboard />`.
+- Al cerrar sesión (`App.manejarCerrarSesion`):
+  1. Si hay red, sube pendientes (mejor esfuerzo, no bloquea el logout).
+  2. `signOut({ scope: 'local' })` — evita depender de red para salir
+     (app offline-first).
+  3. `transaccionService.limpiarDatosLocales()` — limpia **las 4 tablas**
+     (`transacciones`, `categorias`, `cuentas`, `presupuestos`) para que,
+     en un dispositivo compartido, el siguiente usuario no vea datos de la
+     sesión anterior. Se re-siembran al volver a iniciar sesión.
+
+## Rendimiento
+
+- `YapeImporter` se carga con `React.lazy` desde `Dashboard.tsx`: `xlsx`
+  pesa ~370kB y solo lo necesitan las sesiones que abren el importador, así
+  que no va en el bundle inicial. Si se agregan más dependencias pesadas
+  de uso ocasional, seguir el mismo patrón en vez de importarlas arriba del
+  archivo.
 
 ## Autenticación y multiusuario
 
@@ -65,6 +117,9 @@ VITE_SUPABASE_ANON_KEY=
 
 ## Tabla remota (Supabase)
 
+Definición original (`categoria` como texto libre, sin `cuenta_id`/
+`concepto`/`nro_operacion`/`origen`):
+
 ```sql
 CREATE TABLE transacciones (
     id UUID PRIMARY KEY,
@@ -82,8 +137,31 @@ CREATE POLICY "Acceso personal" ON transacciones
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 ```
 
-No existe tabla remota de `categorias` — es una taxonomía local fija (ver
-`CATEGORIAS_INICIALES` en `database.ts`), no sincroniza con Supabase.
+**Migración pendiente** (`syncService.ts` ya asume estas columnas; ejecutar
+en el SQL Editor de Supabase — `cuenta_id`/`categoria_id` quedan como TEXT,
+no UUID con FK, porque `categoria` ya tenía valores de texto libre que no
+son UUIDs válidos y castearlos rompería filas existentes):
+
+```sql
+ALTER TABLE transacciones RENAME COLUMN categoria TO categoria_id;
+ALTER TABLE transacciones ADD COLUMN cuenta_id TEXT;
+ALTER TABLE transacciones ADD COLUMN concepto TEXT;
+ALTER TABLE transacciones ADD COLUMN nro_operacion TEXT;
+ALTER TABLE transacciones ADD COLUMN origen VARCHAR(20) NOT NULL DEFAULT 'manual';
+
+-- Solo si 'nota' ya no tiene datos que te importe conservar (se reemplazó
+-- por 'concepto' en el cliente):
+-- ALTER TABLE transacciones DROP COLUMN nota;
+
+-- Habilita el manejo de duplicados por (usuario, n° de operación) que
+-- syncService.subirUnaPorUna espera (error Postgres 23505):
+CREATE UNIQUE INDEX transacciones_user_nro_operacion_idx
+  ON transacciones (user_id, nro_operacion)
+  WHERE nro_operacion IS NOT NULL;
+```
+
+No existen tablas remotas de `categorias`, `cuentas` ni `presupuestos` — son
+locales por usuario (ver Convenciones), no sincronizan con Supabase.
 
 `syncService.ts` siempre envía/filtra por `user_id`; requiere que la política
 RLS de arriba esté activa (no la versión relajada `USING (true)` que se usó
@@ -99,8 +177,17 @@ temporalmente antes de implementar autenticación).
 
 - Iconos PWA siguen siendo `favicon.svg` (sin PNG 192x192/512x512 reales).
 - Deploy en Vercel: no hecho (requiere login del usuario en vercel.com).
-- Bundle de producción supera 500kB (aviso de Vite) por
-  `@supabase/supabase-js`; no se ha aplicado code-splitting.
+- **Migración SQL de Supabase sin ejecutar** (ver sección "Tabla remota"):
+  hasta que se aplique, la sincronización de transacciones fallará porque
+  `syncService.ts` ya envía `categoria_id`/`cuenta_id`/`concepto`/
+  `nro_operacion`/`origen`, columnas que la tabla remota original no tiene.
+- El chunk principal (`index-*.js`) sigue por encima de 500kB (aviso de
+  Vite) por `@supabase/supabase-js`; `xlsx` ya se separó con
+  `React.lazy` (ver Rendimiento) pero el resto no se ha optimizado.
+- `presupuestos`: solo existe el esquema en Dexie y el tipo `Presupuesto`;
+  no hay UI ni servicio para crearlos/consultarlos todavía.
+- El importador de Yape no se probó contra un archivo real exportado desde
+  la app (ver sección "Importador de Yape").
 
 ## Flujo de trabajo con git (pedido explícitamente por el usuario)
 
