@@ -9,8 +9,33 @@ interface FormularioTransaccionProps {
   onRegistrada?: () => void
 }
 
+/** Fecha local de hoy en formato `YYYY-MM-DD` (valor de `<input type="date">`). */
 function fechaHoy(): string {
-  return new Date().toISOString().slice(0, 10)
+  // No usar toISOString(): da la fecha en UTC, que en Perú (UTC-5) ya es
+  // "mañana" desde las 7 p. m.
+  const hoy = new Date()
+  const mes = String(hoy.getMonth() + 1).padStart(2, '0')
+  const dia = String(hoy.getDate()).padStart(2, '0')
+  return `${hoy.getFullYear()}-${mes}-${dia}`
+}
+
+/**
+ * Convierte el `YYYY-MM-DD` del input a una fecha local con la hora actual.
+ * `new Date('YYYY-MM-DD')` lo interpretaría como medianoche UTC (el día
+ * anterior en Perú); la hora actual mantiene el orden de las transacciones
+ * registradas el mismo día.
+ */
+function aFechaLocal(valor: string): Date {
+  const [anio, mes, dia] = valor.split('-').map(Number)
+  const ahora = new Date()
+  return new Date(
+    anio,
+    mes - 1,
+    dia,
+    ahora.getHours(),
+    ahora.getMinutes(),
+    ahora.getSeconds(),
+  )
 }
 
 function FormularioTransaccion({
@@ -80,7 +105,7 @@ function FormularioTransaccion({
           tipo,
           cuentaId: cuentaSeleccionada,
           categoriaId: categoriaSeleccionada,
-          fecha: new Date(fecha),
+          fecha: aFechaLocal(fecha),
           concepto: concepto.trim() || undefined,
           origen: 'manual',
         },
