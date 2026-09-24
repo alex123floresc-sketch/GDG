@@ -16,15 +16,26 @@ interface DashboardProps {
   sincronizarAhora: () => Promise<void>
 }
 
+type Seccion = 'inicio' | 'registrar' | 'movimientos' | 'importar'
+
+const SECCIONES: { id: Seccion; etiqueta: string; icono: string }[] = [
+  { id: 'inicio', etiqueta: 'Inicio', icono: 'chart pie' },
+  { id: 'registrar', etiqueta: 'Registrar', icono: 'plus circle' },
+  { id: 'movimientos', etiqueta: 'Movimientos', icono: 'exchange' },
+  { id: 'importar', etiqueta: 'Importar', icono: 'file excel outline' },
+]
+
 const FILTRO_TODAS = 'todas'
+const RECIENTES_EN_INICIO = 5
+const LIMITE_MOVIMIENTOS = 50
 
 function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
   const categorias = useCategorias(usuarioId)
   const cuentas = useCuentas(usuarioId)
   const transacciones = useTransacciones(usuarioId)
 
+  const [seccion, setSeccion] = useState<Seccion>('inicio')
   const [cuentaFiltro, setCuentaFiltro] = useState<string>(FILTRO_TODAS)
-  const [mostrarImportador, setMostrarImportador] = useState(false)
 
   const transaccionesFiltradas = useMemo(
     () =>
@@ -34,39 +45,97 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
     [transacciones, cuentaFiltro],
   )
 
+  const filtroCuenta = (
+    <div className="ui form">
+      <select
+        aria-label="Filtrar por cuenta"
+        value={cuentaFiltro}
+        onChange={(e) => setCuentaFiltro(e.target.value)}
+        className="ui compact dropdown"
+      >
+        <option value={FILTRO_TODAS}>Todas las cuentas</option>
+        {cuentas.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.nombre}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-xs font-medium text-slate-400">Cuenta:</span>
-          <select
-            value={cuentaFiltro}
-            onChange={(e) => setCuentaFiltro(e.target.value)}
-            className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-200 outline-none focus:border-sky-500"
+    <>
+      <nav className="nav-principal ui four item labeled icon menu">
+        {SECCIONES.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => setSeccion(s.id)}
+            className={`item ${seccion === s.id ? 'active teal' : ''}`}
+            aria-current={seccion === s.id ? 'page' : undefined}
           >
-            <option value={FILTRO_TODAS}>Todas</option>
-            {cuentas.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
+            <i className={`${s.icono} icon`} />
+            {s.etiqueta}
+          </button>
+        ))}
+      </nav>
 
-        <button
-          type="button"
-          onClick={() => setMostrarImportador((v) => !v)}
-          className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:border-sky-500/50 hover:text-sky-300"
-        >
-          {mostrarImportador ? 'Cerrar importador' : '📥 Importar Excel de Yape'}
-        </button>
-      </div>
+      {seccion === 'inicio' && (
+        <>
+          <div className="barra-filtros">
+            <h2 className="ui header">
+              Resumen
+              <div className="sub header">Tus finanzas de un vistazo</div>
+            </h2>
+            {filtroCuenta}
+          </div>
 
-      {mostrarImportador && (
+          <ResumenFinanciero transacciones={transaccionesFiltradas} />
+
+          <ListaTransacciones
+            transacciones={transaccionesFiltradas}
+            categorias={categorias}
+            cuentas={cuentas}
+            limite={RECIENTES_EN_INICIO}
+            accion={{
+              texto: 'Ver todas',
+              onClick: () => setSeccion('movimientos'),
+            }}
+          />
+        </>
+      )}
+
+      {seccion === 'registrar' && (
+        <FormularioTransaccion
+          usuarioId={usuarioId}
+          cuentas={cuentas}
+          categorias={categorias}
+          onRegistrada={() => setSeccion('inicio')}
+        />
+      )}
+
+      {seccion === 'movimientos' && (
+        <>
+          <div className="barra-filtros">
+            <h2 className="ui header">Movimientos</h2>
+            {filtroCuenta}
+          </div>
+
+          <ListaTransacciones
+            transacciones={transaccionesFiltradas}
+            categorias={categorias}
+            cuentas={cuentas}
+            titulo="Historial"
+            limite={LIMITE_MOVIMIENTOS}
+          />
+        </>
+      )}
+
+      {seccion === 'importar' && (
         <Suspense
           fallback={
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">
-              Cargando importador...
+            <div className="ui segment">
+              <div className="ui active centered inline loader" />
             </div>
           }
         >
@@ -75,25 +144,11 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
             cuentas={cuentas}
             categorias={categorias}
             sincronizarAhora={sincronizarAhora}
-            onImportado={() => setMostrarImportador(false)}
+            onImportado={() => setSeccion('movimientos')}
           />
         </Suspense>
       )}
-
-      <ResumenFinanciero transacciones={transaccionesFiltradas} />
-
-      <FormularioTransaccion
-        usuarioId={usuarioId}
-        cuentas={cuentas}
-        categorias={categorias}
-      />
-
-      <ListaTransacciones
-        transacciones={transaccionesFiltradas}
-        categorias={categorias}
-        cuentas={cuentas}
-      />
-    </div>
+    </>
   )
 }
 

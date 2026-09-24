@@ -70,8 +70,8 @@ function App() {
 
   if (cargandoSesion) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-sm text-slate-400">
-        Cargando...
+      <div className="pantalla-carga ui active inverted dimmer">
+        <div className="ui text loader">Cargando...</div>
       </div>
     )
   }
@@ -81,7 +81,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <>
       <Header
         email={sesion.user.email ?? ''}
         enLinea={enLinea}
@@ -90,10 +90,12 @@ function App() {
         onCerrarSesion={manejarCerrarSesion}
       />
 
-      <main className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-6">
-        <Dashboard usuarioId={usuarioId} sincronizarAhora={sincronizarAhora} />
+      <main className="app-contenido">
+        <div className="ui container">
+          <Dashboard usuarioId={usuarioId} sincronizarAhora={sincronizarAhora} />
+        </div>
       </main>
-    </div>
+    </>
   )
 }
 

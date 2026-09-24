@@ -6,6 +6,7 @@ interface FormularioTransaccionProps {
   usuarioId: string
   cuentas: Cuenta[]
   categorias: Categoria[]
+  onRegistrada?: () => void
 }
 
 function fechaHoy(): string {
@@ -16,6 +17,7 @@ function FormularioTransaccion({
   usuarioId,
   cuentas,
   categorias,
+  onRegistrada,
 }: FormularioTransaccionProps) {
   const [tipo, setTipo] = useState<TipoTransaccion>('gasto')
   const [monto, setMonto] = useState('')
@@ -88,6 +90,7 @@ function FormularioTransaccion({
       setMonto('')
       setConcepto('')
       setFecha(fechaHoy())
+      onRegistrada?.()
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'No se pudo registrar la transacción.',
@@ -98,124 +101,139 @@ function FormularioTransaccion({
   }
 
   return (
-    <form
-      onSubmit={manejarEnvio}
-      className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-4"
-    >
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => setTipo('ingreso')}
-          className={`rounded-lg py-2 text-sm font-medium transition ${
-            tipo === 'ingreso'
-              ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-inset ring-emerald-500/40'
-              : 'bg-slate-800 text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Ingreso
-        </button>
-        <button
-          type="button"
-          onClick={() => setTipo('gasto')}
-          className={`rounded-lg py-2 text-sm font-medium transition ${
-            tipo === 'gasto'
-              ? 'bg-red-500/15 text-red-300 ring-1 ring-inset ring-red-500/40'
-              : 'bg-slate-800 text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Gasto
-        </button>
-      </div>
+    <div className="ui segment">
+      <h3 className="ui header">
+        <i className="plus circle icon" />
+        <div className="content">
+          Nueva transacción
+          <div className="sub header">Registra un ingreso o un gasto</div>
+        </div>
+      </h3>
 
-      <div className="grid grid-cols-2 gap-3">
-        <label className="col-span-1 flex flex-col gap-1 text-sm text-slate-300">
-          Monto
-          <input
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="0.01"
-            value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-            placeholder="0.00"
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-sky-500"
-            required
-          />
-        </label>
-
-        <label className="col-span-1 flex flex-col gap-1 text-sm text-slate-300">
-          Fecha
-          <input
-            type="date"
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-sky-500"
-            required
-          />
-        </label>
-
-        <label className="col-span-1 flex flex-col gap-1 text-sm text-slate-300">
-          Cuenta
-          <select
-            value={cuentaSeleccionada}
-            onChange={(e) => setCuentaId(e.target.value)}
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-sky-500"
-            required
+      <form
+        onSubmit={manejarEnvio}
+        className={`ui form ${error ? 'error' : ''}`}
+      >
+        <div className="selector-tipo ui fluid two buttons field">
+          <button
+            type="button"
+            onClick={() => setTipo('ingreso')}
+            className={`ui button ${tipo === 'ingreso' ? 'green' : 'basic'}`}
           >
-            <option value="" disabled>
-              Selecciona una cuenta
-            </option>
-            {cuentas.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="col-span-1 flex flex-col gap-1 text-sm text-slate-300">
-          Categoría
-          <select
-            value={categoriaSeleccionada}
-            onChange={(e) => setCategoriaId(e.target.value)}
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-sky-500"
-            required
+            <i className="arrow down icon" />
+            Ingreso
+          </button>
+          <button
+            type="button"
+            onClick={() => setTipo('gasto')}
+            className={`ui button ${tipo === 'gasto' ? 'red' : 'basic'}`}
           >
-            <option value="" disabled>
-              Selecciona una categoría
-            </option>
-            {categoriasDisponibles.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.icono ? `${c.icono} ` : ''}
-                {c.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
+            <i className="arrow up icon" />
+            Gasto
+          </button>
+        </div>
 
-        <label className="col-span-2 flex flex-col gap-1 text-sm text-slate-300">
-          Concepto (opcional)
+        <div className="two fields">
+          <div className="required field">
+            <label htmlFor="tx-monto">Monto</label>
+            <div className="ui left labeled input">
+              <span className="ui basic label">S/</span>
+              <input
+                id="tx-monto"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                value={monto}
+                onChange={(e) => setMonto(e.target.value)}
+                placeholder="0.00"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="required field">
+            <label htmlFor="tx-fecha">Fecha</label>
+            <input
+              id="tx-fecha"
+              type="date"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="two fields">
+          <div className="required field">
+            <label htmlFor="tx-cuenta">Cuenta</label>
+            <select
+              id="tx-cuenta"
+              value={cuentaSeleccionada}
+              onChange={(e) => setCuentaId(e.target.value)}
+              className="ui fluid dropdown"
+              required
+            >
+              <option value="" disabled>
+                Selecciona una cuenta
+              </option>
+              {cuentas.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="required field">
+            <label htmlFor="tx-categoria">Categoría</label>
+            <select
+              id="tx-categoria"
+              value={categoriaSeleccionada}
+              onChange={(e) => setCategoriaId(e.target.value)}
+              className="ui fluid dropdown"
+              required
+            >
+              <option value="" disabled>
+                Selecciona una categoría
+              </option>
+              {categoriasDisponibles.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="field">
+          <label htmlFor="tx-concepto">Concepto (opcional)</label>
           <input
+            id="tx-concepto"
             type="text"
             value={concepto}
             onChange={(e) => setConcepto(e.target.value)}
             placeholder="Ej. Almuerzo con el equipo"
             maxLength={140}
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-sky-500"
           />
-        </label>
-      </div>
+        </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && (
+          <div className="ui error message">
+            <p>{error}</p>
+          </div>
+        )}
 
-      <button
-        type="submit"
-        disabled={enviando}
-        className="w-full rounded-lg bg-sky-500 py-2 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {enviando ? 'Guardando...' : 'Registrar transacción'}
-      </button>
-    </form>
+        <button
+          type="submit"
+          disabled={enviando}
+          className={`ui fluid teal button ${enviando ? 'loading' : ''}`}
+        >
+          <i className="save icon" />
+          Registrar transacción
+        </button>
+      </form>
+    </div>
   )
 }
 

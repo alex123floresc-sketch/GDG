@@ -1,6 +1,19 @@
 import Dexie, { type Table } from 'dexie'
 import type { Categoria, Cuenta, Presupuesto, Transaccion } from '../types'
 
+/** Emojis de las categorías por defecto hasta v3 → icono de Semantic UI. */
+const ICONOS_EMOJI_V3: Record<string, string> = {
+  '💼': 'briefcase',
+  '🧾': 'file invoice dollar',
+  '📈': 'chart line',
+  '🍽️': 'utensils',
+  '🚌': 'bus',
+  '🏠': 'home',
+  '💊': 'medkit',
+  '🎬': 'film',
+  '📦': 'box',
+}
+
 export class GestorGastosDB extends Dexie {
   transacciones!: Table<Transaccion, string>
   categorias!: Table<Categoria, string>
@@ -37,6 +50,21 @@ export class GestorGastosDB extends Dexie {
       cuentas: 'id, usuarioId, nombre, tipo',
       presupuestos: 'id, usuarioId, categoriaId, mes, anio',
     })
+
+    // v4: `Categoria.icono` pasa de emoji a nombre de icono de Semantic UI.
+    // Mismo esquema; solo migra las categorías ya sembradas con emoji.
+    this.version(4)
+      .stores({})
+      .upgrade((tx) =>
+        tx
+          .table<Categoria, string>('categorias')
+          .toCollection()
+          .modify((categoria) => {
+            if (categoria.icono && categoria.icono in ICONOS_EMOJI_V3) {
+              categoria.icono = ICONOS_EMOJI_V3[categoria.icono]
+            }
+          }),
+      )
   }
 }
 

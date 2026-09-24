@@ -23,33 +23,48 @@ function ResumenFinanciero({ transacciones }: ResumenFinancieroProps) {
     }
   }, [transacciones])
 
+  const tarjetas = [
+    {
+      etiqueta: 'Ingresos',
+      valor: totalIngresos,
+      icono: 'arrow down',
+      fondo: 'var(--color-ingreso)',
+      claseValor: 'texto-ingreso',
+    },
+    {
+      etiqueta: 'Gastos',
+      valor: totalGastos,
+      icono: 'arrow up',
+      fondo: 'var(--color-gasto)',
+      claseValor: 'texto-gasto',
+    },
+    {
+      etiqueta: 'Balance',
+      valor: balance,
+      icono: 'balance scale',
+      fondo: 'var(--color-marca)',
+      claseValor: balance < 0 ? 'texto-gasto' : '',
+    },
+  ]
+
   return (
-    <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-        <p className="text-xs font-medium text-slate-400">Total Ingresos</p>
-        <p className="mt-1 text-xl font-semibold text-emerald-400">
-          {formatearMoneda(totalIngresos)}
-        </p>
-      </div>
-
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-        <p className="text-xs font-medium text-slate-400">Total Gastos</p>
-        <p className="mt-1 text-xl font-semibold text-red-400">
-          {formatearMoneda(totalGastos)}
-        </p>
-      </div>
-
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-        <p className="text-xs font-medium text-slate-400">Balance</p>
-        <p
-          className={`mt-1 text-xl font-semibold ${
-            balance >= 0 ? 'text-slate-100' : 'text-red-400'
-          }`}
-        >
-          {formatearMoneda(balance)}
-        </p>
-      </div>
-    </section>
+    <div className="ui stackable three column grid">
+      {tarjetas.map((t) => (
+        <div key={t.etiqueta} className="column">
+          <div className="tarjeta-resumen ui segment">
+            <span className="icono-circulo" style={{ background: t.fondo }}>
+              <i className={`${t.icono} icon`} />
+            </span>
+            <div className="ui small statistic">
+              <div className={`value ${t.claseValor}`}>
+                {formatearMoneda(t.valor)}
+              </div>
+              <div className="label">{t.etiqueta}</div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 

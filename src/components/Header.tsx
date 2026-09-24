@@ -18,22 +18,10 @@ function Header({
   const [cerrandoSesion, setCerrandoSesion] = useState(false)
 
   const estado = sincronizando
-    ? {
-        etiqueta: 'Sincronizando',
-        punto: 'bg-sky-400 animate-pulse',
-        pastilla: 'bg-sky-500/10 text-sky-300 ring-sky-500/30',
-      }
+    ? { etiqueta: 'Sincronizando', color: 'blue', icono: 'sync loading' }
     : enLinea
-      ? {
-          etiqueta: 'En línea',
-          punto: 'bg-emerald-400',
-          pastilla: 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/30',
-        }
-      : {
-          etiqueta: 'Modo Offline',
-          punto: 'bg-red-400',
-          pastilla: 'bg-red-500/10 text-red-300 ring-red-500/30',
-        }
+      ? { etiqueta: 'En línea', color: 'green', icono: 'cloud' }
+      : { etiqueta: 'Sin conexión', color: 'red', icono: 'plug' }
 
   async function manejarCerrarSesion() {
     setCerrandoSesion(true)
@@ -45,42 +33,47 @@ function Header({
   }
 
   return (
-    <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
-      <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <div>
-          <h1 className="text-lg font-semibold text-slate-100">
-            Gestor de Gastos
-          </h1>
-          {ultimaSincronizacion && (
-            <p className="text-xs text-slate-500">
-              Última sincronización:{' '}
-              {ultimaSincronizacion.toLocaleTimeString('es-PE', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </p>
-          )}
+    <header className="app-header ui inverted borderless menu">
+      <div className="ui container">
+        <div className="marca header item">
+          <img src="/favicon.svg" alt="" />
+          Gestor de Gastos
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <span
-            className={`flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${estado.pastilla}`}
-          >
-            <span className={`h-2 w-2 rounded-full ${estado.punto}`} />
-            {estado.etiqueta}
-          </span>
+        <div className="right menu">
+          <div className="item">
+            <span
+              className={`ui ${estado.color} label`}
+              title={
+                ultimaSincronizacion
+                  ? `Última sincronización: ${ultimaSincronizacion.toLocaleTimeString(
+                      'es-PE',
+                      { hour: '2-digit', minute: '2-digit' },
+                    )}`
+                  : undefined
+              }
+            >
+              <i className={`${estado.icono} icon`} />
+              {estado.etiqueta}
+            </span>
+          </div>
 
-          <span className="max-w-[160px] truncate text-xs text-slate-400" title={email}>
+          <div className="email item" title={email}>
+            <i className="user circle icon" />
             {email}
-          </span>
+          </div>
 
           <button
             type="button"
             onClick={manejarCerrarSesion}
             disabled={cerrandoSesion}
-            className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-red-500/50 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+            className="link item"
+            title="Cerrar sesión"
           >
-            {cerrandoSesion ? 'Saliendo...' : 'Cerrar sesión'}
+            <i
+              className={`${cerrandoSesion ? 'spinner loading' : 'sign out alternate'} icon`}
+            />
+            <span className="solo-escritorio">Salir</span>
           </button>
         </div>
       </div>

@@ -1,16 +1,17 @@
 import { db } from '../db/database'
 import type { NuevaCategoria } from '../types'
 
+// `icono` es el nombre de un icono de Semantic/Fomantic UI (`<i class="… icon">`).
 const CATEGORIAS_BASE: NuevaCategoria[] = [
-  { nombre: 'Salario', tipo: 'ingreso', icono: '💼', color: '#22c55e' },
-  { nombre: 'Freelance', tipo: 'ingreso', icono: '🧾', color: '#14b8a6' },
-  { nombre: 'Inversiones', tipo: 'ingreso', icono: '📈', color: '#0ea5e9' },
-  { nombre: 'Alimentación', tipo: 'gasto', icono: '🍽️', color: '#f97316' },
-  { nombre: 'Transporte', tipo: 'gasto', icono: '🚌', color: '#eab308' },
-  { nombre: 'Vivienda', tipo: 'gasto', icono: '🏠', color: '#a855f7' },
-  { nombre: 'Salud', tipo: 'gasto', icono: '💊', color: '#ef4444' },
-  { nombre: 'Entretenimiento', tipo: 'gasto', icono: '🎬', color: '#ec4899' },
-  { nombre: 'Otros', tipo: 'ambos', icono: '📦', color: '#64748b' },
+  { nombre: 'Salario', tipo: 'ingreso', icono: 'briefcase', color: '#22c55e' },
+  { nombre: 'Freelance', tipo: 'ingreso', icono: 'file invoice dollar', color: '#14b8a6' },
+  { nombre: 'Inversiones', tipo: 'ingreso', icono: 'chart line', color: '#0ea5e9' },
+  { nombre: 'Alimentación', tipo: 'gasto', icono: 'utensils', color: '#f97316' },
+  { nombre: 'Transporte', tipo: 'gasto', icono: 'bus', color: '#eab308' },
+  { nombre: 'Vivienda', tipo: 'gasto', icono: 'home', color: '#a855f7' },
+  { nombre: 'Salud', tipo: 'gasto', icono: 'medkit', color: '#ef4444' },
+  { nombre: 'Entretenimiento', tipo: 'gasto', icono: 'film', color: '#ec4899' },
+  { nombre: 'Otros', tipo: 'ambos', icono: 'box', color: '#64748b' },
 ]
 
 /**

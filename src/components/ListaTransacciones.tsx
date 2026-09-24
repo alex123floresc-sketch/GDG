@@ -6,16 +6,23 @@ interface ListaTransaccionesProps {
   transacciones: Transaccion[]
   categorias: Categoria[]
   cuentas: Cuenta[]
+  titulo?: string
+  limite?: number
+  /** Acción opcional junto al título (p. ej. "Ver todas"). */
+  accion?: { texto: string; onClick: () => void }
 }
 
-const LIMITE_VISIBLE = 15
+const COLOR_ICONO_POR_DEFECTO = '#767676'
 
 function ListaTransacciones({
   transacciones,
   categorias,
   cuentas,
+  titulo = 'Transacciones recientes',
+  limite = 15,
+  accion,
 }: ListaTransaccionesProps) {
-  const nombresCategorias = useMemo(
+  const categoriasPorId = useMemo(
     () => new Map(categorias.map((c) => [c.id, c])),
     [categorias],
   )
@@ -25,83 +32,95 @@ function ListaTransacciones({
     [cuentas],
   )
 
-  const recientes = transacciones.slice(0, LIMITE_VISIBLE)
+  const visibles = transacciones.slice(0, limite)
 
   return (
-    <section className="rounded-xl border border-slate-800 bg-slate-900">
-      <div className="border-b border-slate-800 px-4 py-3">
-        <h2 className="text-sm font-semibold text-slate-200">
-          Transacciones recientes
-        </h2>
+    <div className="ui segment">
+      <div className="barra-filtros">
+        <h3 className="ui header">
+          <i className="list alternate outline icon" />
+          <div className="content">
+            {titulo}
+            <div className="sub header">
+              {transacciones.length} movimiento
+              {transacciones.length === 1 ? '' : 's'}
+            </div>
+          </div>
+        </h3>
+        {accion && transacciones.length > limite && (
+          <button
+            type="button"
+            className="ui basic tiny button"
+            onClick={accion.onClick}
+          >
+            {accion.texto}
+            <i className="right chevron icon" />
+          </button>
+        )}
       </div>
 
-      {recientes.length === 0 ? (
-        <p className="px-4 py-6 text-center text-sm text-slate-500">
-          Aún no hay transacciones registradas.
-        </p>
+      {visibles.length === 0 ? (
+        <div className="ui placeholder segment">
+          <div className="ui icon header">
+            <i className="inbox icon" />
+            Aún no hay transacciones registradas.
+          </div>
+        </div>
       ) : (
-        <ul className="divide-y divide-slate-800">
-          {recientes.map((t) => {
-            const categoria = nombresCategorias.get(t.categoriaId)
+        <div className="lista-transacciones ui divided list">
+          {visibles.map((t) => {
+            const categoria = categoriasPorId.get(t.categoriaId)
             const nombreCuenta = nombresCuentas.get(t.cuentaId)
             const esIngreso = t.tipo === 'ingreso'
 
             return (
-              <li
-                key={t.id}
-                className="flex items-center justify-between gap-3 px-4 py-3"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-800 text-base">
-                    {categoria?.icono ?? (esIngreso ? '💰' : '💸')}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-200">
-                      {categoria?.nombre ?? 'Sin categoría'}
-                    </p>
-                    <p className="truncate text-xs text-slate-500">
-                      {formatearFecha(t.fecha)}
-                      {nombreCuenta ? ` · ${nombreCuenta}` : ''}
-                      {t.concepto ? ` · ${t.concepto}` : ''}
-                    </p>
+              <div key={t.id} className="item">
+                <span
+                  className="icono-circulo"
+                  style={{
+                    background: categoria?.color ?? COLOR_ICONO_POR_DEFECTO,
+                  }}
+                >
+                  <i className={`${categoria?.icono ?? 'tag'} icon`} />
+                </span>
+
+                <div className="detalle">
+                  <div className="header">
+                    {t.concepto || categoria?.nombre || 'Sin categoría'}
+                  </div>
+                  <div className="description">
+                    {formatearFecha(t.fecha)}
+                    {t.concepto && categoria ? ` · ${categoria.nombre}` : ''}
+                    {nombreCuenta ? ` · ${nombreCuenta}` : ''}
                   </div>
                 </div>
 
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <span
-                    className={`text-sm font-semibold ${
-                      esIngreso ? 'text-emerald-400' : 'text-red-400'
-                    }`}
-                  >
+                <div className="monto">
+                  <strong className={esIngreso ? 'texto-ingreso' : 'texto-gasto'}>
                     {esIngreso ? '+' : '-'}
                     {formatearMoneda(t.monto)}
-                  </span>
-                  <div className="flex items-center gap-1.5">
+                  </strong>
+                  <div>
                     {t.origen === 'yape' && (
-                      <span className="rounded bg-purple-500/10 px-1.5 py-0.5 text-[10px] font-medium text-purple-300">
-                        Yape
-                      </span>
+                      <span className="ui mini purple basic label">Yape</span>
                     )}
                     <span
-                      className={`flex items-center gap-1 text-[11px] ${
-                        t.sincronizado ? 'text-slate-500' : 'text-amber-400'
-                      }`}
+                      className={`ui mini basic label ${t.sincronizado ? '' : 'orange'}`}
+                      title={t.sincronizado ? 'Sincronizado' : 'Pendiente de sincronizar'}
                     >
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${
-                          t.sincronizado ? 'bg-slate-600' : 'bg-amber-400'
-                        }`}
+                      <i
+                        className={`${t.sincronizado ? 'check' : 'clock outline'} icon`}
                       />
-                      {t.sincronizado ? 'Sincronizado' : 'Pendiente'}
+                      {t.sincronizado ? 'Sync' : 'Pendiente'}
                     </span>
                   </div>
                 </div>
-              </li>
+              </div>
             )
           })}
-        </ul>
+        </div>
       )}
-    </section>
+    </div>
   )
 }
 

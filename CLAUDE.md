@@ -9,17 +9,38 @@ Repo: https://github.com/alex123floresc-sketch/GDG
 ## Stack
 
 - Vite 8 + React 19 + TypeScript
-- Tailwind CSS 4 (`@tailwindcss/vite`)
+- Fomantic UI 2.9 (`fomantic-ui-css`, fork mantenido de Semantic UI) — solo CSS
 - Dexie.js + dexie-react-hooks (IndexedDB)
 - Supabase (Auth + Postgres) vía `@supabase/supabase-js`
 - vite-plugin-pwa (manifest + Service Worker)
+
+## UI (Fomantic / Semantic UI)
+
+- Se usan las clases de Semantic directamente en JSX (`className="ui teal button"`).
+  NO se usa `semantic-ui-react`: su última versión (2.1.5) solo soporta
+  React ≤18 y depende de `findDOMNode`, que React 19 eliminó.
+- Tampoco se usa el JS de Fomantic (requiere jQuery): dropdowns son
+  `<select className="ui dropdown">` nativos, tabs/estado se manejan con
+  React.
+- `main.tsx` importa solo el CSS de los componentes usados
+  (`fomantic-ui-css/components/*.min.css`); si se usa un componente nuevo
+  de Semantic, agregar su import ahí. Estilos propios en `src/index.css`.
+- Iconos: fuente de iconos de Semantic (`<i className="bus icon" />`).
+  `Categoria.icono` guarda el nombre del icono (ya no emojis; Dexie v4
+  migra las categorías viejas).
+- Navegación principal en `Dashboard.tsx`: 4 secciones (Inicio,
+  Registrar, Movimientos, Importar); en móvil (<768px) la barra pasa al
+  pie de pantalla.
+- Iconos de la app/PWA: `public/favicon.svg` es la fuente; los PNG/ICO se
+  regeneran con `npx pwa-assets-generator` (config en
+  `pwa-assets.config.ts`).
 
 ## Estructura
 
 - `src/components` — UI: `Header`, `Auth`, `Dashboard` (orquesta el resto),
   `FormularioTransaccion`, `ResumenFinanciero`, `ListaTransacciones`,
   `YapeImporter` (cargado con `React.lazy`, ver Rendimiento)
-- `src/db/database.ts` — esquema Dexie (`GestorGastosDB`, tablas
+- `src/db/database.ts` — esquema Dexie v4 (`GestorGastosDB`, tablas
   `transacciones`, `categorias`, `cuentas`, `presupuestos`)
 - `src/services` — lógica sin React: `supabaseClient.ts`, `syncService.ts`,
   `transaccionService.ts`, `categoriaService.ts`, `cuentaService.ts`,
@@ -94,18 +115,6 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   de uso ocasional, seguir el mismo patrón en vez de importarlas arriba del
   archivo.
 
-## Autenticación y multiusuario
-
-- `App.tsx` gestiona la sesión con `supabase.auth.onAuthStateChange` +
-  `getSession()`. Sin sesión → `<Auth />`; con sesión → app completa.
-- Al cerrar sesión (`App.manejarCerrarSesion`):
-  1. Si hay red, sube pendientes (mejor esfuerzo, no bloquea el logout).
-  2. `signOut({ scope: 'local' })` — evita depender de red para salir
-     (app offline-first).
-  3. `transaccionService.limpiarDatosLocales()` — limpia `transacciones`
-     local para que, en un dispositivo compartido, el siguiente usuario no
-     vea datos de la sesión anterior.
-
 ## Variables de entorno
 
 `.env.local` (gitignorado; plantilla en `.env.example`):
@@ -175,7 +184,6 @@ temporalmente antes de implementar autenticación).
 
 ## Pendientes conocidos
 
-- Iconos PWA siguen siendo `favicon.svg` (sin PNG 192x192/512x512 reales).
 - Deploy en Vercel: no hecho (requiere login del usuario en vercel.com).
 - **Migración SQL de Supabase sin ejecutar** (ver sección "Tabla remota"):
   hasta que se aplique, la sincronización de transacciones fallará porque

@@ -110,7 +110,7 @@ function YapeImporter({
     if (archivo) void procesarArchivo(archivo)
   }
 
-  function manejarDrop(evento: DragEvent<HTMLDivElement>) {
+  function manejarDrop(evento: DragEvent<HTMLLabelElement>) {
     evento.preventDefault()
     setArrastrando(false)
     const archivo = evento.dataTransfer.files?.[0]
@@ -149,105 +149,121 @@ function YapeImporter({
   }
 
   return (
-    <section className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-4">
-      <h2 className="text-sm font-semibold text-slate-200">
-        Importar reporte de Yape
-      </h2>
+    <div className="ui segment">
+      <h3 className="ui header">
+        <i className="file excel outline green icon" />
+        <div className="content">
+          Importar reporte de Yape
+          <div className="sub header">
+            Sube el Excel que exportas desde la app de Yape
+          </div>
+        </div>
+      </h3>
 
-      <div
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".xlsx,.xls"
+        onChange={manejarSeleccion}
+        hidden
+        id="yape-archivo"
+      />
+      <label
+        htmlFor="yape-archivo"
         onDragOver={(e) => {
           e.preventDefault()
           setArrastrando(true)
         }}
         onDragLeave={() => setArrastrando(false)}
         onDrop={manejarDrop}
-        className={`rounded-xl border-2 border-dashed p-6 text-center transition ${
-          arrastrando ? 'border-sky-500 bg-sky-500/5' : 'border-slate-700'
-        }`}
+        className={`zona-archivo ui placeholder segment ${arrastrando ? 'arrastrando' : ''}`}
       >
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".xlsx,.xls"
-          onChange={manejarSeleccion}
-          className="hidden"
-          id="yape-archivo"
-        />
-        <label htmlFor="yape-archivo" className="cursor-pointer text-sm text-slate-300">
+        <div className="ui icon header">
+          <i className={`${cargandoArchivo ? 'spinner loading' : 'cloud upload'} icon`} />
           {nombreArchivo ?? (
             <>
-              Arrastra aquí tu <strong>ReporteTransacciones.xlsx</strong> de Yape,
-              o haz clic para seleccionarlo
+              Arrastra aquí tu <strong>ReporteTransacciones.xlsx</strong>
             </>
           )}
-        </label>
-      </div>
-
-      {cargandoArchivo && <p className="text-sm text-slate-400">Leyendo archivo...</p>}
+        </div>
+        <span className="ui basic button">
+          <i className="folder open outline icon" />
+          {nombreArchivo ? 'Elegir otro archivo' : 'Seleccionar archivo'}
+        </span>
+      </label>
 
       {error && (
-        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-          {error}
-        </p>
+        <div className="ui error icon message">
+          <i className="exclamation triangle icon" />
+          <div className="content">{error}</div>
+        </div>
       )}
 
       {resultadoImportacion && (
-        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
-          Se importaron {resultadoImportacion.nuevas} transacciones nuevas de{' '}
-          {resultadoImportacion.total} detectadas
-          {resultadoImportacion.duplicadas > 0 &&
-            ` (${resultadoImportacion.duplicadas} ya existían y se omitieron)`}
-          .
-        </p>
+        <div className="ui success icon message">
+          <i className="check circle icon" />
+          <div className="content">
+            Se importaron {resultadoImportacion.nuevas} transacciones nuevas de{' '}
+            {resultadoImportacion.total} detectadas
+            {resultadoImportacion.duplicadas > 0 &&
+              ` (${resultadoImportacion.duplicadas} ya existían y se omitieron)`}
+            .
+          </div>
+        </div>
       )}
 
       {resultadoParseo && resumen && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-lg bg-slate-800 p-3">
-              <p className="text-xs text-slate-400">Ingresos detectados</p>
-              <p className="font-semibold text-emerald-400">
-                {resumen.ingresos} · {formatearMoneda(resumen.totalIngresos)}
-              </p>
+        <>
+          <div className="ui two column stackable grid">
+            <div className="column">
+              <div className="ui green segment">
+                <div className="ui tiny statistic">
+                  <div className="value texto-ingreso">
+                    {formatearMoneda(resumen.totalIngresos)}
+                  </div>
+                  <div className="label">{resumen.ingresos} ingresos</div>
+                </div>
+              </div>
             </div>
-            <div className="rounded-lg bg-slate-800 p-3">
-              <p className="text-xs text-slate-400">Gastos detectados</p>
-              <p className="font-semibold text-red-400">
-                {resumen.gastos} · {formatearMoneda(resumen.totalGastos)}
-              </p>
+            <div className="column">
+              <div className="ui red segment">
+                <div className="ui tiny statistic">
+                  <div className="value texto-gasto">
+                    {formatearMoneda(resumen.totalGastos)}
+                  </div>
+                  <div className="label">{resumen.gastos} gastos</div>
+                </div>
+              </div>
             </div>
           </div>
 
           {resultadoParseo.erroresFilas > 0 && (
-            <p className="text-xs text-amber-400">
+            <div className="ui warning message">
+              <i className="exclamation circle icon" />
               {resultadoParseo.erroresFilas} fila(s) no se pudieron interpretar y
               serán omitidas.
-            </p>
+            </div>
           )}
 
-          <div className="max-h-56 overflow-auto rounded-lg border border-slate-800">
-            <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 bg-slate-800 text-slate-400">
+          <div className="tabla-preview">
+            <table className="ui very compact unstackable striped small table">
+              <thead>
                 <tr>
-                  <th className="px-2 py-1.5">Fecha</th>
-                  <th className="px-2 py-1.5">Concepto</th>
-                  <th className="px-2 py-1.5">N° operación</th>
-                  <th className="px-2 py-1.5 text-right">Monto</th>
+                  <th>Fecha</th>
+                  <th>Concepto</th>
+                  <th>N° operación</th>
+                  <th className="right aligned">Monto</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
+              <tbody>
                 {resultadoParseo.filas.slice(0, MAX_FILAS_PREVIEW).map((fila, i) => (
                   <tr key={`${fila.nroOperacion}-${i}`}>
-                    <td className="whitespace-nowrap px-2 py-1.5 text-slate-400">
-                      {formatearFecha(fila.fecha)}
-                    </td>
-                    <td className="max-w-[140px] truncate px-2 py-1.5 text-slate-300">
-                      {fila.concepto || '—'}
-                    </td>
-                    <td className="px-2 py-1.5 text-slate-500">{fila.nroOperacion}</td>
+                    <td className="single line">{formatearFecha(fila.fecha)}</td>
+                    <td>{fila.concepto || '—'}</td>
+                    <td>{fila.nroOperacion}</td>
                     <td
-                      className={`whitespace-nowrap px-2 py-1.5 text-right font-medium ${
-                        fila.tipo === 'ingreso' ? 'text-emerald-400' : 'text-red-400'
+                      className={`right aligned single line ${
+                        fila.tipo === 'ingreso' ? 'texto-ingreso' : 'texto-gasto'
                       }`}
                     >
                       {fila.tipo === 'ingreso' ? '+' : '-'}
@@ -256,58 +272,67 @@ function YapeImporter({
                   </tr>
                 ))}
               </tbody>
+              {resultadoParseo.filas.length > MAX_FILAS_PREVIEW && (
+                <tfoot>
+                  <tr>
+                    <th colSpan={4} className="center aligned">
+                      Mostrando {MAX_FILAS_PREVIEW} de {resultadoParseo.filas.length}{' '}
+                      filas
+                    </th>
+                  </tr>
+                </tfoot>
+              )}
             </table>
-            {resultadoParseo.filas.length > MAX_FILAS_PREVIEW && (
-              <p className="px-2 py-1.5 text-center text-[11px] text-slate-500">
-                Mostrando {MAX_FILAS_PREVIEW} de {resultadoParseo.filas.length} filas
-              </p>
-            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-sm text-slate-300">
-              Cuenta destino
-              <select
-                value={cuentaSeleccionada}
-                onChange={(e) => setCuentaId(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-sky-500"
-              >
-                {cuentas.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="ui form" style={{ marginTop: '1em' }}>
+            <div className="two fields">
+              <div className="field">
+                <label htmlFor="yape-cuenta">Cuenta destino</label>
+                <select
+                  id="yape-cuenta"
+                  value={cuentaSeleccionada}
+                  onChange={(e) => setCuentaId(e.target.value)}
+                  className="ui fluid dropdown"
+                >
+                  {cuentas.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <label className="flex flex-col gap-1 text-sm text-slate-300">
-              Categoría
-              <select
-                value={categoriaSeleccionada}
-                onChange={(e) => setCategoriaId(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-sky-500"
-              >
-                {categorias.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.icono ? `${c.icono} ` : ''}
-                    {c.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <div className="field">
+                <label htmlFor="yape-categoria">Categoría</label>
+                <select
+                  id="yape-categoria"
+                  value={categoriaSeleccionada}
+                  onChange={(e) => setCategoriaId(e.target.value)}
+                  className="ui fluid dropdown"
+                >
+                  {categorias.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={confirmarImportacion}
+              disabled={importando || !cuentaSeleccionada || !categoriaSeleccionada}
+              className={`ui fluid teal button ${importando ? 'loading' : ''}`}
+            >
+              <i className="download icon" />
+              Confirmar e importar
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={confirmarImportacion}
-            disabled={importando || !cuentaSeleccionada || !categoriaSeleccionada}
-            className="w-full rounded-lg bg-sky-500 py-2 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {importando ? 'Importando...' : 'Confirmar e importar'}
-          </button>
-        </div>
+        </>
       )}
-    </section>
+    </div>
   )
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "gestor-gastos",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,18 +11,18 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.1",
-    "@tailwindcss/vite": "^4.3.3",
     "dexie": "^4.4.6",
     "dexie-react-hooks": "^4.4.0",
+    "fomantic-ui-css": "^2.9.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "tailwindcss": "^4.3.3",
     "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
+    "@vite-pwa/assets-generator": "^1.0.4",
     "@vitejs/plugin-react": "^6.1.1",
     "oxlint": "^1.81.0",
     "typescript": "~6.0.2",

@@ -1,10 +1,258 @@
-@import "tailwindcss";
+/*
+ * Estilos propios de la app. Los componentes visuales vienen de Fomantic UI
+ * (clases `ui ...`, importadas en main.tsx); aquí solo va el layout general
+ * y los pocos detalles que Semantic no cubre.
+ */
 
 :root {
-  color-scheme: light dark;
+  --color-fondo: #f3f5f9;
+  --color-marca: #00b5ad;
+  --color-ingreso: #21ba45;
+  --color-gasto: #db2828;
+  --color-texto-suave: #767676;
+  --alto-header: 56px;
 }
 
 body {
   margin: 0;
   min-height: 100svh;
+  background: var(--color-fondo);
+}
+
+/* ---------- Header ---------- */
+
+.app-header.ui.menu {
+  border-radius: 0;
+  margin: 0;
+  min-height: var(--alto-header);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.app-header .marca {
+  gap: 0.6em;
+  font-size: 1.1em;
+  font-weight: 700;
+}
+
+.app-header .marca img {
+  width: 28px;
+  height: 28px;
+  margin: 0;
+}
+
+.app-header .email {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Semantic estiliza `a.item`; como aquí los items clicables son <button>
+   (accesibles sin href), se les quita el estilo nativo del navegador. */
+.ui.menu button.item {
+  background: none;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ui.menu button.item:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* ---------- Contenido ---------- */
+
+.app-contenido {
+  padding: 1.5em 0 6em;
+}
+
+.app-contenido .ui.container {
+  max-width: 820px !important;
+}
+
+/* Barra de navegación principal (pestañas). En móvil pasa al pie de
+   pantalla, como una app nativa. */
+.nav-principal.ui.menu {
+  margin-bottom: 1.5em;
+}
+
+@media (max-width: 767px) {
+  .app-header .email,
+  .solo-escritorio {
+    display: none !important;
+  }
+
+  .ui.stackable.grid > .column:not(.row) {
+    padding-top: 0.4rem !important;
+    padding-bottom: 0.4rem !important;
+  }
+
+  .nav-principal.ui.menu {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0;
+    border-radius: 0;
+    z-index: 100;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+.barra-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75em;
+  margin-bottom: 1em;
+}
+
+.barra-filtros .ui.header {
+  margin: 0;
+}
+
+/* ---------- Resumen ---------- */
+
+.tarjeta-resumen.ui.segment {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  height: 100%;
+}
+
+.tarjeta-resumen .ui.statistic {
+  margin: 0;
+  align-items: flex-start;
+}
+
+.tarjeta-resumen .ui.statistic > .value {
+  font-size: 1.6rem !important;
+  text-align: left;
+}
+
+.tarjeta-resumen .ui.statistic > .label {
+  text-align: left;
+  color: var(--color-texto-suave);
+}
+
+.icono-circulo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.6em;
+  height: 2.6em;
+  border-radius: 50%;
+  color: #fff;
+}
+
+.icono-circulo > i.icon {
+  margin: 0;
+  height: auto;
+}
+
+.ui.form .selector-tipo.field {
+  margin-bottom: 1.5em;
+}
+
+/* ---------- Lista de transacciones ---------- */
+
+.lista-transacciones.ui.list > .item {
+  display: flex;
+  align-items: center;
+  gap: 0.9em;
+  padding: 0.85em 0;
+}
+
+.lista-transacciones .detalle {
+  flex: 1;
+  min-width: 0;
+}
+
+.lista-transacciones .detalle .header,
+.lista-transacciones .detalle .description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lista-transacciones .detalle .description {
+  color: var(--color-texto-suave);
+  font-size: 0.9em;
+}
+
+.lista-transacciones .monto {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.lista-transacciones .monto .ui.label {
+  margin: 0.3em 0 0 0.3em;
+}
+
+.texto-ingreso {
+  color: var(--color-ingreso) !important;
+}
+
+.texto-gasto {
+  color: var(--color-gasto) !important;
+}
+
+/* ---------- Importador ---------- */
+
+.zona-archivo.ui.placeholder.segment {
+  min-height: 11rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.zona-archivo.arrastrando.ui.placeholder.segment {
+  border-color: var(--color-marca);
+  background: #e6f7f6;
+}
+
+.tabla-preview {
+  max-height: 16rem;
+  overflow: auto;
+}
+
+/* ---------- Auth ---------- */
+
+.pantalla-auth {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1em;
+  background: linear-gradient(160deg, #0f766e 0%, #134e4a 45%, #1b1c1d 100%);
+}
+
+.pantalla-auth .tarjeta {
+  width: 100%;
+  max-width: 400px;
+}
+
+.pantalla-auth .logo {
+  width: 64px;
+  height: 64px;
+  display: block;
+  margin: 0 auto 0.75em;
+}
+
+.pantalla-carga {
+  min-height: 100svh;
+}
+
+/* Fomantic marca en rojo cualquier input `required` vacío (:invalid) desde
+   que se renderiza el formulario. Solo se muestra el error cuando el campo
+   ya tiene contenido inválido, no cuando simplemente está vacío. */
+.ui.form:not(.initial) .field input:invalid:placeholder-shown {
+  color: rgba(0, 0, 0, 0.87);
+  background: #fff;
+  border-color: rgba(34, 36, 38, 0.15);
 }
