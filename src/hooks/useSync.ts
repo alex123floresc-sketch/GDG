@@ -3,11 +3,12 @@ import { sincronizar } from '../services/syncService'
 import type { EstadoSincronizacion } from '../types'
 
 /**
- * Escucha la conectividad de red y sincroniza Dexie <-> Supabase:
- * al recuperar conexión, sube las transacciones pendientes y descarga
- * las transacciones remotas recientes.
+ * Escucha la conectividad de red y sincroniza Dexie <-> Supabase para el
+ * usuario autenticado: al recuperar conexión (o al iniciar sesión), sube
+ * las transacciones pendientes y descarga las recientes de ese usuario.
+ * Si `usuarioId` es null (nadie ha iniciado sesión), no hace nada.
  */
-export function useSync(): EstadoSincronizacion & {
+export function useSync(usuarioId: string | null): EstadoSincronizacion & {
   sincronizarAhora: () => Promise<void>
 } {
   const [enLinea, setEnLinea] = useState(navigator.onLine)
@@ -19,14 +20,14 @@ export function useSync(): EstadoSincronizacion & {
   const sincronizandoRef = useRef(false)
 
   const sincronizarAhora = useCallback(async () => {
-    if (sincronizandoRef.current || !navigator.onLine) return
+    if (!usuarioId || sincronizandoRef.current || !navigator.onLine) return
 
     sincronizandoRef.current = true
     setSincronizando(true)
     setError(null)
 
     try {
-      await sincronizar()
+      await sincronizar(usuarioId)
       setUltimaSincronizacion(new Date())
     } catch (err) {
       setError(
@@ -36,7 +37,7 @@ export function useSync(): EstadoSincronizacion & {
       sincronizandoRef.current = false
       setSincronizando(false)
     }
-  }, [])
+  }, [usuarioId])
 
   useEffect(() => {
     const manejarOnline = () => {

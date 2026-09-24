@@ -7,6 +7,7 @@ const LIMITE_DESCARGA = 200
 
 interface FilaTransaccionRemota {
   id: string
+  user_id: string
   monto: number
   tipo: Transaccion['tipo']
   categoria: string
@@ -18,6 +19,7 @@ interface FilaTransaccionRemota {
 function aFilaRemota(transaccion: Transaccion) {
   return {
     id: transaccion.id,
+    user_id: transaccion.usuarioId,
     monto: transaccion.monto,
     tipo: transaccion.tipo,
     categoria: transaccion.categoria,
@@ -30,6 +32,7 @@ function aFilaRemota(transaccion: Transaccion) {
 function aTransaccionLocal(fila: FilaTransaccionRemota): Transaccion {
   return {
     id: fila.id,
+    usuarioId: fila.user_id,
     monto: fila.monto,
     tipo: fila.tipo,
     categoria: fila.categoria,
@@ -42,14 +45,19 @@ function aTransaccionLocal(fila: FilaTransaccionRemota): Transaccion {
 
 /**
  * Sube a Supabase las transacciones locales pendientes (sincronizado === false)
- * y, si la subida tiene éxito, las marca como sincronizadas en Dexie.
+ * del usuario indicado y, si la subida tiene éxito, las marca como
+ * sincronizadas en Dexie.
  */
-export async function subirTransaccionesPendientes(): Promise<number> {
+export async function subirTransaccionesPendientes(
+  usuarioId: string,
+): Promise<number> {
   if (!supabase) return 0
 
   // 'sincronizado' no está indexado (IndexedDB no admite booleans como
   // clave de índice), por lo que se filtra en memoria.
   const pendientes = await db.transacciones
+    .where('usuarioId')
+    .equals(usuarioId)
     .filter((transaccion) => !transaccion.sincronizado)
     .toArray()
 
@@ -74,10 +82,11 @@ export async function subirTransaccionesPendientes(): Promise<number> {
 }
 
 /**
- * Descarga las transacciones más recientes desde Supabase y las
- * guarda (upsert) en Dexie, marcándolas como sincronizadas.
+ * Descarga las transacciones más recientes del usuario indicado desde
+ * Supabase y las guarda (upsert) en Dexie, marcándolas como sincronizadas.
  */
 export async function descargarTransaccionesRecientes(
+  usuarioId: string,
   limite: number = LIMITE_DESCARGA,
 ): Promise<number> {
   if (!supabase) return 0
@@ -85,6 +94,7 @@ export async function descargarTransaccionesRecientes(
   const { data, error } = await supabase
     .from(TABLA_TRANSACCIONES)
     .select('*')
+    .eq('user_id', usuarioId)
     .order('fecha_actualizacion', { ascending: false })
     .limit(limite)
 
@@ -102,12 +112,15 @@ export async function descargarTransaccionesRecientes(
 }
 
 /**
- * Ejecuta un ciclo completo de sincronización: primero sube los cambios
- * locales pendientes y luego descarga las transacciones remotas recientes.
+ * Ejecuta un ciclo completo de sincronización para el usuario indicado:
+ * primero sube sus cambios locales pendientes y luego descarga sus
+ * transacciones remotas recientes.
  */
-export async function sincronizar(): Promise<ResultadoSincronizacion> {
-  const subidas = await subirTransaccionesPendientes()
-  const descargadas = await descargarTransaccionesRecientes()
+export async function sincronizar(
+  usuarioId: string,
+): Promise<ResultadoSincronizacion> {
+  const subidas = await subirTransaccionesPendientes(usuarioId)
+  const descargadas = await descargarTransaccionesRecientes(usuarioId)
 
   return {
     subidas,

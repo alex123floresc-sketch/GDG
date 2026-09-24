@@ -7,7 +7,11 @@ function fechaHoy(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-function FormularioTransaccion() {
+interface FormularioTransaccionProps {
+  usuarioId: string
+}
+
+function FormularioTransaccion({ usuarioId }: FormularioTransaccionProps) {
   const categorias = useCategorias()
 
   const [tipo, setTipo] = useState<TipoTransaccion>('gasto')
@@ -48,13 +52,16 @@ function FormularioTransaccion() {
     setEnviando(true)
 
     try {
-      await crearTransaccion({
-        monto: montoNumerico,
-        tipo,
-        categoria: categoriaSeleccionada,
-        fecha: new Date(fecha),
-        nota: nota.trim() || undefined,
-      })
+      await crearTransaccion(
+        {
+          monto: montoNumerico,
+          tipo,
+          categoria: categoriaSeleccionada,
+          fecha: new Date(fecha),
+          nota: nota.trim() || undefined,
+        },
+        usuarioId,
+      )
 
       setMonto('')
       setNota('')

@@ -27,6 +27,13 @@ export class GestorGastosDB extends Dexie {
       categorias: 'id, nombre, tipo',
     })
 
+    // v2: indexa 'usuarioId' para poder aislar por dispositivo los datos de
+    // cada usuario autenticado (ver transaccionService.limpiarDatosLocales).
+    this.version(2).stores({
+      transacciones: 'id, usuarioId, tipo, categoria, fecha, fechaActualizacion',
+      categorias: 'id, nombre, tipo',
+    })
+
     this.on('populate', () => {
       void this.categorias.bulkAdd(CATEGORIAS_INICIALES)
     })

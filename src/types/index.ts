@@ -12,6 +12,7 @@ export interface Categoria {
 
 export interface Transaccion {
   id: string
+  usuarioId: string
   monto: number
   tipo: TipoTransaccion
   categoria: string
@@ -25,7 +26,7 @@ export type NuevaCategoria = Omit<Categoria, 'id'>
 
 export type NuevaTransaccion = Omit<
   Transaccion,
-  'id' | 'sincronizado' | 'fechaActualizacion'
+  'id' | 'usuarioId' | 'sincronizado' | 'fechaActualizacion'
 >
 
 export interface ResultadoSincronizacion {

@@ -2,8 +2,12 @@ import { useMemo } from 'react'
 import { useTransacciones } from '../hooks/useTransacciones'
 import { formatearMoneda } from '../utils/formato'
 
-function ResumenFinanciero() {
-  const transacciones = useTransacciones()
+interface ResumenFinancieroProps {
+  usuarioId: string
+}
+
+function ResumenFinanciero({ usuarioId }: ResumenFinancieroProps) {
+  const transacciones = useTransacciones(usuarioId)
 
   const { totalIngresos, totalGastos, balance } = useMemo(() => {
     const totalIngresos = transacciones

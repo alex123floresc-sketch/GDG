@@ -5,8 +5,12 @@ import { formatearFecha, formatearMoneda } from '../utils/formato'
 
 const LIMITE_VISIBLE = 15
 
-function ListaTransacciones() {
-  const transacciones = useTransacciones()
+interface ListaTransaccionesProps {
+  usuarioId: string
+}
+
+function ListaTransacciones({ usuarioId }: ListaTransaccionesProps) {
+  const transacciones = useTransacciones(usuarioId)
   const categorias = useCategorias()
 
   const nombresCategorias = useMemo(
