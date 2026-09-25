@@ -943,3 +943,9 @@ body {
   margin-bottom: 1.5em;
   word-break: break-word;
 }
+
+.aviso-sincronizacion .detalle-error {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.9em;
+  user-select: text;
+}

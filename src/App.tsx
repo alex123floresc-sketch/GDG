@@ -117,8 +117,16 @@ function App() {
                     ? `${pendientes} transacción${pendientes === 1 ? '' : 'es'} sin sincronizar`
                     : 'No se pudo sincronizar'}
                 </div>
-                <p>{errorSincronizacion}</p>
+                <p className="detalle-error">{errorSincronizacion}</p>
                 <p>Tus datos están guardados en este dispositivo; se reintentará automáticamente.</p>
+                <button
+                  type="button"
+                  className="ui mini basic button"
+                  onClick={() => void navigator.clipboard?.writeText(errorSincronizacion)}
+                >
+                  <i className="copy outline icon" />
+                  Copiar detalle del error
+                </button>
               </div>
             </div>
           )}

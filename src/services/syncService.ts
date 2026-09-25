@@ -55,24 +55,50 @@ interface FilaCuentaRemota {
 interface ErrorSupabase {
   message: string
   code?: string
+  details?: string | null
+  hint?: string | null
+}
+
+/** Qué significa cada código de error frecuente y qué hacer. */
+function explicarCodigo(code?: string): string | null {
+  switch (code) {
+    case 'PGRST204': // columna desconocida en el payload
+    case '42703': // columna inexistente
+      return 'Una tabla de Supabase no tiene todas las columnas que usa la app.'
+    case CODIGO_ERROR_LLAVE_FORANEA:
+      return 'Un registro apunta a una cuenta o categoría que no existe en Supabase.'
+    case '42501':
+      return 'Supabase rechazó los datos por permisos (política RLS de la tabla).'
+    case '23514':
+      return 'Un valor no cumple una restricción CHECK de la tabla (p. ej. un "tipo" no permitido).'
+    case '23502':
+      return 'Falta un valor en una columna obligatoria (NOT NULL) de Supabase.'
+    case CODIGO_ERROR_DUPLICADO:
+      return 'Ya existe un registro con ese valor único en Supabase.'
+    default:
+      return null
+  }
 }
 
 /**
- * Traduce un error de Supabase/PostgREST a un mensaje que diga qué hacer.
+ * Traduce un error de Supabase/PostgREST a un mensaje que diga qué pasó e
+ * incluye los datos técnicos completos (código, detalle y pista) para
+ * poder diagnosticarlo.
  */
 function describirError(accion: string, error: ErrorSupabase): string {
-  // PGRST204: columna desconocida en el payload; 42703: columna inexistente.
-  if (error.code === 'PGRST204' || error.code === '42703') {
-    return `${accion}: una tabla de Supabase no tiene todas las columnas que usa la app (falta ejecutar la migración SQL). Detalle: ${error.message}`
-  }
-  if (error.code === CODIGO_ERROR_LLAVE_FORANEA) {
-    return `${accion}: una transacción apunta a una cuenta o categoría que no existe en Supabase. Detalle: ${error.message}`
-  }
-  // 42501: la política RLS rechazó la fila (user_id distinto a auth.uid()).
-  if (error.code === '42501') {
-    return `${accion}: Supabase rechazó los datos por permisos (RLS). Revisa las políticas de la tabla o vuelve a iniciar sesión. Detalle: ${error.message}`
-  }
-  return `${accion}: ${error.message}`
+  console.error(`[sync] ${accion}`, error)
+
+  const tecnico = [
+    error.code && `código ${error.code}`,
+    error.message,
+    error.details && `detalle: ${error.details}`,
+    error.hint && `pista: ${error.hint}`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  const explicacion = explicarCodigo(error.code)
+  return `${accion}. ${explicacion ? `${explicacion} ` : ''}(${tecnico})`
 }
 
 /**
