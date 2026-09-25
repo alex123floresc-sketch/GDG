@@ -5,7 +5,7 @@ import { useDeudas, useMetas, usePresupuestos, useRecurrentes } from '../hooks/u
 import { useTransacciones } from '../hooks/useTransacciones'
 import type { Transaccion } from '../types'
 import { generarInsights, type Insight } from '../utils/insights'
-import Analisis from './Analisis'
+import SeccionAnalisis, { type PestanaAnalisis } from './analisis/SeccionAnalisis'
 import FormularioTransaccion, { type TipoFormulario } from './FormularioTransaccion'
 import GestionCategorias from './GestionCategorias'
 import GestionCuentas from './GestionCuentas'
@@ -69,6 +69,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   const [seccion, setSeccion] = useState<Seccion>('inicio')
   const [subseccionMas, setSubseccionMas] = useState<SubseccionMas>('cuentas')
   const [pestanaPlanificar, setPestanaPlanificar] = useState<PestanaPlanificar>('presupuestos')
+  const [pestanaAnalisis, setPestanaAnalisis] = useState<PestanaAnalisis>('resumen')
   /** Movimiento abierto en el modal de edición. */
   const [editando, setEditando] = useState<Transaccion | null>(null)
   /** Registro rápido en modal (botón "+", accesos de Inicio, Cuentas…). */
@@ -115,6 +116,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
     const [seccionDestino, sub] = destino.split(':')
     if (seccionDestino === 'planificar') setPestanaPlanificar(sub as PestanaPlanificar)
     if (seccionDestino === 'mas') setSubseccionMas(sub as SubseccionMas)
+    if (seccionDestino === 'analisis') setPestanaAnalisis((sub as PestanaAnalisis) ?? 'resumen')
     irA(seccionDestino as Seccion)
   }
 
@@ -195,10 +197,17 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
         )}
 
         {seccion === 'analisis' && (
-          <Analisis
-            transacciones={transaccionesAnalisis}
+          <SeccionAnalisis
+            pestana={pestanaAnalisis}
+            onCambiarPestana={setPestanaAnalisis}
+            email={email}
+            transaccionesFiltradas={transaccionesAnalisis}
+            transacciones={transacciones}
             categorias={categorias}
             cuentas={cuentas}
+            deudas={deudas}
+            presupuestos={presupuestos}
+            metas={metas}
             filtroCuenta={filtroCuenta}
           />
         )}

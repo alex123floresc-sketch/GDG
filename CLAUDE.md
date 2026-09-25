@@ -71,6 +71,8 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `planificar/` (`Planificar` + un panel por pestaña), `BarraProgreso`,
   `Inicio` (tarjeta principal con saldo total y mes, accesos rápidos,
   cuentas, resumen inteligente, presupuestos, metas, gráficos),
+  `analisis/` (`SeccionAnalisis` con pestañas Resumen/Comparar/Patrimonio/
+  Reporte mensual),
   `TecladoNumerico` (en pantallas táctiles; suma/resta), `CampoEtiquetas`,
   `DividirGasto`, `Ilustracion` (SVG de estados vacíos con variables de
   color),
@@ -107,6 +109,11 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   chips legibles de los filtros activos
 - `src/utils/insights.ts` — `generarInsights`: observaciones del "resumen
   inteligente" con prioridad y destino (sección a la que lleva)
+- `src/utils/patrimonio.ts` (`evolucionPatrimonio`: cuentas + te deben −
+  debes al cierre de cada mes; los "me deben" de gastos divididos no se
+  suman porque ya están en la cuenta "Por cobrar"), `comparacion.ts`
+  (`compararPeriodos`; "este mes vs. anterior" corta el anterior en el
+  mismo día para que sea justo)
 - `src/utils/etiquetas.ts`, `expresion.ts` (sumas/restas del teclado, sin
   `eval`), `division.ts`, `tipoCambio.ts` (dólar del día desde
   open.er-api.com, caché 6 h en localStorage; es tipo de mercado, se
@@ -242,6 +249,14 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   ofrece como cuenta al registrar gastos/ingresos normales.
 - "Marcar como pagada" (deudas normales) salda sin mover cuentas y se
   puede deshacer.
+
+## Reporte mensual (v0.12)
+
+- `PanelReporte` genera el reporte de un mes; "Descargar PDF" llama a
+  `window.print()` con la clase `imprimiendo-reporte` en `<body>` (el CSS
+  de impresión oculta todo menos `.reporte-imprimible`) y fuerza el tema
+  claro mientras dura la impresión. Del día 1 al 7 el resumen inteligente
+  avisa que el reporte del mes anterior está listo.
 
 ## Autenticación y multiusuario
 

@@ -2702,3 +2702,200 @@ body.con-modal {
 .lista-etiquetas-analisis .fila-mini + .fila-mini {
   margin-top: 0.9em;
 }
+
+/* ---------- Análisis: comparar ---------- */
+
+.rejilla-kpi.tres {
+  grid-template-columns: repeat(3, 1fr) !important;
+}
+
+.lista-comparacion {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+  margin-top: 0.5em;
+}
+
+.fila-comparacion .cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-bottom: 0.35em;
+}
+
+.fila-comparacion .nombre {
+  flex: 1;
+  font-weight: 700;
+}
+
+.fila-comparacion .barras {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fila-comparacion .barra {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  height: 12px;
+}
+
+.fila-comparacion .relleno {
+  height: 100%;
+  min-width: 2px;
+  border-radius: 0 4px 4px 0;
+}
+
+.fila-comparacion .relleno.anterior {
+  background: var(--grafico-eje);
+}
+
+.fila-comparacion .relleno.actual {
+  background: var(--color-marca);
+}
+
+.fila-comparacion .valor {
+  font-size: 0.75em;
+  color: var(--color-texto-suave);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.grafico-leyenda.sin-margen {
+  margin: 0;
+}
+
+@media (max-width: 767px) {
+  .rejilla-kpi.tres {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+/* ---------- Reporte mensual ---------- */
+
+.reporte-imprimible.ui.segment {
+  padding: 1.5em 1.75em;
+}
+
+.cabecera-reporte {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1em;
+  padding-bottom: 1em;
+  margin-bottom: 1em;
+  border-bottom: 2px solid var(--color-marca);
+}
+
+.cabecera-reporte h2 {
+  margin: 0.1em 0 0;
+}
+
+.marca-reporte {
+  font-size: 0.8em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-marca);
+}
+
+.meta-reporte {
+  text-align: right;
+  font-size: 0.85em;
+}
+
+.frase-reporte {
+  font-size: 1.1em;
+  line-height: 1.5;
+}
+
+.kpis-reporte {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1em;
+  margin: 1em 0 1.5em;
+}
+
+.kpis-reporte > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+  padding: 0.8em 1em;
+  border-radius: 10px;
+  background: var(--color-fondo);
+}
+
+.kpis-reporte span:first-child {
+  font-size: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-texto-suave);
+}
+
+.kpis-reporte strong {
+  font-size: 1.4em;
+}
+
+.kpis-reporte > div > span:last-child:not(:first-child) {
+  font-size: 0.85em;
+}
+
+.seccion-reporte {
+  margin-top: 1.5em;
+  break-inside: avoid;
+}
+
+.seccion-reporte h3 {
+  margin-bottom: 0.6em;
+  font-size: 1.1em;
+}
+
+.seccion-reporte.dos-columnas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5em;
+}
+
+@media (max-width: 767px) {
+  .kpis-reporte,
+  .seccion-reporte.dos-columnas {
+    grid-template-columns: 1fr;
+  }
+
+  .cabecera-reporte {
+    flex-direction: column;
+  }
+
+  .meta-reporte {
+    text-align: left;
+  }
+}
+
+/* Al imprimir el reporte solo se ve el reporte (en claro, sin menús). */
+@media print {
+  body.imprimiendo-reporte * {
+    visibility: hidden;
+  }
+
+  body.imprimiendo-reporte .reporte-imprimible,
+  body.imprimiendo-reporte .reporte-imprimible * {
+    visibility: visible;
+  }
+
+  body.imprimiendo-reporte .reporte-imprimible {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #1f2033 !important;
+  }
+
+  body.imprimiendo-reporte .boton-flotante,
+  body.imprimiendo-reporte .contenedor-avisos {
+    display: none !important;
+  }
+}

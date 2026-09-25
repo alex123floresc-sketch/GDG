@@ -15,7 +15,15 @@ export interface Insight {
   /** Mayor = más importante (se muestran primero). */
   prioridad: number
   /** Sección a la que lleva al tocarlo. */
-  destino?: 'planificar:presupuestos' | 'planificar:deudas' | 'planificar:metas' | 'planificar:recurrentes' | 'mas:cuentas' | 'analisis'
+  destino?:
+    | 'planificar:presupuestos'
+    | 'planificar:deudas'
+    | 'planificar:metas'
+    | 'planificar:recurrentes'
+    | 'mas:cuentas'
+    | 'analisis'
+    | 'analisis:reporte'
+    | 'analisis:comparar'
 }
 
 interface DatosInsights {
@@ -78,7 +86,7 @@ export function generarInsights({
             ? `Llevas ${formatearPorcentaje(cambio)} más de gasto que a estas alturas del mes pasado.`
             : `Vas ${formatearPorcentaje(-cambio)} por debajo de lo que gastaste a estas alturas del mes pasado. ¡Bien!`,
         prioridad: cambio > 0 ? 60 : 30,
-        destino: 'analisis',
+        destino: 'analisis:comparar',
       })
     }
   }
@@ -277,7 +285,24 @@ export function generarInsights({
     })
   }
 
-  // 10. Sin datos aún.
+  // 10. Primera semana del mes: el reporte del mes anterior está listo.
+  if (dia <= 7) {
+    const mesAnterior = new Date(anio, mes - 1, 1)
+    const huboMovimientos = reales.some((t) => t.fecha >= mesAnterior && t.fecha < inicioMes)
+    if (huboMovimientos) {
+      const nombre = new Intl.DateTimeFormat('es-PE', { month: 'long' }).format(mesAnterior)
+      insights.push({
+        id: 'reporte-mensual',
+        icono: 'file alternate outline',
+        tono: 'info',
+        texto: `Tu reporte de ${nombre} está listo: mira cómo te fue y descárgalo en PDF.`,
+        prioridad: 45,
+        destino: 'analisis:reporte',
+      })
+    }
+  }
+
+  // 11. Sin datos aún.
   if (reales.length === 0) {
     insights.push({
       id: 'bienvenida',
