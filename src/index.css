@@ -20,6 +20,9 @@
   /* Texto de montos: tonos oscuros de las series, con contraste suficiente. */
   --color-ingreso: #0f8a5f;
   --color-gasto: #d9480f;
+  /* Advertencia (presupuesto al 80 %, vencimientos cercanos). */
+  --color-alerta: #eda100;
+  --color-alerta-texto: #9a6700;
 
   /* Series de gráficos (paleta categórica validada para daltonismo). */
   --serie-ingreso: #1baf7a;
@@ -1326,4 +1329,308 @@ body.con-modal {
 
 .rejilla-cuentas {
   align-items: start;
+}
+
+/* ---------- Botón flotante (registrar) ---------- */
+
+.boton-flotante {
+  position: fixed;
+  right: max(1.25em, calc((100vw - 960px) / 2 - 4.5em));
+  bottom: 1.5em;
+  z-index: 150;
+  width: 3.6em;
+  height: 3.6em;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-marca);
+  color: #fff;
+  font-size: 1.15em;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.45);
+  transition: transform 0.15s, background 0.15s;
+}
+
+.boton-flotante:hover,
+.boton-flotante:focus-visible {
+  background: var(--color-marca-oscuro);
+  transform: scale(1.06);
+}
+
+.boton-flotante > i.icon {
+  margin: 0;
+  font-size: 1.3em;
+}
+
+@media (max-width: 767px) {
+  .boton-flotante {
+    right: 1em;
+    bottom: calc(5.2em + env(safe-area-inset-bottom));
+  }
+}
+
+/* ---------- Planificar ---------- */
+
+.entrada-suave {
+  animation: subir 0.2s ease-out;
+}
+
+.pestanas-desplazables.ui.menu {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pestanas-desplazables.ui.menu .item {
+  white-space: nowrap;
+}
+
+.submenu-mas.compacto.ui.menu {
+  margin: 0 0 1em;
+}
+
+.barra-progreso {
+  width: 100%;
+  border-radius: 999px;
+  background: var(--grafico-grilla);
+  overflow: hidden;
+}
+
+.barra-progreso .relleno {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease-out;
+}
+
+.texto-alerta {
+  color: var(--color-alerta-texto) !important;
+}
+
+.navegador-mes {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.navegador-mes .ui.button {
+  margin: 0;
+}
+
+.navegador-mes strong {
+  min-width: 9em;
+  text-align: center;
+  font-size: 1.05em;
+}
+
+.resumen-presupuestos .fila {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  margin-bottom: 0.6em;
+}
+
+.lista-planes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1em;
+}
+
+.tarjeta-plan.ui.segment,
+.tarjeta-meta.ui.segment {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+
+.tarjeta-plan.nivel-excedido.ui.segment {
+  border-color: rgba(217, 72, 15, 0.45);
+}
+
+.tarjeta-plan .cabecera,
+.tarjeta-meta .cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+}
+
+.tarjeta-plan .titulo,
+.tarjeta-meta .titulo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tarjeta-plan .titulo strong,
+.tarjeta-meta .titulo strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tarjeta-plan .titulo span,
+.tarjeta-meta .titulo span {
+  font-size: 0.85em;
+  color: var(--color-texto-suave);
+}
+
+.tarjeta-plan .porcentaje {
+  font-weight: 700;
+}
+
+.porcentaje.nivel-alerta {
+  color: var(--color-alerta-texto);
+}
+
+.porcentaje.nivel-excedido {
+  color: var(--color-gasto);
+}
+
+.tarjeta-plan .pie,
+.tarjeta-meta .pie {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  font-size: 0.9em;
+}
+
+.tarjeta-plan .pie .ui.button {
+  margin: 0;
+}
+
+.rejilla-metas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1em;
+}
+
+.tarjeta-meta.completada.ui.segment {
+  background: linear-gradient(135deg, var(--color-superficie) 55%, rgba(27, 175, 122, 0.12));
+}
+
+.cifras-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+  flex-wrap: wrap;
+}
+
+.cifras-meta strong {
+  font-size: 1.4em;
+}
+
+.cifras-meta .porcentaje {
+  margin-left: auto;
+  font-weight: 700;
+}
+
+.acciones-meta {
+  display: flex;
+  gap: 0.5em;
+}
+
+.acciones-meta .ui.button {
+  margin: 0;
+}
+
+.enlace-sugerencia {
+  display: inline-block;
+  margin-top: 0.4em;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 0.9em;
+  color: var(--color-marca);
+  cursor: pointer;
+  text-align: left;
+}
+
+.historial-aportes {
+  margin: 0.5em 0 1em;
+  padding: 0.6em 0.8em;
+  border-radius: 8px;
+  background: var(--color-fondo);
+  font-size: 0.9em;
+}
+
+.fila-aporte {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5em;
+  padding: 0.2em 0;
+}
+
+.rejilla-kpi.dos {
+  grid-template-columns: 1fr 1fr !important;
+}
+
+.fondo-ingreso {
+  background: var(--color-ingreso);
+}
+
+.fondo-gasto {
+  background: var(--color-gasto);
+}
+
+.ui.form label.casilla {
+  display: flex !important;
+  align-items: center;
+  gap: 0.5em;
+  font-weight: 400 !important;
+  cursor: pointer;
+}
+
+.ui.form label.casilla input {
+  width: auto !important;
+}
+
+.sugerencias {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4em;
+  margin-top: 0.75em;
+}
+
+.sugerencias .ui.button {
+  margin: 0;
+}
+
+.lista-transacciones .item.pausado {
+  opacity: 0.55;
+}
+
+.lista-transacciones .monto .ui.buttons {
+  margin-top: 0.3em;
+}
+
+.selector-frecuencia.ui.buttons .button {
+  padding-left: 0.4em;
+  padding-right: 0.4em;
+}
+
+.sin-margen {
+  margin: 0 !important;
+}
+
+.resumen-linea {
+  font-size: 1.05em;
+}
+
+.estado-vacio .ui.button {
+  margin-top: 0.75em;
+}
+
+@media (max-width: 767px) {
+  .rejilla-kpi.dos {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .lista-planes,
+  .rejilla-metas {
+    grid-template-columns: 1fr;
+  }
 }

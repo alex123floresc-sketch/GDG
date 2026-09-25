@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { useCategorias } from '../hooks/useCategorias'
 import { useCuentas } from '../hooks/useCuentas'
+import { useDeudas, useMetas, usePresupuestos, useRecurrentes } from '../hooks/usePlanificacion'
 import { useTransacciones } from '../hooks/useTransacciones'
 import type { Transaccion } from '../types'
 import { clavePeriodo, resumenPorCategoria, resumenUltimosMeses } from '../utils/analisis'
@@ -12,6 +13,7 @@ import GraficoBarras from './graficos/GraficoBarras'
 import GraficoDona from './graficos/GraficoDona'
 import ListaTransacciones from './ListaTransacciones'
 import Modal from './Modal'
+import Planificar, { type PestanaPlanificar } from './planificar/Planificar'
 import ResumenFinanciero from './ResumenFinanciero'
 
 // xlsx (usado por YapeImporter) pesa varios cientos de KB: se carga bajo
@@ -24,14 +26,14 @@ interface DashboardProps {
   sincronizarAhora: () => Promise<void>
 }
 
-type Seccion = 'inicio' | 'registrar' | 'movimientos' | 'analisis' | 'mas'
+type Seccion = 'inicio' | 'movimientos' | 'analisis' | 'planificar' | 'mas'
 type SubseccionMas = 'cuentas' | 'categorias' | 'importar'
 
 const SECCIONES: { id: Seccion; etiqueta: string; icono: string }[] = [
   { id: 'inicio', etiqueta: 'Inicio', icono: 'home' },
-  { id: 'registrar', etiqueta: 'Registrar', icono: 'plus circle' },
-  { id: 'movimientos', etiqueta: 'Movimientos', icono: 'exchange' },
+  { id: 'movimientos', etiqueta: 'Movimientos', icono: 'list ul' },
   { id: 'analisis', etiqueta: 'Análisis', icono: 'chart bar' },
+  { id: 'planificar', etiqueta: 'Planificar', icono: 'compass outline' },
   { id: 'mas', etiqueta: 'Más', icono: 'th large' },
 ]
 
@@ -44,9 +46,15 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
   const categorias = useCategorias(usuarioId)
   const cuentas = useCuentas(usuarioId)
   const transacciones = useTransacciones(usuarioId)
+  const presupuestos = usePresupuestos(usuarioId)
+  const metas = useMetas(usuarioId)
+  const deudas = useDeudas(usuarioId)
+  // Además de listarlos, genera las transacciones recurrentes vencidas.
+  const recurrentes = useRecurrentes(usuarioId)
 
   const [seccion, setSeccion] = useState<Seccion>('inicio')
   const [subseccionMas, setSubseccionMas] = useState<SubseccionMas>('cuentas')
+  const [pestanaPlanificar, setPestanaPlanificar] = useState<PestanaPlanificar>('presupuestos')
   /** Movimiento abierto en el modal de edición. */
   const [editando, setEditando] = useState<Transaccion | null>(null)
   /** Registro rápido en modal (p. ej. "Transferir" desde Cuentas). */
@@ -142,6 +150,16 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
         ))}
       </nav>
 
+      <button
+        type="button"
+        className="boton-flotante no-imprimir"
+        aria-label="Registrar movimiento"
+        title="Registrar movimiento"
+        onClick={() => setRegistroRapido('gasto')}
+      >
+        <i className="plus icon" />
+      </button>
+
       {seccion === 'inicio' && (
         <>
           <div className="barra-filtros">
@@ -193,25 +211,6 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
             }}
           />
         </>
-      )}
-
-      {seccion === 'registrar' && (
-        <div className="ui segment">
-          <h3 className="ui header">
-            <i className="plus circle icon" />
-            <div className="content">
-              Nuevo movimiento
-              <div className="sub header">Registra un gasto, un ingreso o una transferencia</div>
-            </div>
-          </h3>
-          <FormularioTransaccion
-            usuarioId={usuarioId}
-            cuentas={cuentas}
-            categorias={categorias}
-            transacciones={transacciones}
-            onGestionarCategorias={irACategorias}
-          />
-        </div>
       )}
 
       {seccion === 'movimientos' && (
@@ -276,6 +275,21 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
           categorias={categorias}
           cuentas={cuentas}
           filtroCuenta={filtroCuenta}
+        />
+      )}
+
+      {seccion === 'planificar' && (
+        <Planificar
+          usuarioId={usuarioId}
+          pestana={pestanaPlanificar}
+          onCambiarPestana={setPestanaPlanificar}
+          categorias={categorias}
+          cuentas={cuentas}
+          transacciones={transacciones}
+          presupuestos={presupuestos}
+          metas={metas}
+          deudas={deudas}
+          recurrentes={recurrentes}
         />
       )}
 

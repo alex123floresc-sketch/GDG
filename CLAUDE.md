@@ -38,8 +38,10 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `categoriaService.COLORES_CATEGORIA` (8 tonos validados para daltonismo
   + gris; mantener ese orden).
 - Navegación principal en `Dashboard.tsx`: 5 secciones (Inicio,
-  Registrar, Movimientos, Análisis, Más → subpestañas Categorías /
-  Importar Yape); en móvil (<768px) la barra pasa al pie de pantalla.
+  Movimientos, Análisis, Planificar → Presupuestos/Metas/Deudas/
+  Recurrentes, Más → Cuentas/Categorías/Importar Yape); en móvil (<768px)
+  la barra pasa al pie de pantalla. Registrar es el botón flotante "+"
+  (abre `FormularioTransaccion` en un `Modal`).
 - Gráficos: SVG propio en `src/components/graficos/` (sin librería de
   gráficos, para no inflar el bundle): `GraficoBarras` (ingresos vs.
   gastos por periodo), `GraficoDona` (reparto por categoría, agrupa en
@@ -58,6 +60,7 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   editar/eliminar), `ResumenFinanciero`, `ListaTransacciones` (agrupada por
   día, clic = editar), `Analisis` (vista mensual/trimestral + exportación),
   `GestionCategorias`, `GestionCuentas` (saldos, tarjetas de crédito),
+  `planificar/` (`Planificar` + un panel por pestaña), `BarraProgreso`,
   `Modal` (modal de Fomantic sin jQuery, vía portal), `Avisos` (toasts;
   se usan con `useAvisos().avisar(...)`), `graficos/`, `YapeImporter`
   (cargado con `React.lazy`, ver Rendimiento)
@@ -66,10 +69,13 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `deudas`, `recurrentes`, `eliminacionesPendientes`)
 - `src/services` — lógica sin React: `supabaseClient.ts`, `syncService.ts`,
   `transaccionService.ts` (+ transferencias, eliminar/restaurar),
-  `categoriaService.ts`, `cuentaService.ts`, `yapeImporter.ts`,
-  `exportService.ts` (Excel del análisis)
+  `categoriaService.ts`, `cuentaService.ts`, `presupuestoService.ts`,
+  `metaService.ts`, `deudaService.ts`, `recurrenteService.ts`,
+  `sincronizable.ts` (`marcaCambio`, `registrarBorrado`,
+  `uuidDeterminista`), `yapeImporter.ts`, `exportService.ts`
 - `src/hooks` — `useSync`, `useTransacciones`, `useCategorias`,
-  `useCuentas`, `useAvisos`
+  `useCuentas`, `useAvisos`, `usePlanificacion` (`usePresupuestos`,
+  `useMetas`, `useDeudas`, `useRecurrentes`)
 - `src/types/index.ts` — única fuente de tipos del dominio
 - `src/utils/formato.ts` — formato de moneda (`es-PE`/PEN), fecha y %
 - `src/utils/analisis.ts` — agregaciones puras (por mes/trimestre, por
@@ -77,6 +83,9 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `esMovimientoReal(t)` excluye las transferencias de todo resumen.
 - `src/utils/cuentas.ts` — tipos de cuenta (icono/etiqueta), saldos y
   `estadoTarjeta` (deuda, línea disponible, ciclo, próximo pago)
+- `src/utils/planificacion.ts` — `estadoPresupuestos` (gastado, nivel
+  ok/alerta 80 %/excedido, proyección a fin de mes), `estadoMeta` (ahorro
+  mensual necesario), `estadoDeuda`
 - `src/utils/preferencias.ts` — preferencias del dispositivo en
   localStorage (tipo de cambio, tema), siempre en try/catch
 - `supabase/migraciones/` — SQL a ejecutar a mano en el SQL Editor
@@ -152,6 +161,24 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   / `.solo-imprimir`).
 - Dexie v5 recolorea las categorías por defecto a la paleta nueva (solo
   las que conservan el color viejo) y corrige el icono `chart line`.
+
+## Planificar (v0.8)
+
+- **Presupuestos**: uno por categoría de gasto (`guardarPresupuesto` crea
+  o actualiza); es un límite mensual que rige para todos los meses
+  (`mes`/`anio` = desde cuándo). Al crear se sugiere el promedio de los
+  últimos 3 meses.
+- **Metas**: `aportes` es un arreglo en la propia meta (jsonb remoto);
+  monto negativo = retiro. No mueven saldos de cuentas.
+- **Deudas**: `tipo` `me_deben`/`debo`, `abonos` en la propia deuda. Al
+  registrar un cobro/pago se puede crear además la transacción (ingreso o
+  gasto) en una cuenta.
+- **Recurrentes**: `useRecurrentes` (llamado siempre desde `Dashboard`)
+  ejecuta `generarRecurrentesPendientes` cuando hay reglas activas con
+  `proximaFecha <= hoy`: crea las transacciones (`origen: 'recurrente'`,
+  `recurrenteId`) y avanza la fecha. El id de cada ocurrencia es
+  `uuidDeterminista(recurrenteId + fecha)`: si dos dispositivos generan la
+  misma, no se duplica. Máx. 36 ocurrencias por ejecución.
 
 ## Autenticación y multiusuario
 
@@ -270,8 +297,9 @@ transferencias) fallan individualmente sin bloquear al resto.
 - El chunk principal (`index-*.js`) sigue por encima de 500kB (aviso de
   Vite) por `@supabase/supabase-js`; `xlsx` ya se separó con
   `React.lazy` (ver Rendimiento) pero el resto no se ha optimizado.
-- `presupuestos`, `metas`, `deudas`, `recurrentes`: modelo y
-  sincronización listos (v0.7); la UI llega en la v0.8.
+- Recurrentes mensuales: si el día original no existe en un mes (31 →
+  30), la regla guarda la fecha recortada y los meses siguientes usan ese
+  día (no vuelve al 31).
 - El importador de Yape no se probó contra un archivo real exportado desde
   la app (ver sección "Importador de Yape").
 
