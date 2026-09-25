@@ -60,7 +60,7 @@ function App() {
     ultimaSincronizacion,
     error: errorSincronizacion,
     pendientes,
-    migracionPendiente,
+    migracionesPendientes,
     sincronizarAhora,
   } = useSync(usuarioId)
 
@@ -132,16 +132,26 @@ function App() {
               </div>
             </div>
           )}
-          {migracionPendiente && !errorSincronizacion && (
+          {migracionesPendientes.length > 0 && !errorSincronizacion && (
             <div className="ui info icon message aviso-sincronizacion">
               <i className="database icon" />
               <div className="content">
                 <div className="header">Falta actualizar tu base de datos en Supabase</div>
                 <p>
-                  Tus transacciones, categorías y cuentas se sincronizan normalmente, pero las
-                  metas, deudas, recurrentes, presupuestos, transferencias y montos en dólares
-                  solo se guardan en este dispositivo hasta que ejecutes el archivo{' '}
-                  <code>supabase/migraciones/v0.7.sql</code> en el SQL Editor de Supabase.
+                  Tus transacciones, categorías y cuentas se sincronizan normalmente, pero lo más
+                  nuevo (
+                  {migracionesPendientes.includes('v0.7.sql')
+                    ? 'metas, deudas, recurrentes, presupuestos, transferencias, dólares, etiquetas'
+                    : 'etiquetas y gastos divididos'}
+                  ) solo se guarda en este dispositivo hasta que ejecutes, en este orden, en el SQL
+                  Editor de Supabase:{' '}
+                  {migracionesPendientes.map((m, i) => (
+                    <span key={m}>
+                      {i > 0 && ', '}
+                      <code>supabase/migraciones/{m}</code>
+                    </span>
+                  ))}
+                  .
                 </p>
               </div>
             </div>

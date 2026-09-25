@@ -10,6 +10,7 @@ import type { Categoria, Cuenta, Frecuencia, Moneda, Recurrente, TipoTransaccion
 import { fechaDesdeInput, fechaParaInput, formatearDolares, formatearFecha, formatearMoneda } from '../../utils/formato'
 import { leerTipoCambio } from '../../utils/preferencias'
 import Modal from '../Modal'
+import Ilustracion from '../Ilustracion'
 
 interface PanelRecurrentesProps {
   usuarioId: string
@@ -154,7 +155,7 @@ function PanelRecurrentes({ usuarioId, recurrentes, categorias, cuentas }: Panel
 
       {recurrentes.length === 0 ? (
         <div className="ui segment estado-vacio">
-          <i className="redo alternate icon" />
+          <Ilustracion nombre="recurrentes" />
           <p>
             <strong>Automatiza lo que se repite.</strong>
             <br />

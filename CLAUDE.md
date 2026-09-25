@@ -71,18 +71,22 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `planificar/` (`Planificar` + un panel por pestaña), `BarraProgreso`,
   `Inicio` (tarjeta principal con saldo total y mes, accesos rápidos,
   cuentas, resumen inteligente, presupuestos, metas, gráficos),
+  `TecladoNumerico` (en pantallas táctiles; suma/resta), `CampoEtiquetas`,
+  `DividirGasto`, `Ilustracion` (SVG de estados vacíos con variables de
+  color),
   `VistaMovimientos` (búsqueda, filtros avanzados, lista/calendario,
   exportar lo filtrado), `CalendarioGastos`, `ResumenInteligente`,
   `Modal` (modal de Fomantic sin jQuery, vía portal), `Avisos` (toasts;
   se usan con `useAvisos().avisar(...)`), `graficos/`, `YapeImporter`
   (cargado con `React.lazy`, ver Rendimiento)
-- `src/db/database.ts` — esquema Dexie v7 (`GestorGastosDB`, tablas
+- `src/db/database.ts` — esquema Dexie v8 (`GestorGastosDB`, tablas
   `transacciones`, `categorias`, `cuentas`, `presupuestos`, `metas`,
   `deudas`, `recurrentes`, `eliminacionesPendientes`)
 - `src/services` — lógica sin React: `supabaseClient.ts`, `syncService.ts`,
   `transaccionService.ts` (+ transferencias, eliminar/restaurar),
   `categoriaService.ts`, `cuentaService.ts`, `presupuestoService.ts`,
   `metaService.ts`, `deudaService.ts`, `recurrenteService.ts`,
+  `divisionService.ts` (gastos divididos),
   `sincronizable.ts` (`marcaCambio`, `registrarBorrado`,
   `uuidDeterminista`), `yapeImporter.ts`, `exportService.ts`
 - `src/hooks` — `useSync`, `useTransacciones`, `useCategorias`,
@@ -103,6 +107,10 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   chips legibles de los filtros activos
 - `src/utils/insights.ts` — `generarInsights`: observaciones del "resumen
   inteligente" con prioridad y destino (sección a la que lleva)
+- `src/utils/etiquetas.ts`, `expresion.ts` (sumas/restas del teclado, sin
+  `eval`), `division.ts`, `tipoCambio.ts` (dólar del día desde
+  open.er-api.com, caché 6 h en localStorage; es tipo de mercado, se
+  ofrece como sugerencia editable)
 - `src/utils/preferencias.ts` — preferencias del dispositivo en
   localStorage (tipo de cambio, tema), siempre en try/catch
 - `supabase/migraciones/` — SQL a ejecutar a mano en el SQL Editor
@@ -219,6 +227,22 @@ Repo: https://github.com/alex123floresc-sketch/GDG
 - Transiciones: cada sección entra con `.entrada-seccion`; todas las
   animaciones se anulan con `prefers-reduced-motion`.
 
+## Etiquetas y gastos divididos (v0.11)
+
+- **Etiquetas**: `Transaccion.etiquetas` (normalizadas: minúsculas, sin
+  '#', espacios → '-'; máx. 5). Índice multiEntry `*etiquetas` en Dexie.
+  Al editar, `[]` explícito = quitar todas (debe viajar para limpiarlas en
+  Supabase); `undefined` = nunca tuvo.
+- **Dividir un gasto** (`divisionService.registrarGastoDividido`, en una
+  transacción Dexie): tu parte → gasto; lo que pagaste por los demás →
+  transferencia a la cuenta de sistema **"Por cobrar"** (así no cuenta
+  como gasto tuyo, pero el saldo de tu cuenta baja el total); por cada
+  persona → deuda `me_deben` con `gastoDividido`. Al cobrarla se hace una
+  transferencia "Por cobrar" → cuenta (no es ingreso). "Por cobrar" no se
+  ofrece como cuenta al registrar gastos/ingresos normales.
+- "Marcar como pagada" (deudas normales) salda sin mover cuentas y se
+  puede deshacer.
+
 ## Autenticación y multiusuario
 
 - `App.tsx` gestiona la sesión con `supabase.auth.onAuthStateChange` +
@@ -268,6 +292,17 @@ Particularidades que el cliente respeta:
   `TipoCategoria`/`TipoCuenta`. El CHECK original de `categorias` no
   aceptaba `'ambos'` (error 23514 que bloqueaba toda la sincronización).
   Si se agrega un valor nuevo a esos tipos, ampliar el CHECK.
+
+### Migraciones
+
+`syncService.MIGRACIONES` lista cada archivo con una consulta `limit 0` que
+solo funciona si ya se ejecutó; `sincronizar` devuelve
+`migracionesPendientes` y `App.tsx` avisa cuáles faltan. Al crear una
+migración nueva: archivo `supabase/migraciones/v0.X.sql` idempotente +
+entrada en `MIGRACIONES`, y enviar las columnas nuevas solo cuando tienen
+valor (así lo demás sigue subiendo sin la migración).
+
+- `v0.11.sql`: `transacciones.etiquetas text[]` y `deudas.gasto_dividido`.
 
 ### Migración v0.7 (`supabase/migraciones/v0.7.sql`)
 

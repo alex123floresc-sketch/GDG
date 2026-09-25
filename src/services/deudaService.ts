@@ -62,3 +62,30 @@ export async function eliminarDeuda(deuda: Deuda): Promise<void> {
     await registrarBorrado('deudas', deuda.usuarioId, [deuda.id])
   })
 }
+
+/**
+ * Salda la deuda de un toque (abono por todo lo pendiente) sin registrar
+ * movimientos en cuentas. Devuelve la deuda anterior para poder deshacer.
+ */
+export async function marcarDeudaPagada(id: string): Promise<Deuda> {
+  const deuda = await db.deudas.get(id)
+  if (!deuda) throw new Error('La deuda ya no existe.')
+
+  const pendiente = deuda.monto - deuda.abonos.reduce((s, a) => s + a.monto, 0)
+  if (pendiente > 0.005) {
+    await db.deudas.put({
+      ...deuda,
+      abonos: [
+        ...deuda.abonos,
+        { id: crypto.randomUUID(), fecha: new Date(), monto: Math.round(pendiente * 100) / 100, nota: 'Marcada como pagada' },
+      ],
+      ...marcaCambio(),
+    })
+  }
+  return deuda
+}
+
+/** Deshace un `marcarDeudaPagada` (vuelve a la versión anterior). */
+export async function restaurarDeuda(anterior: Deuda): Promise<void> {
+  await db.deudas.put({ ...anterior, ...marcaCambio() })
+}

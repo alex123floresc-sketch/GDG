@@ -125,3 +125,21 @@ export async function eliminarCuenta(id: string, reasignarA?: string): Promise<v
     })
   })
 }
+
+/** Nombre de la cuenta donde queda lo que pagaste por otros al dividir gastos. */
+export const NOMBRE_POR_COBRAR = 'Por cobrar'
+
+/**
+ * Cuenta "Por cobrar" del usuario (la crea si no existe). Guarda el dinero
+ * que adelantaste al dividir un gasto: sale de tu cuenta como transferencia
+ * y vuelve cuando te pagan, así no cuenta como gasto tuyo.
+ */
+export async function asegurarCuentaPorCobrar(usuarioId: string): Promise<Cuenta> {
+  const existente = await db.cuentas
+    .where('usuarioId')
+    .equals(usuarioId)
+    .filter((c) => c.nombre.localeCompare(NOMBRE_POR_COBRAR, 'es', { sensitivity: 'base' }) === 0)
+    .first()
+  if (existente) return existente
+  return crearCuenta({ nombre: NOMBRE_POR_COBRAR, tipo: 'otro', saldoInicial: 0 }, usuarioId)
+}

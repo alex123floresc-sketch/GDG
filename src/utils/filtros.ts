@@ -16,6 +16,7 @@ export interface FiltrosMovimientos {
   origen: OrigenTransaccion | ''
   montoMin: string
   montoMax: string
+  etiqueta: string
 }
 
 export const FILTROS_VACIOS: FiltrosMovimientos = {
@@ -29,6 +30,7 @@ export const FILTROS_VACIOS: FiltrosMovimientos = {
   origen: '',
   montoMin: '',
   montoMax: '',
+  etiqueta: '',
 }
 
 export const PERIODOS: { id: Periodo; etiqueta: string }[] = [
@@ -91,13 +93,15 @@ export function aplicarFiltros(
     if (f.categoriaId && t.categoriaId !== f.categoriaId) return false
     if (f.cuentaId && t.cuentaId !== f.cuentaId) return false
     if (f.origen && t.origen !== f.origen) return false
+    if (f.etiqueta && !(t.etiquetas ?? []).includes(f.etiqueta)) return false
     if (min !== null && t.monto < min) return false
     if (max !== null && t.monto > max) return false
     if (texto) {
       const enConcepto = normalizar(t.concepto ?? '').includes(texto)
       const enCategoria = (nombres.get(t.categoriaId) ?? '').includes(texto)
       const enOperacion = (t.nroOperacion ?? '').includes(texto)
-      if (!enConcepto && !enCategoria && !enOperacion) return false
+      const enEtiquetas = (t.etiquetas ?? []).some((e) => e.includes(texto.replace(/^#/, '')))
+      if (!enConcepto && !enCategoria && !enOperacion && !enEtiquetas) return false
     }
     return true
   })
@@ -129,6 +133,7 @@ export function chipsDeFiltros(f: FiltrosMovimientos, categorias: Categoria[], c
   if (f.origen) {
     chips.push({ clave: 'origen', texto: { manual: 'Manuales', yape: 'De Yape', recurrente: 'Automáticos', transferencia: 'Transferencias' }[f.origen] })
   }
+  if (f.etiqueta) chips.push({ clave: 'etiqueta', texto: `#${f.etiqueta}` })
   if (f.montoMin) chips.push({ clave: 'montoMin', texto: `≥ ${formatearMoneda(Number(f.montoMin))}` })
   if (f.montoMax) chips.push({ clave: 'montoMax', texto: `≤ ${formatearMoneda(Number(f.montoMax))}` })
   return chips

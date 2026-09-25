@@ -2509,3 +2509,196 @@ body.con-modal {
 .carrusel-cuentas {
   scrollbar-width: none;
 }
+
+/* ---------- Teclado numérico ---------- */
+
+.teclado-numerico {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4em;
+  margin: -0.4em 0 1em;
+  user-select: none;
+}
+
+.teclado-numerico .tecla {
+  height: 3.1em;
+  border: 1px solid var(--color-borde);
+  border-radius: 10px;
+  background: var(--color-superficie);
+  color: var(--color-texto);
+  font: inherit;
+  font-size: 1.25em;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.1s, transform 0.08s;
+}
+
+.teclado-numerico .tecla:active {
+  transform: scale(0.95);
+  background: var(--color-marca-suave);
+}
+
+.teclado-numerico .tecla.operacion {
+  background: var(--color-fondo);
+  color: var(--color-marca);
+}
+
+.teclado-numerico .tecla.igual {
+  background: var(--color-boton);
+  border-color: var(--color-boton);
+  color: #fff;
+}
+
+.teclado-numerico .tecla > i.icon {
+  margin: 0;
+}
+
+.resultado-expresion {
+  margin-top: 0.3em;
+  text-align: right;
+  font-weight: 700;
+  color: var(--color-marca);
+}
+
+/* ---------- Etiquetas ---------- */
+
+.caja-etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35em;
+  min-height: 2.7em;
+  padding: 0.3em 0.5em;
+  border: 1px solid rgba(34, 36, 38, 0.15);
+  border-radius: 0.28571429rem;
+  background: var(--color-campo);
+}
+
+[data-theme='dark'] .caja-etiquetas {
+  border-color: var(--color-borde);
+}
+
+.caja-etiquetas input {
+  flex: 1;
+  min-width: 8em;
+  border: none !important;
+  padding: 0.3em !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.chip-etiqueta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+  padding: 0.15em 0.2em 0.15em 0.6em;
+  border-radius: 999px;
+  background: var(--color-marca-suave);
+  color: var(--color-marca);
+  font-size: 0.9em;
+  font-weight: 700;
+}
+
+.chip-etiqueta button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+}
+
+.chip-etiqueta button > i.icon {
+  margin: 0;
+  font-size: 0.85em;
+}
+
+.sugerencias-etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3em;
+  margin-top: 0.4em;
+}
+
+.sugerencias-etiquetas .ui.button {
+  margin: 0;
+}
+
+.etiquetas-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  margin-top: 0.15em;
+  font-size: 0.78em;
+  font-weight: 700;
+  color: var(--color-marca);
+}
+
+/* ---------- Dividir gasto ---------- */
+
+.dividir-gasto {
+  margin-bottom: 1em;
+  padding: 0.75em 0.9em;
+  border: 1px dashed var(--color-borde);
+  border-radius: 10px;
+}
+
+.panel-division {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  margin-top: 0.75em;
+}
+
+.panel-division .ui.buttons {
+  align-self: flex-start;
+}
+
+.fila-persona {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.fila-persona input:first-child {
+  flex: 2;
+}
+
+.fila-persona input[type='number'] {
+  flex: 1;
+  min-width: 0;
+}
+
+.fila-persona .parte {
+  flex: 1;
+  text-align: right;
+  font-weight: 700;
+}
+
+.fila-persona .ui.button {
+  margin: 0;
+}
+
+.resumen-division {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  padding: 0.5em 0.7em;
+  border-radius: 8px;
+  background: var(--color-fondo);
+}
+
+/* ---------- Ilustraciones ---------- */
+
+.estado-vacio .ilustracion {
+  margin-bottom: 0.5em;
+}
+
+.grafico-vacio .ilustracion {
+  opacity: 0.9;
+}
+
+.lista-etiquetas-analisis .fila-mini + .fila-mini {
+  margin-top: 0.9em;
+}

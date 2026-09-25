@@ -129,6 +129,13 @@ export class GestorGastosDB extends Dexie {
       deudas: 'id, usuarioId',
       recurrentes: 'id, usuarioId',
     })
+
+    // v8: etiquetas en transacciones (índice multiEntry para filtrar por
+    // etiqueta).
+    this.version(8).stores({
+      transacciones:
+        'id, usuarioId, cuentaId, categoriaId, tipo, fecha, fechaActualizacion, [usuarioId+nroOperacion], transferenciaId, *etiquetas',
+    })
   }
 }
 

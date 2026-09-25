@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from 'react'
 import type { Categoria, Cuenta, Transaccion } from '../types'
 import { esMovimientoReal } from '../utils/analisis'
 import { formatearDolares, formatearMoneda } from '../utils/formato'
+import Ilustracion, { type NombreIlustracion } from './Ilustracion'
 
 interface ListaTransaccionesProps {
   transacciones: Transaccion[]
@@ -18,6 +19,7 @@ interface ListaTransaccionesProps {
   /** Contenido extra bajo el título (p. ej. exportar). */
   extra?: ReactNode
   vacio?: string
+  ilustracion?: NombreIlustracion
 }
 
 const COLOR_ICONO_POR_DEFECTO = '#898781'
@@ -50,6 +52,7 @@ function ListaTransacciones({
   onSeleccionar,
   extra,
   vacio = 'No hay movimientos que mostrar.',
+  ilustracion = 'movimientos',
 }: ListaTransaccionesProps) {
   const categoriasPorId = useMemo(() => new Map(categorias.map((c) => [c.id, c])), [categorias])
   const nombresCuentas = useMemo(() => new Map(cuentas.map((c) => [c.id, c.nombre])), [cuentas])
@@ -140,6 +143,13 @@ function ListaTransacciones({
         <div className="detalle">
           <div className="header">{tituloFila}</div>
           <div className="description">{detalle || '—'}</div>
+          {t.etiquetas && t.etiquetas.length > 0 && (
+            <div className="etiquetas-fila">
+              {t.etiquetas.map((e) => (
+                <span key={e}>#{e}</span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="monto">
@@ -221,7 +231,7 @@ function ListaTransacciones({
 
       {visibles.length === 0 ? (
         <div className="estado-vacio">
-          <i className="inbox icon" />
+          <Ilustracion nombre={ilustracion} />
           <p>{vacio}</p>
         </div>
       ) : (

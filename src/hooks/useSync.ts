@@ -21,8 +21,8 @@ const INTERVALO_REINTENTO_MS = 60_000
  */
 export function useSync(usuarioId: string | null): EstadoSincronizacion & {
   pendientes: number
-  /** Supabase aún no tiene el esquema v0.7 (ver supabase/migraciones). */
-  migracionPendiente: boolean
+  /** Archivos de supabase/migraciones/ que falta ejecutar. */
+  migracionesPendientes: string[]
   sincronizarAhora: () => Promise<void>
 } {
   const [enLinea, setEnLinea] = useState(navigator.onLine)
@@ -30,7 +30,7 @@ export function useSync(usuarioId: string | null): EstadoSincronizacion & {
   const [ultimaSincronizacion, setUltimaSincronizacion] =
     useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [migracionPendiente, setMigracionPendiente] = useState(false)
+  const [migracionesPendientes, setMigracionesPendientes] = useState<string[]>([])
 
   const sincronizandoRef = useRef(false)
 
@@ -69,7 +69,7 @@ export function useSync(usuarioId: string | null): EstadoSincronizacion & {
 
     try {
       const resultado = await sincronizar(usuarioId)
-      setMigracionPendiente(resultado.migracionPendiente)
+      setMigracionesPendientes(resultado.migracionesPendientes)
       setUltimaSincronizacion(new Date())
       setError(null)
     } catch (err) {
@@ -135,7 +135,7 @@ export function useSync(usuarioId: string | null): EstadoSincronizacion & {
     ultimaSincronizacion,
     error,
     pendientes,
-    migracionPendiente,
+    migracionesPendientes,
     sincronizarAhora,
   }
 }

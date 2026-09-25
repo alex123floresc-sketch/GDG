@@ -10,7 +10,9 @@ import {
   variacion,
   type Granularidad,
 } from '../utils/analisis'
-import { formatearMoneda, formatearPorcentaje } from '../utils/formato'
+import { resumenPorEtiqueta } from '../utils/etiquetas'
+import { formatearFecha, formatearMoneda, formatearPorcentaje } from '../utils/formato'
+import BarraProgreso from './BarraProgreso'
 import GraficoBarras from './graficos/GraficoBarras'
 import GraficoDona from './graficos/GraficoDona'
 import GraficoLinea from './graficos/GraficoLinea'
@@ -62,6 +64,9 @@ function Analisis({ transacciones, categorias, cuentas, filtroCuenta }: Analisis
     () => resumenPorCategoria(enRango, categorias, 'ingreso'),
     [enRango, categorias],
   )
+
+  const porEtiqueta = useMemo(() => resumenPorEtiqueta(enRango), [enRango])
+  const maxEtiqueta = Math.max(1, ...porEtiqueta.map((e) => e.gastos))
 
   const totales = useMemo(() => {
     const ingresos = enRango.filter((t) => t.tipo === 'ingreso').reduce((s, t) => s + t.monto, 0)
@@ -298,6 +303,36 @@ function Analisis({ transacciones, categorias, cuentas, filtroCuenta }: Analisis
           </div>
         </div>
       </div>
+
+      {porEtiqueta.length > 0 && (
+        <div className="ui segment">
+          <h3 className="ui header">
+            <i className="hashtag icon" />
+            <div className="content">
+              Gastos por etiqueta
+              <div className="sub header">{nombreRango} · cruza categorías (p. ej. todo lo de un viaje)</div>
+            </div>
+          </h3>
+          <div className="lista-etiquetas-analisis">
+            {porEtiqueta.map((e) => (
+              <div key={e.etiqueta} className="fila-mini">
+                <div className="linea">
+                  <span>
+                    <strong>#{e.etiqueta}</strong>
+                    <span className="texto-suave">
+                      {' · '}
+                      {e.cantidad} mov. · {formatearFecha(e.desde)}
+                      {e.hasta.toDateString() !== e.desde.toDateString() ? ` – ${formatearFecha(e.hasta)}` : ''}
+                    </span>
+                  </span>
+                  <span className="texto-gasto">{formatearMoneda(e.gastos)}</span>
+                </div>
+                <BarraProgreso valor={e.gastos / maxEtiqueta} color="var(--serie-gasto)" etiqueta={`#${e.etiqueta}: ${formatearMoneda(e.gastos)}`} grosor={6} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="ui segment">
         <h3 className="ui header">

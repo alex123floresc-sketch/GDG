@@ -89,6 +89,8 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
     [transacciones, categorias, cuentas, presupuestos, metas, deudas, recurrentes],
   )
 
+  const personasPrevias = useMemo(() => [...new Set(deudas.map((d) => d.persona))], [deudas])
+
   const cerrarEdicion = useCallback(() => setEditando(null), [])
   const cerrarRegistroRapido = useCallback(() => setRegistroRapido(null), [])
 
@@ -301,6 +303,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
             transacciones={transacciones}
             tipoInicial={registroRapido}
             permitirContinuar
+            personasPrevias={personasPrevias}
             onListo={cerrarRegistroRapido}
             onGestionarCategorias={() => {
               cerrarRegistroRapido()

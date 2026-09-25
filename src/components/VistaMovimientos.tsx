@@ -12,9 +12,11 @@ import {
   type FiltrosMovimientos,
   type TipoFiltro,
 } from '../utils/filtros'
+import { etiquetasUsadas } from '../utils/etiquetas'
 import { formatearMoneda } from '../utils/formato'
 import CalendarioGastos from './CalendarioGastos'
 import ListaTransacciones from './ListaTransacciones'
+
 
 interface VistaMovimientosProps {
   transacciones: Transaccion[]
@@ -43,6 +45,7 @@ function VistaMovimientos({ transacciones, categorias, cuentas, onSeleccionar }:
     [transacciones, filtros, categorias, vista],
   )
 
+  const etiquetasDisponibles = useMemo(() => etiquetasUsadas(transacciones), [transacciones])
   const chips = chipsDeFiltros(filtros, categorias, cuentas)
   const chipsVisibles = vista === 'calendario' ? chips.filter((c) => c.clave !== 'rango') : chips
   const avanzadosActivos = chips.filter((c) => c.clave !== 'rango').length
@@ -215,6 +218,19 @@ function VistaMovimientos({ transacciones, categorias, cuentas, onSeleccionar }:
                 <option value="recurrente">Automáticos (recurrentes)</option>
               </select>
             </div>
+            {etiquetasDisponibles.length > 0 && (
+              <div className="field">
+                <label htmlFor="f-etiqueta">Etiqueta</label>
+                <select id="f-etiqueta" className="ui dropdown" value={filtros.etiqueta} onChange={(e) => actualizar({ etiqueta: e.target.value })}>
+                  <option value="">Todas</option>
+                  {etiquetasDisponibles.map((e) => (
+                    <option key={e} value={e}>
+                      #{e}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="field">
               <label htmlFor="f-min">Monto desde</label>
               <input id="f-min" type="number" inputMode="decimal" min="0" placeholder="S/ 0" value={filtros.montoMin} onChange={(e) => actualizar({ montoMin: e.target.value })} />
@@ -271,6 +287,7 @@ function VistaMovimientos({ transacciones, categorias, cuentas, onSeleccionar }:
                 ? 'Aún no hay movimientos. Registra el primero con el botón "+".'
                 : 'Ningún movimiento coincide con los filtros.'
             }
+            ilustracion={transacciones.length === 0 ? 'movimientos' : 'buscar'}
           />
         </>
       ) : (

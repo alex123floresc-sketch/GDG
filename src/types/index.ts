@@ -76,6 +76,8 @@ export interface Transaccion {
   transferenciaId?: string
   /** Recurrente que la generó. */
   recurrenteId?: string
+  /** Etiquetas libres, en minúsculas y sin '#' (p. ej. 'viaje-cusco'). */
+  etiquetas?: string[]
   sincronizado: boolean
   fechaActualizacion: Date
 }
@@ -125,6 +127,11 @@ export interface Deuda extends ControlSync {
   fechaLimite?: Date
   /** Pagos parciales (siempre positivos). */
   abonos: Aporte[]
+  /**
+   * Viene de dividir un gasto: lo que pagaste por esa persona quedó en la
+   * cuenta "Por cobrar" y el cobro se registra como transferencia desde ahí.
+   */
+  gastoDividido?: boolean
 }
 
 export type Frecuencia = 'semanal' | 'quincenal' | 'mensual' | 'anual'
@@ -182,8 +189,8 @@ export interface ResultadoSincronizacion {
   subidas: number
   descargadas: number
   fecha: Date
-  /** Supabase aún no tiene el esquema v0.7 (supabase/migraciones/v0.7.sql). */
-  migracionPendiente: boolean
+  /** Archivos de supabase/migraciones/ que aún no se ejecutaron. */
+  migracionesPendientes: string[]
 }
 
 export interface EstadoSincronizacion {

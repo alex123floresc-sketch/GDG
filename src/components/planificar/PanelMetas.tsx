@@ -7,6 +7,7 @@ import { fechaDesdeInput, fechaParaInput, formatearFecha, formatearMoneda, forma
 import { estadoMeta } from '../../utils/planificacion'
 import BarraProgreso from '../BarraProgreso'
 import Modal from '../Modal'
+import Ilustracion from '../Ilustracion'
 
 interface PanelMetasProps {
   usuarioId: string
@@ -119,7 +120,7 @@ function PanelMetas({ usuarioId, metas }: PanelMetasProps) {
 
       {metas.length === 0 ? (
         <div className="ui segment estado-vacio">
-          <i className="bullseye icon" />
+          <Ilustracion nombre="metas" />
           <p>
             <strong>¿Para qué estás ahorrando?</strong>
             <br />

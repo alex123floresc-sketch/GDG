@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import Ilustracion from '../Ilustracion'
 
 export interface FilaTooltip {
   color: string
@@ -67,7 +68,7 @@ export function Leyenda({
 export function SinDatos({ children }: { children: ReactNode }) {
   return (
     <div className="grafico-vacio">
-      <i className="chart area icon" />
+      <Ilustracion nombre="graficos" tamano={96} />
       <span>{children}</span>
     </div>
   )

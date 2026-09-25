@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useAvisos } from '../hooks/useAvisos'
+import { registrarGastoDividido } from '../services/divisionService'
 import {
   actualizarTransaccion,
   actualizarTransferencia,
@@ -9,13 +10,22 @@ import {
   restaurarTransacciones,
 } from '../services/transaccionService'
 import type { Categoria, Cuenta, Moneda, Transaccion, TipoTransaccion } from '../types'
+import { NOMBRE_POR_COBRAR } from '../services/cuentaService'
 import { ICONO_CUENTA } from '../utils/cuentas'
+import { calcularParticipantes, DIVISION_INICIAL, type EstadoDivision } from '../utils/division'
+import { etiquetasUsadas } from '../utils/etiquetas'
+import { evaluarExpresion, tieneOperacion } from '../utils/expresion'
 import {
   fechaDesdeInput,
   fechaParaInput,
+  formatearDolares,
   formatearMoneda,
 } from '../utils/formato'
 import { guardarTipoCambio, leerTipoCambio } from '../utils/preferencias'
+import { obtenerTipoCambioDia, type TipoCambioDia } from '../utils/tipoCambio'
+import CampoEtiquetas from './CampoEtiquetas'
+import DividirGasto from './DividirGasto'
+import TecladoNumerico from './TecladoNumerico'
 
 export type TipoFormulario = TipoTransaccion | 'transferencia'
 
@@ -34,7 +44,12 @@ interface FormularioTransaccionProps {
   onGestionarCategorias?: () => void
   /** Muestra "Registrar otro después" (el formulario sigue abierto al guardar). */
   permitirContinuar?: boolean
+  /** Personas con deudas previas (autocompletado al dividir un gasto). */
+  personasPrevias?: string[]
 }
+
+/** Pantalla táctil sin teclado físico: se usa el teclado numérico propio. */
+const esTactil = () => window.matchMedia?.('(pointer: coarse)').matches ?? false
 
 const TIPOS: { id: TipoFormulario; etiqueta: string; icono: string; color: string }[] = [
   { id: 'gasto', etiqueta: 'Gasto', icono: 'arrow up', color: 'red' },
@@ -54,6 +69,7 @@ function FormularioTransaccion({
   onListo,
   onGestionarCategorias,
   permitirContinuar = false,
+  personasPrevias = [],
 }: FormularioTransaccionProps) {
   const { avisar } = useAvisos()
   const editando = Boolean(transaccion)
@@ -91,7 +107,15 @@ function FormularioTransaccion({
   const montoRef = useRef<HTMLInputElement>(null)
 
   const [continuar, setContinuar] = useState(false)
+  const [etiquetas, setEtiquetas] = useState<string[]>(transaccion?.etiquetas ?? [])
+  const [division, setDivision] = useState<EstadoDivision>(DIVISION_INICIAL)
+  const [usarTeclado] = useState(esTactil)
+  const [cambioDia, setCambioDia] = useState<TipoCambioDia | null>(null)
+  const [consultandoCambio, setConsultandoCambio] = useState(false)
+  /** El usuario escribió su propio tipo de cambio: no se pisa con el del día. */
+  const cambioEditado = useRef(Boolean(transaccion?.tipoCambio))
   const esTransferencia = tipo === 'transferencia'
+  const dividiendo = division.activa && tipo === 'gasto' && !editando
 
   // Categorías del tipo elegido, las más usadas últimamente primero.
   const [montadoEn] = useState(() => Date.now())
@@ -109,8 +133,16 @@ function FormularioTransaccion({
       )
   }, [categorias, transacciones, tipo, montadoEn])
 
+  // "Por cobrar" es una cuenta de sistema (gastos divididos): solo se ofrece
+  // en transferencias, o si el movimiento que se edita ya la usa.
+  const cuentasElegibles = esTransferencia
+    ? cuentas
+    : cuentas.filter((c) => c.nombre !== NOMBRE_POR_COBRAR || c.id === transaccion?.cuentaId)
+
   // Selecciones efectivas (caen a un valor válido si la elegida ya no aplica).
-  const cuentaSeleccionada = cuentas.some((c) => c.id === cuentaId) ? cuentaId : (cuentas[0]?.id ?? '')
+  const cuentaSeleccionada = cuentasElegibles.some((c) => c.id === cuentaId)
+    ? cuentaId
+    : (cuentasElegibles[0]?.id ?? '')
   const destinoSeleccionado =
     cuentas.some((c) => c.id === cuentaDestinoId) && cuentaDestinoId !== cuentaSeleccionada
       ? cuentaDestinoId
@@ -146,7 +178,36 @@ function FormularioTransaccion({
     return [...vistos]
   }, [transacciones, tipo, esTransferencia])
 
-  const montoNumerico = Number(monto)
+  const sugerenciasEtiquetas = useMemo(() => etiquetasUsadas(transacciones), [transacciones])
+
+  // Al elegir dólares se trae el tipo de cambio del día (si hay red).
+  useEffect(() => {
+    if (moneda !== 'USD') return
+    let vigente = true
+    void obtenerTipoCambioDia().then((t) => {
+      if (!vigente || !t) return
+      setCambioDia(t)
+      if (!cambioEditado.current) setTipoCambio(String(t.valor))
+    })
+    return () => {
+      vigente = false
+    }
+  }, [moneda])
+
+  async function actualizarCambioDia() {
+    setConsultandoCambio(true)
+    const t = await obtenerTipoCambioDia(true)
+    setConsultandoCambio(false)
+    if (!t) {
+      avisar('No se pudo obtener el tipo de cambio (¿sin conexión?)', 'error')
+      return
+    }
+    setCambioDia(t)
+    cambioEditado.current = false
+    setTipoCambio(String(t.valor))
+  }
+
+  const montoNumerico = evaluarExpresion(monto) ?? NaN
   const cambioNumerico = Number(tipoCambio)
   const montoEnSoles =
     moneda === 'USD' ? Math.round(montoNumerico * cambioNumerico * 100) / 100 : montoNumerico
@@ -154,8 +215,10 @@ function FormularioTransaccion({
   function limpiar() {
     setMonto('')
     setConcepto('')
+    setEtiquetas([])
+    setDivision(DIVISION_INICIAL)
     setFecha(fechaParaInput())
-    montoRef.current?.focus()
+    if (!usarTeclado) montoRef.current?.focus()
   }
 
   async function manejarEnvio(evento: FormEvent<HTMLFormElement>) {
@@ -187,9 +250,28 @@ function FormularioTransaccion({
     // Al editar se conserva la hora original si no cambió el día.
     const fechaFinal = fechaDesdeInput(fecha, transaccion?.fecha)
     const conceptoFinal = concepto.trim() || undefined
+    // [] explícito al editar si se quitaron todas (para limpiarlas en Supabase).
+    const etiquetasFinal = etiquetas.length > 0 || transaccion?.etiquetas ? etiquetas : undefined
 
     try {
-      if (esTransferencia) {
+      if (dividiendo) {
+        if (moneda === 'USD') guardarTipoCambio(cambioNumerico)
+        const { miParte, porCobrar } = await registrarGastoDividido(
+          {
+            total: montoNumerico,
+            moneda,
+            tipoCambio: moneda === 'USD' ? cambioNumerico : 1,
+            cuentaId: cuentaSeleccionada,
+            categoriaId: categoriaSeleccionada,
+            fecha: fechaFinal,
+            concepto: conceptoFinal,
+            etiquetas: etiquetasFinal,
+            participantes: calcularParticipantes(division, montoNumerico),
+          },
+          usuarioId,
+        )
+        avisar(`Gasto dividido: tu parte ${formatearMoneda(miParte)}, te deben ${formatearMoneda(porCobrar)}`)
+      } else if (esTransferencia) {
         const datos = {
           cuentaOrigenId: cuentaSeleccionada,
           cuentaDestinoId: destinoSeleccionado,
@@ -217,6 +299,7 @@ function FormularioTransaccion({
           moneda: moneda === 'USD' ? moneda : transaccion?.moneda ? ('PEN' as const) : undefined,
           montoOriginal: moneda === 'USD' ? montoNumerico : undefined,
           tipoCambio: moneda === 'USD' ? cambioNumerico : undefined,
+          etiquetas: etiquetasFinal,
         }
         if (transaccion) {
           await actualizarTransaccion(transaccion.id, datos)
@@ -254,7 +337,7 @@ function FormularioTransaccion({
 
   const botonesCuenta = (seleccionada: string, onElegir: (id: string) => void, excluir?: string) => (
     <div className="selector-cuenta ui fluid buttons" role="radiogroup">
-      {cuentas
+      {cuentasElegibles
         .filter((c) => c.id !== excluir)
         .map((c) => (
           <button
@@ -301,14 +384,15 @@ function FormularioTransaccion({
           <input
             ref={montoRef}
             id="tx-monto"
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="0.01"
+            type="text"
+            // Con el teclado propio no se abre el del celular.
+            inputMode={usarTeclado ? 'none' : 'decimal'}
+            readOnly={usarTeclado}
             value={monto}
-            onChange={(e) => setMonto(e.target.value)}
+            onChange={(e) => setMonto(e.target.value.replace(/[^\d.,+-]/g, ''))}
             placeholder="0.00"
-            autoFocus={!editando}
+            autoFocus={!editando && !usarTeclado}
+            autoComplete="off"
             required
           />
           {!esTransferencia && (
@@ -328,7 +412,14 @@ function FormularioTransaccion({
           )}
           {esTransferencia && <span className="ui basic label">S/</span>}
         </div>
+        {tieneOperacion(monto) && (
+          <div className="resultado-expresion">
+            = {Number.isFinite(montoNumerico) ? (moneda === 'USD' ? formatearDolares(montoNumerico) : formatearMoneda(montoNumerico)) : '…'}
+          </div>
+        )}
       </div>
+
+      {usarTeclado && <TecladoNumerico valor={monto} onCambiar={setMonto} />}
 
       {montosFrecuentes.length > 0 && (
         <div className="montos-frecuentes" aria-label="Montos frecuentes">
@@ -351,8 +442,22 @@ function FormularioTransaccion({
               min="0"
               step="0.001"
               value={tipoCambio}
-              onChange={(e) => setTipoCambio(e.target.value)}
+              onChange={(e) => {
+                cambioEditado.current = true
+                setTipoCambio(e.target.value)
+              }}
             />
+            <button
+              type="button"
+              className="enlace-sugerencia"
+              onClick={actualizarCambioDia}
+              disabled={consultandoCambio}
+            >
+              <i className={`sync alternate icon ${consultandoCambio ? 'loading' : ''}`} />
+              {cambioDia
+                ? `Del día: ${cambioDia.valor} (${cambioDia.fuente}, ${cambioDia.fecha.toLocaleDateString('es-PE')})`
+                : 'Usar el tipo de cambio del día'}
+            </button>
           </div>
           <div className="field equivalente">
             <label>Equivale a</label>
@@ -421,6 +526,21 @@ function FormularioTransaccion({
         </div>
       )}
 
+      {!esTransferencia && (
+        <div className="field">
+          <label htmlFor="tx-etiquetas">
+            <i className="hashtag icon" />
+            Etiquetas (opcional)
+          </label>
+          <CampoEtiquetas
+            id="tx-etiquetas"
+            etiquetas={etiquetas}
+            onCambiar={setEtiquetas}
+            sugerencias={sugerenciasEtiquetas}
+          />
+        </div>
+      )}
+
       <div className="field">
         <label htmlFor="tx-concepto">Concepto (opcional)</label>
         <input
@@ -439,6 +559,16 @@ function FormularioTransaccion({
           ))}
         </datalist>
       </div>
+
+      {tipo === 'gasto' && !editando && (
+        <DividirGasto
+          estado={division}
+          onCambiar={setDivision}
+          total={montoNumerico}
+          moneda={moneda}
+          sugerencias={personasPrevias}
+        />
+      )}
 
       {error && (
         <div className="ui error message">

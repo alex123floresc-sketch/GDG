@@ -1,12 +1,21 @@
 import { useState, type FormEvent } from 'react'
 import { useAvisos } from '../../hooks/useAvisos'
-import { abonarDeuda, actualizarDeuda, crearDeuda, eliminarDeuda } from '../../services/deudaService'
+import {
+  abonarDeuda,
+  actualizarDeuda,
+  crearDeuda,
+  eliminarDeuda,
+  marcarDeudaPagada,
+  restaurarDeuda,
+} from '../../services/deudaService'
+import { registrarCobroDividido } from '../../services/divisionService'
 import { crearTransaccion } from '../../services/transaccionService'
 import type { Categoria, Cuenta, Deuda, TipoDeuda } from '../../types'
 import { fechaDesdeInput, fechaParaInput, formatearFecha, formatearMoneda } from '../../utils/formato'
 import { estadoDeuda } from '../../utils/planificacion'
 import BarraProgreso from '../BarraProgreso'
 import Modal from '../Modal'
+import Ilustracion from '../Ilustracion'
 
 interface PanelDeudasProps {
   usuarioId: string
@@ -120,7 +129,10 @@ function PanelDeudas({ usuarioId, deudas, cuentas, categorias }: PanelDeudasProp
     void ejecutar(
       async () => {
         await abonarDeuda(deuda.id, monto, abono.nota)
-        if (abono.registrar && abono.cuentaId && categoria) {
+        if (abono.registrar && abono.cuentaId && deuda.gastoDividido) {
+          // Lo adelantado en un gasto dividido vuelve desde "Por cobrar".
+          await registrarCobroDividido(usuarioId, deuda.persona, monto, abono.cuentaId)
+        } else if (abono.registrar && abono.cuentaId && categoria) {
           // Cobrar lo que me deben = ingreso; pagar lo que debo = gasto.
           await crearTransaccion(
             {
@@ -174,7 +186,7 @@ function PanelDeudas({ usuarioId, deudas, cuentas, categorias }: PanelDeudasProp
 
       {visibles.length === 0 ? (
         <div className="ui segment estado-vacio">
-          <i className={`${verSaldadas ? 'check circle outline' : 'handshake outline'} icon`} />
+          <Ilustracion nombre="deudas" />
           <p>{verSaldadas ? 'Aún no hay deudas saldadas.' : 'No tienes deudas pendientes. 🙌'}</p>
         </div>
       ) : (
@@ -189,6 +201,7 @@ function PanelDeudas({ usuarioId, deudas, cuentas, categorias }: PanelDeudasProp
                   <strong>{deuda.persona}</strong>
                   <span>
                     {deuda.tipo === 'me_deben' ? 'Te debe' : 'Le debes'}
+                    {deuda.gastoDividido ? ' · gasto dividido' : ''}
                     {deuda.concepto ? ` · ${deuda.concepto}` : ''} · {formatearFecha(deuda.fecha)}
                   </span>
                 </div>
@@ -229,6 +242,24 @@ function PanelDeudas({ usuarioId, deudas, cuentas, categorias }: PanelDeudasProp
                   <span className="texto-suave">Sin fecha límite</span>
                 )}
                 {!estado.saldada && (
+                  <div className="acciones-meta">
+                  {!deuda.gastoDividido && (
+                    <button
+                      type="button"
+                      className="ui small basic button"
+                      title="Saldar sin registrar movimientos en tus cuentas"
+                      onClick={async () => {
+                        const anterior = await marcarDeudaPagada(deuda.id)
+                        avisar(`Deuda con ${deuda.persona} marcada como pagada`, 'exito', {
+                          texto: 'Deshacer',
+                          onClick: () => void restaurarDeuda(anterior),
+                        })
+                      }}
+                    >
+                      <i className="check double icon" />
+                      Marcar como pagada
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="ui small primary button"
@@ -246,6 +277,7 @@ function PanelDeudas({ usuarioId, deudas, cuentas, categorias }: PanelDeudasProp
                     <i className="check icon" />
                     {deuda.tipo === 'me_deben' ? 'Registrar cobro' : 'Registrar pago'}
                   </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -380,7 +412,9 @@ function PanelDeudas({ usuarioId, deudas, cuentas, categorias }: PanelDeudasProp
                   checked={abono.registrar}
                   onChange={(e) => setAbono({ ...abono, registrar: e.target.checked })}
                 />
-                Registrarlo también como {abono.deuda.tipo === 'me_deben' ? 'ingreso' : 'gasto'} en
+                {abono.deuda.gastoDividido
+                  ? 'Devolver de "Por cobrar" a'
+                  : `Registrarlo también como ${abono.deuda.tipo === 'me_deben' ? 'ingreso' : 'gasto'} en`}
               </label>
               {abono.registrar && (
                 <select

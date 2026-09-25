@@ -125,24 +125,43 @@ async function usuarioSesionActiva(usuarioId: string): Promise<string> {
 // Detección del esquema remoto
 // ---------------------------------------------------------------------------
 
-let esquemaV7Confirmado = false
-
 /**
- * ¿Ya se ejecutó la migración v0.7 en Supabase? Se comprueba con consultas
- * vacías (`limit 0`). Una vez confirmada no se vuelve a preguntar en esta
- * sesión; mientras no lo esté, se reintenta en cada ciclo.
+ * Migraciones de supabase/migraciones/ y una consulta vacía (`limit 0`)
+ * que solo funciona si ya se ejecutó. En orden: cada una asume las
+ * anteriores.
  */
-async function esquemaV7(): Promise<boolean> {
-  if (!supabase) return false
-  if (esquemaV7Confirmado) return true
+const MIGRACIONES: { archivo: string; comprobar: () => PromiseLike<{ error: unknown }>[] }[] = [
+  {
+    archivo: 'v0.7.sql',
+    comprobar: () => [
+      supabase!.from('categorias').select('fecha_actualizacion').limit(0),
+      supabase!.from('metas').select('id').limit(0),
+      supabase!.from('transacciones').select('moneda, transferencia_id').limit(0),
+    ],
+  },
+  {
+    archivo: 'v0.11.sql',
+    comprobar: () => [
+      supabase!.from('transacciones').select('etiquetas').limit(0),
+      supabase!.from('deudas').select('gasto_dividido').limit(0),
+    ],
+  },
+]
 
-  const [categorias, metas, transacciones] = await Promise.all([
-    supabase.from('categorias').select('fecha_actualizacion').limit(0),
-    supabase.from('metas').select('id').limit(0),
-    supabase.from('transacciones').select('moneda, transferencia_id').limit(0),
-  ])
-  esquemaV7Confirmado = !categorias.error && !metas.error && !transacciones.error
-  return esquemaV7Confirmado
+/** Migraciones ya confirmadas en esta sesión (no se vuelven a consultar). */
+const migracionesConfirmadas = new Set<string>()
+
+/** Archivos de migración que aún no se ejecutaron en Supabase. */
+async function migracionesPendientes(): Promise<string[]> {
+  if (!supabase) return []
+  const pendientes: string[] = []
+  for (const m of MIGRACIONES) {
+    if (migracionesConfirmadas.has(m.archivo)) continue
+    const resultados = await Promise.all(m.comprobar())
+    if (resultados.every((r) => !r.error)) migracionesConfirmadas.add(m.archivo)
+    else pendientes.push(m.archivo)
+  }
+  return pendientes
 }
 
 // ---------------------------------------------------------------------------
@@ -232,6 +251,8 @@ function aFilaTransaccion(t: Transaccion, userId: string): FilaRemota {
   }
   if (t.transferenciaId) fila.transferencia_id = t.transferenciaId
   if (t.recurrenteId) fila.recurrente_id = t.recurrenteId
+  // [] explícito = se quitaron las etiquetas (hay que limpiarlas remoto).
+  if (t.etiquetas !== undefined) fila.etiquetas = t.etiquetas
 
   return fila
 }
@@ -260,6 +281,8 @@ function aTransaccionLocal(fila: Record<string, unknown>): Transaccion {
     tipoCambio: moneda ? aNumeroOpcional(fila.tipo_cambio) : undefined,
     transferenciaId: (fila.transferencia_id as string | null) ?? undefined,
     recurrenteId: (fila.recurrente_id as string | null) ?? undefined,
+    etiquetas:
+      Array.isArray(fila.etiquetas) && fila.etiquetas.length > 0 ? (fila.etiquetas as string[]) : undefined,
     sincronizado: true,
     fechaActualizacion: new Date(fila.fecha_actualizacion as string),
   }
@@ -409,6 +432,8 @@ const DEUDAS: Entidad<Deuda> = {
     fecha_limite: d.fechaLimite ? aFechaSql(d.fechaLimite) : null,
     abonos: aAportesRemotos(d.abonos),
     fecha_actualizacion: fechaRemota(d),
+    // Solo si aplica: así las deudas normales suben aunque falte v0.11.
+    ...(d.gastoDividido ? { gasto_dividido: true } : {}),
   }),
   aLocal: (f) => ({
     id: f.id as string,
@@ -420,6 +445,7 @@ const DEUDAS: Entidad<Deuda> = {
     fecha: deFechaSql(f.fecha as string),
     fechaLimite: f.fecha_limite ? deFechaSql(f.fecha_limite as string) : undefined,
     abonos: aAportesLocales(f.abonos),
+    gastoDividido: f.gasto_dividido === true ? true : undefined,
     ...marcaDeTiempo(f),
   }),
 }
@@ -632,7 +658,11 @@ async function fusionarCatalogo<T extends Categoria | Cuenta>(
         await db.transacciones
           .where(campo)
           .equals(duplicado.id)
-          .modify({ [campo]: remoto.id, sincronizado: false, fechaActualizacion: ahora })
+          .modify((t) => {
+            t[campo] = remoto.id
+            t.sincronizado = false
+            t.fechaActualizacion = ahora
+          })
         await db.recurrentes
           .where('usuarioId')
           .equals(usuarioId)
@@ -977,10 +1007,11 @@ async function reconciliarBorradosTransacciones(usuarioId: string): Promise<void
  * todos juntos para mostrarlos.
  */
 export async function sincronizar(usuarioId: string): Promise<ResultadoSincronizacion> {
-  if (!supabase) return { subidas: 0, descargadas: 0, fecha: new Date(), migracionPendiente: false }
+  if (!supabase) return { subidas: 0, descargadas: 0, fecha: new Date(), migracionesPendientes: [] }
 
   const userId = await usuarioSesionActiva(usuarioId)
-  const v7 = await esquemaV7()
+  const pendientesEsquema = await migracionesPendientes()
+  const v7 = !pendientesEsquema.includes('v0.7.sql')
   const borrados = await idsBorradosPendientes(usuarioId)
   const errores: string[] = []
   const agregar = (e: string | null) => e && errores.push(e)
@@ -1032,5 +1063,5 @@ export async function sincronizar(usuarioId: string): Promise<ResultadoSincroniz
 
   if (errores.length > 0) throw new Error(errores.join(' · '))
 
-  return { subidas, descargadas, fecha: new Date(), migracionPendiente: !v7 }
+  return { subidas, descargadas, fecha: new Date(), migracionesPendientes: pendientesEsquema }
 }

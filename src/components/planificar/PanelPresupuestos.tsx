@@ -7,6 +7,7 @@ import { formatearMoneda, formatearPorcentaje } from '../../utils/formato'
 import { estadoPresupuestos, type NivelPresupuesto } from '../../utils/planificacion'
 import BarraProgreso from '../BarraProgreso'
 import Modal from '../Modal'
+import Ilustracion from '../Ilustracion'
 
 interface PanelPresupuestosProps {
   usuarioId: string
@@ -117,7 +118,7 @@ function PanelPresupuestos({ usuarioId, presupuestos, categorias, transacciones 
 
       {estados.length === 0 ? (
         <div className="ui segment estado-vacio">
-          <i className="chart pie icon" />
+          <Ilustracion nombre="presupuestos" />
           <p>
             <strong>Aún no tienes presupuestos.</strong>
             <br />
