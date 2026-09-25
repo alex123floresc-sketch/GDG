@@ -46,8 +46,14 @@ function App() {
     void asegurarCuentasPorDefecto(usuarioId)
   }, [usuarioId])
 
-  const { enLinea, sincronizando, ultimaSincronizacion, sincronizarAhora } =
-    useSync(usuarioId)
+  const {
+    enLinea,
+    sincronizando,
+    ultimaSincronizacion,
+    error: errorSincronizacion,
+    pendientes,
+    sincronizarAhora,
+  } = useSync(usuarioId)
 
   async function manejarCerrarSesion() {
     // Mejor esfuerzo: intenta subir lo pendiente antes de salir para no
@@ -87,11 +93,28 @@ function App() {
         enLinea={enLinea}
         sincronizando={sincronizando}
         ultimaSincronizacion={ultimaSincronizacion}
+        pendientes={pendientes}
+        error={errorSincronizacion}
+        onSincronizar={sincronizarAhora}
         onCerrarSesion={manejarCerrarSesion}
       />
 
       <main className="app-contenido">
         <div className="ui container">
+          {errorSincronizacion && enLinea && (
+            <div className="ui warning icon message aviso-sincronizacion">
+              <i className="exclamation triangle icon" />
+              <div className="content">
+                <div className="header">
+                  {pendientes > 0
+                    ? `${pendientes} transacción${pendientes === 1 ? '' : 'es'} sin sincronizar`
+                    : 'No se pudo sincronizar'}
+                </div>
+                <p>{errorSincronizacion}</p>
+                <p>Tus datos están guardados en este dispositivo; se reintentará automáticamente.</p>
+              </div>
+            </div>
+          )}
           <Dashboard usuarioId={usuarioId} sincronizarAhora={sincronizarAhora} />
         </div>
       </main>

@@ -260,6 +260,15 @@ body {
     display: none !important;
   }
 
+  .app-header.ui.menu .item {
+    padding-left: 0.7em;
+    padding-right: 0.7em;
+  }
+
+  .app-header .marca {
+    font-size: 1em;
+  }
+
   .ui.stackable.grid > .column:not(.row) {
     padding-top: 0.4rem !important;
     padding-bottom: 0.4rem !important;
@@ -928,4 +937,9 @@ body {
   .rejilla-kpi {
     grid-template-columns: repeat(4, 1fr) !important;
   }
+}
+
+.aviso-sincronizacion.ui.message {
+  margin-bottom: 1.5em;
+  word-break: break-word;
 }

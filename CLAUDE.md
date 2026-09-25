@@ -209,6 +209,25 @@ CREATE UNIQUE INDEX transacciones_user_nro_operacion_idx
 No existen tablas remotas de `categorias`, `cuentas` ni `presupuestos` — son
 locales por usuario (ver Convenciones), no sincronizan con Supabase.
 
+## Sincronización (`useSync` + `syncService`)
+
+- `useSync` sincroniza al iniciar sesión, al evento `online`, al volver a
+  la pestaña (`visibilitychange`) y **cada vez que hay transacciones
+  pendientes** (observa con `useLiveQuery` el conteo de
+  `sincronizado === false`, con 1,5 s de espera y reintento cada 60 s).
+  Así una transacción registrada a mano sube sin recargar la página.
+- El Header muestra el estado (En línea / Pendiente N / Error / Sin
+  conexión) y el botón "Sincronizar ahora"; `App.tsx` muestra el mensaje
+  de error de la última sincronización.
+- `syncService.subirTransaccionesPendientes` toma el `user_id` de
+  `supabase.auth.getSession()` (y exige que coincida con `usuarioId`).
+  `aFilaRemota` es una lista blanca tipada como `FilaTransaccionRemota`:
+  campos locales como `sincronizado` nunca se envían. `sincronizado` es
+  boolean en Dexie (no 0/1) y se pone en `true` justo después de que el
+  upsert responde sin error.
+- `describirError` traduce los errores de PostgREST: `PGRST204`/`42703` =
+  falta la migración SQL, `42501` = rechazo de RLS.
+
 `syncService.ts` siempre envía/filtra por `user_id`; requiere que la política
 RLS de arriba esté activa (no la versión relajada `USING (true)` que se usó
 temporalmente antes de implementar autenticación).

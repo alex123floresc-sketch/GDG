@@ -27,10 +27,53 @@ interface ErrorSupabase {
   code?: string
 }
 
-function aFilaRemota(transaccion: Transaccion) {
+/**
+ * Traduce un error de Supabase/PostgREST a un mensaje que diga qué hacer.
+ * El caso más común es que la tabla remota aún no tenga las columnas que
+ * envía el cliente (migración SQL pendiente, ver CLAUDE.md).
+ */
+function describirError(accion: string, error: ErrorSupabase): string {
+  // PGRST204: columna desconocida en el payload; 42703: columna inexistente.
+  if (error.code === 'PGRST204' || error.code === '42703') {
+    return `${accion}: la tabla "transacciones" de Supabase no tiene todas las columnas que usa la app (falta ejecutar la migración SQL). Detalle: ${error.message}`
+  }
+  // 42501: la política RLS rechazó la fila (user_id distinto a auth.uid()).
+  if (error.code === '42501') {
+    return `${accion}: Supabase rechazó los datos por permisos (RLS). Cierra sesión y vuelve a entrar. Detalle: ${error.message}`
+  }
+  return `${accion}: ${error.message}`
+}
+
+/**
+ * Id del usuario con sesión activa en Supabase. Las filas se suben con este
+ * `user_id` (el que valida la política RLS), nunca con uno de otra sesión.
+ */
+async function usuarioSesionActiva(usuarioId: string): Promise<string> {
+  if (!supabase) throw new Error('Supabase no está configurado.')
+
+  const { data, error } = await supabase.auth.getSession()
+  const idSesion = data.session?.user.id
+
+  if (error || !idSesion) {
+    throw new Error('La sesión expiró: vuelve a iniciar sesión para sincronizar.')
+  }
+  if (idSesion !== usuarioId) {
+    throw new Error('La sesión activa no corresponde a este usuario; vuelve a iniciar sesión.')
+  }
+  return idSesion
+}
+
+/**
+ * Fila tal cual se envía a Supabase. Se construye campo por campo (lista
+ * blanca), así que los campos solo-locales como `sincronizado` nunca viajan.
+ */
+function aFilaRemota(
+  transaccion: Transaccion,
+  userId: string,
+): FilaTransaccionRemota {
   return {
     id: transaccion.id,
-    user_id: transaccion.usuarioId,
+    user_id: userId,
     cuenta_id: transaccion.cuentaId,
     categoria_id: transaccion.categoriaId,
     monto: transaccion.monto,
@@ -88,27 +131,37 @@ async function marcarComoSincronizadas(
  * (ya existe esa operación en el servidor) y se marcan como sincronizados
  * para no reintentarlos en cada ciclo.
  */
-async function subirUnaPorUna(pendientes: Transaccion[]): Promise<number> {
+async function subirUnaPorUna(
+  pendientes: Transaccion[],
+  userId: string,
+): Promise<number> {
   if (!supabase) return 0
 
   let subidas = 0
   const resueltas: Transaccion[] = []
+  let ultimoError: ErrorSupabase | null = null
 
   for (const transaccion of pendientes) {
     const { error } = await supabase
       .from(TABLA_TRANSACCIONES)
-      .upsert(aFilaRemota(transaccion))
+      .upsert(aFilaRemota(transaccion, userId))
 
     if (!error) {
       resueltas.push(transaccion)
       subidas++
     } else if (esErrorDuplicado(error)) {
       resueltas.push(transaccion)
+    } else {
+      // Otros errores: se deja pendiente para reintentar en el próximo ciclo.
+      ultimoError = error
     }
-    // Otros errores: se deja pendiente para reintentar en el próximo ciclo.
   }
 
   await marcarComoSincronizadas(resueltas)
+
+  if (ultimoError) {
+    throw new Error(describirError('Algunas transacciones no se pudieron subir', ultimoError))
+  }
 
   return subidas
 }
@@ -123,6 +176,8 @@ export async function subirTransaccionesPendientes(
 ): Promise<number> {
   if (!supabase) return 0
 
+  const userId = await usuarioSesionActiva(usuarioId)
+
   // 'sincronizado' no está indexado (IndexedDB no admite booleans como
   // clave de índice), por lo que se filtra en memoria.
   const pendientes = await db.transacciones
@@ -133,15 +188,15 @@ export async function subirTransaccionesPendientes(
 
   if (pendientes.length === 0) return 0
 
-  const filas = pendientes.map(aFilaRemota)
+  const filas = pendientes.map((t) => aFilaRemota(t, userId))
 
   const { error } = await supabase.from(TABLA_TRANSACCIONES).upsert(filas)
 
   if (error) {
     if (esErrorDuplicado(error)) {
-      return subirUnaPorUna(pendientes)
+      return subirUnaPorUna(pendientes, userId)
     }
-    throw new Error(`Error al subir transacciones a Supabase: ${error.message}`)
+    throw new Error(describirError('No se pudieron subir las transacciones', error))
   }
 
   await marcarComoSincronizadas(pendientes)
@@ -167,7 +222,7 @@ export async function descargarTransaccionesRecientes(
     .limit(limite)
 
   if (error) {
-    throw new Error(`Error al descargar transacciones de Supabase: ${error.message}`)
+    throw new Error(describirError('No se pudieron descargar las transacciones', error))
   }
 
   if (!data || data.length === 0) return 0

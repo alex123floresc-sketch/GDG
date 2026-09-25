@@ -5,6 +5,10 @@ interface HeaderProps {
   enLinea: boolean
   sincronizando: boolean
   ultimaSincronizacion: Date | null
+  /** Transacciones locales aún no subidas a Supabase. */
+  pendientes: number
+  error: string | null
+  onSincronizar: () => Promise<void>
   onCerrarSesion: () => Promise<void> | void
 }
 
@@ -13,15 +17,35 @@ function Header({
   enLinea,
   sincronizando,
   ultimaSincronizacion,
+  pendientes,
+  error,
+  onSincronizar,
   onCerrarSesion,
 }: HeaderProps) {
   const [cerrandoSesion, setCerrandoSesion] = useState(false)
 
   const estado = sincronizando
     ? { etiqueta: 'Sincronizando', color: 'blue', icono: 'sync loading' }
-    : enLinea
-      ? { etiqueta: 'En línea', color: 'green', icono: 'cloud' }
-      : { etiqueta: 'Sin conexión', color: 'red', icono: 'plug' }
+    : !enLinea
+      ? { etiqueta: 'Sin conexión', color: 'red', icono: 'plug' }
+      : error
+        ? { etiqueta: 'Error al sincronizar', color: 'red', icono: 'exclamation triangle' }
+        : pendientes > 0
+          ? { etiqueta: 'Pendiente', color: 'orange', icono: 'clock outline' }
+          : { etiqueta: 'En línea', color: 'green', icono: 'cloud' }
+
+  const titulo = [
+    error,
+    pendientes > 0 ? `${pendientes} transacción(es) sin subir` : null,
+    ultimaSincronizacion
+      ? `Última sincronización: ${ultimaSincronizacion.toLocaleTimeString('es-PE', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
 
   async function manejarCerrarSesion() {
     setCerrandoSesion(true)
@@ -42,21 +66,23 @@ function Header({
 
         <div className="right menu">
           <div className="item">
-            <span
-              className={`ui ${estado.color} label`}
-              title={
-                ultimaSincronizacion
-                  ? `Última sincronización: ${ultimaSincronizacion.toLocaleTimeString(
-                      'es-PE',
-                      { hour: '2-digit', minute: '2-digit' },
-                    )}`
-                  : undefined
-              }
-            >
+            <span className={`ui ${estado.color} label`} title={titulo || undefined}>
               <i className={`${estado.icono} icon`} />
-              {estado.etiqueta}
+              <span className="solo-escritorio">{estado.etiqueta}</span>
+              {pendientes > 0 && <span className="detail">{pendientes}</span>}
             </span>
           </div>
+
+          <button
+            type="button"
+            onClick={() => void onSincronizar()}
+            disabled={!enLinea || sincronizando}
+            className="link item"
+            title={enLinea ? 'Sincronizar ahora' : 'Sin conexión'}
+          >
+            <i className={`sync alternate icon ${sincronizando ? 'loading' : ''}`} />
+            <span className="solo-escritorio">Sincronizar ahora</span>
+          </button>
 
           <div className="email item" title={email}>
             <i className="user circle icon" />
