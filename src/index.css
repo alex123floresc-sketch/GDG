@@ -11,6 +11,10 @@
   --color-marca: #4f46e5;
   --color-marca-oscuro: #3730a3;
   --color-marca-suave: #eef0fe;
+  /* Fondo de botones primarios (texto blanco encima, contraste ≥ 4.5:1). */
+  --color-boton: #4f46e5;
+  --color-boton-hover: #3730a3;
+  --color-campo: #ffffff;
   --color-header-1: #1e1b4b;
   --color-header-2: #312e81;
   --color-texto: #1f2033;
@@ -54,13 +58,13 @@ body {
 
 .ui.primary.button,
 .ui.primary.buttons .button {
-  background: var(--color-marca);
+  background: var(--color-boton);
 }
 
 .ui.primary.button:hover,
 .ui.primary.button:focus,
 .ui.primary.buttons .button:hover {
-  background: var(--color-marca-oscuro);
+  background: var(--color-boton-hover);
 }
 
 .ui.green.button,
@@ -1342,7 +1346,7 @@ body.con-modal {
   height: 3.6em;
   border: none;
   border-radius: 50%;
-  background: var(--color-marca);
+  background: var(--color-boton);
   color: #fff;
   font-size: 1.15em;
   cursor: pointer;
@@ -1352,7 +1356,7 @@ body.con-modal {
 
 .boton-flotante:hover,
 .boton-flotante:focus-visible {
-  background: var(--color-marca-oscuro);
+  background: var(--color-boton-hover);
   transform: scale(1.06);
 }
 
@@ -1961,3 +1965,547 @@ body.con-modal {
 .tono-alerta { background: rgba(237, 161, 0, 0.16); color: var(--color-alerta-texto); }
 .tono-negativo { background: rgba(217, 72, 15, 0.12); color: var(--color-gasto); }
 .tono-info { background: var(--color-marca-suave); color: var(--color-marca); }
+
+/* =====================================================================
+ * Tema oscuro
+ * `data-theme` lo pone utils/tema.ts (resuelve "auto" con el sistema).
+ * Tokens propios + ajustes a los componentes de Fomantic, que traen
+ * colores claros fijos.
+ * ===================================================================== */
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-fondo: #0e0d1a;
+  --color-superficie: #1a1930;
+  --color-marca: #8b93ff;
+  --color-marca-oscuro: #6b73f2;
+  --color-marca-suave: rgba(139, 147, 255, 0.14);
+  --color-boton: #5b54e6;
+  --color-boton-hover: #6d67f0;
+  --color-campo: #13122a;
+  --color-header-1: #0b0a18;
+  --color-header-2: #1e1b4b;
+  --color-texto: #e9e9f4;
+  --color-texto-suave: #a4a7c1;
+  --color-borde: #2d2c49;
+
+  --color-ingreso: #3fd3a0;
+  --color-gasto: #ff8f66;
+  --color-alerta: #e3a21a;
+  --color-alerta-texto: #f3c55a;
+
+  /* Series: los mismos tonos, escalonados para el fondo oscuro. */
+  --serie-ingreso: #199e70;
+  --serie-gasto: #d95926;
+  --serie-balance: #9085e9;
+  --grafico-grilla: #25243e;
+  --grafico-eje: #3b3a5c;
+  --grafico-texto: #8d90ab;
+
+  --sombra: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme='dark'] body {
+  background: var(--color-fondo);
+  color: var(--color-texto);
+}
+
+[data-theme='dark'] .ui.segment,
+[data-theme='dark'] .ui.menu:not(.inverted),
+[data-theme='dark'] .ui.modal,
+[data-theme='dark'] .ui.modal > .header,
+[data-theme='dark'] .ui.modal > .content,
+[data-theme='dark'] .ui.table {
+  background: var(--color-superficie);
+  color: var(--color-texto);
+}
+
+[data-theme='dark'] .ui.segment,
+[data-theme='dark'] .ui.table,
+[data-theme='dark'] .ui.modal > .header {
+  border-color: var(--color-borde);
+}
+
+[data-theme='dark'] .ui.placeholder.segment {
+  background: var(--color-fondo);
+  border-color: var(--color-borde);
+}
+
+[data-theme='dark'] .ui.header,
+[data-theme='dark'] .ui.statistic > .value,
+[data-theme='dark'] .ui.list .item .header,
+[data-theme='dark'] .ui.form .field > label,
+[data-theme='dark'] .ui.form label,
+[data-theme='dark'] .ui.modal > .header,
+[data-theme='dark'] .ui.table thead th,
+[data-theme='dark'] .ui.table tfoot th {
+  color: var(--color-texto);
+}
+
+[data-theme='dark'] .ui.list .item .description,
+[data-theme='dark'] .ui.statistic > .label {
+  color: var(--color-texto-suave);
+}
+
+[data-theme='dark'] .ui.menu:not(.inverted) .item {
+  color: var(--color-texto-suave);
+}
+
+[data-theme='dark'] .ui.menu:not(.inverted) .item:before {
+  background: var(--color-borde);
+}
+
+[data-theme='dark'] .ui.secondary.pointing.menu {
+  background: transparent;
+  border-bottom-color: var(--color-borde);
+}
+
+[data-theme='dark'] .ui.secondary.pointing.menu .item:hover {
+  color: var(--color-texto);
+}
+
+[data-theme='dark'] .ui.form input:not([type='checkbox']),
+[data-theme='dark'] .ui.form select,
+[data-theme='dark'] .ui.form textarea,
+[data-theme='dark'] .ui.input > input {
+  background: var(--color-campo) !important;
+  color: var(--color-texto) !important;
+  border-color: var(--color-borde) !important;
+}
+
+[data-theme='dark'] .ui.form input::placeholder,
+[data-theme='dark'] .ui.input > input::placeholder {
+  color: #6f7291 !important;
+}
+
+[data-theme='dark'] .ui.labeled.input > .label,
+[data-theme='dark'] .ui.basic.label {
+  background: var(--color-superficie);
+  color: var(--color-texto);
+  border-color: var(--color-borde);
+}
+
+[data-theme='dark'] .ui.basic.button,
+[data-theme='dark'] .ui.basic.buttons .button {
+  background: transparent !important;
+  color: var(--color-texto) !important;
+  box-shadow: 0 0 0 1px var(--color-borde) inset !important;
+}
+
+[data-theme='dark'] .ui.basic.button:hover,
+[data-theme='dark'] .ui.basic.buttons .button:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme='dark'] .ui.basic.red.button {
+  color: var(--color-gasto) !important;
+  box-shadow: 0 0 0 1px var(--color-gasto) inset !important;
+}
+
+[data-theme='dark'] .ui.basic.orange.label {
+  color: var(--color-gasto) !important;
+  border-color: var(--color-gasto) !important;
+}
+
+[data-theme='dark'] .ui.basic.violet.label {
+  color: #b3a9ff !important;
+  border-color: #b3a9ff !important;
+}
+
+[data-theme='dark'] .ui.basic.button:disabled,
+[data-theme='dark'] .ui.button:disabled {
+  opacity: 0.4 !important;
+}
+
+[data-theme='dark'] .ui.divided.list > .item,
+[data-theme='dark'] .ui.table td,
+[data-theme='dark'] .ui.table tr td {
+  border-color: var(--color-borde) !important;
+}
+
+[data-theme='dark'] .ui.table thead th,
+[data-theme='dark'] .ui.table tfoot th {
+  background: var(--color-fondo);
+  border-color: var(--color-borde);
+}
+
+[data-theme='dark'] .ui.selectable.table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: var(--color-texto) !important;
+}
+
+[data-theme='dark'] .ui.message {
+  background: var(--color-superficie);
+  color: var(--color-texto);
+  box-shadow: 0 0 0 1px var(--color-borde) inset;
+}
+
+[data-theme='dark'] .ui.message .header {
+  color: var(--color-texto);
+}
+
+[data-theme='dark'] .ui.warning.message {
+  background: rgba(227, 162, 26, 0.12);
+  box-shadow: 0 0 0 1px rgba(227, 162, 26, 0.4) inset;
+}
+
+[data-theme='dark'] .ui.error.message {
+  background: rgba(255, 143, 102, 0.12);
+  box-shadow: 0 0 0 1px rgba(255, 143, 102, 0.4) inset;
+}
+
+[data-theme='dark'] .ui.info.message {
+  background: var(--color-marca-suave);
+  box-shadow: 0 0 0 1px rgba(139, 147, 255, 0.4) inset;
+}
+
+[data-theme='dark'] .ui.success.message {
+  background: rgba(63, 211, 160, 0.12);
+  box-shadow: 0 0 0 1px rgba(63, 211, 160, 0.4) inset;
+}
+
+[data-theme='dark'] .ui.form .field.error input,
+[data-theme='dark'] .ui.form .field.error select {
+  background: rgba(255, 143, 102, 0.1) !important;
+}
+
+[data-theme='dark'] .cerrar-modal,
+[data-theme='dark'] .opcion-icono {
+  color: var(--color-texto);
+}
+
+[data-theme='dark'] .ui.form:not(.initial) .field input:invalid:placeholder-shown {
+  color: var(--color-texto);
+  background: var(--color-campo);
+  border-color: var(--color-borde);
+}
+
+[data-theme='dark'] .pantalla-carga.ui.inverted.dimmer {
+  background: var(--color-fondo);
+}
+
+[data-theme='dark'] .muestra-color {
+  border-color: var(--color-superficie);
+}
+
+[data-theme='dark'] .aviso {
+  background: #2a2850;
+}
+
+/* ---------- Inicio ---------- */
+
+.entrada-seccion {
+  animation: subir 0.22s ease-out;
+}
+
+.tarjeta-principal {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1em;
+  padding: 1.4em 1.5em 1.2em;
+  border-radius: 18px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.16), transparent 45%),
+    linear-gradient(135deg, #4f46e5 0%, #3730a3 55%, #1e1b4b 100%);
+  box-shadow: 0 10px 30px rgba(55, 48, 163, 0.35);
+}
+
+.tarjeta-principal .saludo {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.3em;
+  opacity: 0.9;
+}
+
+.tarjeta-principal .saludo .fecha {
+  opacity: 0.8;
+  font-size: 0.9em;
+}
+
+.tarjeta-principal .saldo-total {
+  display: flex;
+  flex-direction: column;
+  margin: 0.8em 0 1em;
+}
+
+.tarjeta-principal .etiqueta {
+  font-size: 0.85em;
+  opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tarjeta-principal .cifra {
+  font-size: 2.4em;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.tarjeta-principal .mes-actual {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75em;
+  padding: 0.8em 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.tarjeta-principal .mes-actual > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tarjeta-principal .mes-actual span {
+  font-size: 0.8em;
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tarjeta-principal .mes-actual strong {
+  font-size: 1.15em;
+}
+
+.tarjeta-principal .mes-actual small {
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.acciones-rapidas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6em;
+  margin-top: 0.4em;
+}
+
+.acciones-rapidas button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  padding: 0.7em 0.5em;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.acciones-rapidas button:hover,
+.acciones-rapidas button:focus-visible {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.acciones-rapidas button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.acciones-rapidas button > i.icon {
+  margin: 0;
+}
+
+.carrusel-cuentas {
+  display: flex;
+  gap: 0.6em;
+  margin-bottom: 1em;
+  padding-bottom: 0.3em;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+}
+
+.chip-cuenta {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  flex-shrink: 0;
+  min-width: 170px;
+  padding: 0.7em 0.9em;
+  border: 1px solid var(--color-borde);
+  border-radius: 14px;
+  background: var(--color-superficie);
+  color: var(--color-texto);
+  box-shadow: var(--sombra);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: transform 0.12s, border-color 0.12s;
+}
+
+.chip-cuenta:hover,
+.chip-cuenta:focus-visible {
+  border-color: var(--color-marca);
+}
+
+.chip-cuenta .datos {
+  display: flex;
+  flex-direction: column;
+}
+
+.chip-cuenta .nombre {
+  font-size: 0.8em;
+  color: var(--color-texto-suave);
+}
+
+.rejilla-inicio {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1em;
+  margin-bottom: 1em;
+}
+
+.rejilla-inicio > .ui.segment {
+  margin: 0;
+}
+
+.titulo-bloque {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75em;
+}
+
+.titulo-bloque .ui.header {
+  margin: 0;
+}
+
+.titulo-bloque .enlace-sugerencia {
+  margin: 0;
+}
+
+.fila-mini + .fila-mini {
+  margin-top: 0.8em;
+}
+
+.fila-mini .linea {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5em;
+  margin-bottom: 0.3em;
+  font-size: 0.92em;
+}
+
+.fila-mini .linea > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .tarjeta-principal {
+    padding: 1.1em 1.1em 1em;
+    border-radius: 16px;
+  }
+
+  .tarjeta-principal .cifra {
+    font-size: 2em;
+  }
+
+  .tarjeta-principal .mes-actual {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .tarjeta-principal .mes-actual > div:last-child {
+    grid-column: span 2;
+  }
+
+  .rejilla-inicio {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Registro rápido ---------- */
+
+.montos-frecuentes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35em;
+  margin: -0.4em 0 1em;
+}
+
+.montos-frecuentes .ui.button {
+  margin: 0;
+}
+
+.acciones-formulario .casilla.continuar {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  margin-right: auto;
+  font-size: 0.9em;
+  color: var(--color-texto-suave);
+  cursor: pointer;
+}
+
+/* ---------- Pulido ---------- */
+
+.ui.button:active:not(:disabled),
+.boton-flotante:active,
+.acciones-rapidas button:active:not(:disabled),
+.chip-cuenta:active,
+.opcion-categoria:active {
+  transform: scale(0.97);
+}
+
+.ui.segment {
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+[data-theme='dark'] .tarjeta-principal {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(139, 147, 255, 0.22), transparent 45%),
+    linear-gradient(135deg, #3b36b8 0%, #2a2580 55%, #16143a 100%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+/* Ajustes del tema oscuro detectados al revisarlo */
+.leyenda-dona .nombre {
+  color: var(--color-texto);
+}
+
+[data-theme='dark'] .ui.basic.label {
+  background: transparent !important;
+}
+
+[data-theme='dark'] .ui.red.button,
+[data-theme='dark'] .ui.red.buttons .button {
+  background: #c2410c;
+}
+
+[data-theme='dark'] .ui.green.button,
+[data-theme='dark'] .ui.green.buttons .button {
+  background: #0f7a55;
+}
+
+[data-theme='dark'] .ui.form .field > label,
+[data-theme='dark'] .ui.form .fields .field > label,
+[data-theme='dark'] .ui.modal .ui.form label {
+  color: var(--color-texto) !important;
+}
+
+.carrusel-cuentas::-webkit-scrollbar {
+  height: 0;
+}
+
+.carrusel-cuentas {
+  scrollbar-width: none;
+}

@@ -32,6 +32,8 @@ interface FormularioTransaccionProps {
   onListo?: () => void
   /** Lleva a la pantalla de categorías (para crear una que falte). */
   onGestionarCategorias?: () => void
+  /** Muestra "Registrar otro después" (el formulario sigue abierto al guardar). */
+  permitirContinuar?: boolean
 }
 
 const TIPOS: { id: TipoFormulario; etiqueta: string; icono: string; color: string }[] = [
@@ -51,6 +53,7 @@ function FormularioTransaccion({
   tipoInicial = 'gasto',
   onListo,
   onGestionarCategorias,
+  permitirContinuar = false,
 }: FormularioTransaccionProps) {
   const { avisar } = useAvisos()
   const editando = Boolean(transaccion)
@@ -87,6 +90,7 @@ function FormularioTransaccion({
   const [error, setError] = useState<string | null>(null)
   const montoRef = useRef<HTMLInputElement>(null)
 
+  const [continuar, setContinuar] = useState(false)
   const esTransferencia = tipo === 'transferencia'
 
   // Categorías del tipo elegido, las más usadas últimamente primero.
@@ -114,6 +118,33 @@ function FormularioTransaccion({
   const categoriaSeleccionada = categoriasDisponibles.some((c) => c.id === categoriaId)
     ? categoriaId
     : ''
+
+  // Montos que más se repiten en la categoría elegida (atajos de un toque).
+  const montosFrecuentes = useMemo(() => {
+    if (!categoriaSeleccionada || editando) return []
+    const conteo = new Map<number, number>()
+    for (const t of transacciones) {
+      if (t.categoriaId !== categoriaSeleccionada || t.origen === 'transferencia') continue
+      const valor = t.montoOriginal ?? t.monto
+      conteo.set(valor, (conteo.get(valor) ?? 0) + 1)
+    }
+    return [...conteo]
+      .filter(([, veces]) => veces >= 2)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([valor]) => valor)
+      .sort((a, b) => a - b)
+  }, [transacciones, categoriaSeleccionada, editando])
+
+  // Conceptos ya usados (autocompletado nativo con <datalist>).
+  const conceptosPrevios = useMemo(() => {
+    const vistos = new Set<string>()
+    for (const t of transacciones) {
+      if (t.concepto && (esTransferencia ? t.origen === 'transferencia' : t.tipo === tipo)) vistos.add(t.concepto)
+      if (vistos.size >= 30) break
+    }
+    return [...vistos]
+  }, [transacciones, tipo, esTransferencia])
 
   const montoNumerico = Number(monto)
   const cambioNumerico = Number(tipoCambio)
@@ -197,7 +228,7 @@ function FormularioTransaccion({
       }
 
       if (!editando) limpiar()
-      onListo?.()
+      if (!(permitirContinuar && continuar)) onListo?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo guardar el movimiento.')
     } finally {
@@ -299,6 +330,16 @@ function FormularioTransaccion({
         </div>
       </div>
 
+      {montosFrecuentes.length > 0 && (
+        <div className="montos-frecuentes" aria-label="Montos frecuentes">
+          {montosFrecuentes.map((m) => (
+            <button key={m} type="button" className="ui mini basic button" onClick={() => setMonto(String(m))}>
+              {moneda === 'USD' ? 'US$' : 'S/'} {m.toFixed(2)}
+            </button>
+          ))}
+        </div>
+      )}
+
       {moneda === 'USD' && !esTransferencia && (
         <div className="fields tipo-cambio">
           <div className="field">
@@ -389,7 +430,14 @@ function FormularioTransaccion({
           onChange={(e) => setConcepto(e.target.value)}
           placeholder={esTransferencia ? 'Ej. Pago de tarjeta' : 'Ej. Almuerzo con el equipo'}
           maxLength={140}
+          list="conceptos-previos"
+          autoComplete="off"
         />
+        <datalist id="conceptos-previos">
+          {conceptosPrevios.map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
       </div>
 
       {error && (
@@ -431,6 +479,12 @@ function FormularioTransaccion({
               <i className="trash alternate outline icon" />
               Eliminar
             </button>
+          )}
+          {permitirContinuar && !editando && (
+            <label className="casilla continuar">
+              <input type="checkbox" checked={continuar} onChange={(e) => setContinuar(e.target.checked)} />
+              Registrar otro después
+            </label>
           )}
           <button
             type="submit"

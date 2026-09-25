@@ -1,4 +1,12 @@
 import { useState } from 'react'
+import { guardarTema, leerTema, type Tema } from '../utils/preferencias'
+import { aplicarTema } from '../utils/tema'
+
+const TEMAS: { id: Tema; icono: string; etiqueta: string }[] = [
+  { id: 'auto', icono: 'adjust', etiqueta: 'Tema automático (según el sistema)' },
+  { id: 'claro', icono: 'sun', etiqueta: 'Tema claro' },
+  { id: 'oscuro', icono: 'moon', etiqueta: 'Tema oscuro' },
+]
 
 interface HeaderProps {
   email: string
@@ -23,6 +31,15 @@ function Header({
   onCerrarSesion,
 }: HeaderProps) {
   const [cerrandoSesion, setCerrandoSesion] = useState(false)
+  const [tema, setTema] = useState<Tema>(leerTema)
+  const temaActual = TEMAS.find((t) => t.id === tema)!
+
+  function cambiarTema() {
+    const siguiente = TEMAS[(TEMAS.indexOf(temaActual) + 1) % TEMAS.length].id
+    setTema(siguiente)
+    guardarTema(siguiente)
+    aplicarTema(siguiente)
+  }
 
   const estado = sincronizando
     ? { etiqueta: 'Sincronizando', color: 'blue', icono: 'sync loading' }
@@ -82,6 +99,16 @@ function Header({
           >
             <i className={`sync alternate icon ${sincronizando ? 'loading' : ''}`} />
             <span className="solo-escritorio">Sincronizar ahora</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={cambiarTema}
+            className="link item"
+            title={`${temaActual.etiqueta} · tocar para cambiar`}
+            aria-label={temaActual.etiqueta}
+          >
+            <i className={`${temaActual.icono} icon`} />
           </button>
 
           <div className="email item" title={email}>

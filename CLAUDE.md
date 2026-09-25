@@ -30,6 +30,14 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   migra las categorías viejas). Verificar que el nombre exista en
   `fomantic-ui-css/components/icon.min.css` (p. ej. es `chartline`, no
   `chart line`: un nombre inválido se ve como un círculo vacío).
+- **Tema claro/oscuro**: `utils/tema.ts` resuelve el tema (auto/claro/
+  oscuro, guardado en `preferencias`) y pone `<html data-theme="light|dark">`
+  antes del primer render (`main.tsx`); botón en el Header. En
+  `index.css`, `:root[data-theme='dark']` redefine los tokens y hay un
+  bloque de ajustes a componentes de Fomantic (traen colores claros
+  fijos). Todo color nuevo debe salir de una variable, no de un hex suelto.
+  Botones primarios usan `--color-boton` (no `--color-marca`, que en
+  oscuro es demasiado claro para texto blanco).
 - Paleta: variables CSS en `:root` de `src/index.css` (índigo como marca).
   `index.css` sobrescribe los colores de `.ui.primary/.green/.red` de
   Semantic con esa paleta; usar `primary` para acciones principales (ya
@@ -61,6 +69,8 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   día, clic = editar), `Analisis` (vista mensual/trimestral + exportación),
   `GestionCategorias`, `GestionCuentas` (saldos, tarjetas de crédito),
   `planificar/` (`Planificar` + un panel por pestaña), `BarraProgreso`,
+  `Inicio` (tarjeta principal con saldo total y mes, accesos rápidos,
+  cuentas, resumen inteligente, presupuestos, metas, gráficos),
   `VistaMovimientos` (búsqueda, filtros avanzados, lista/calendario,
   exportar lo filtrado), `CalendarioGastos`, `ResumenInteligente`,
   `Modal` (modal de Fomantic sin jQuery, vía portal), `Avisos` (toasts;
@@ -76,7 +86,7 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `sincronizable.ts` (`marcaCambio`, `registrarBorrado`,
   `uuidDeterminista`), `yapeImporter.ts`, `exportService.ts`
 - `src/hooks` — `useSync`, `useTransacciones`, `useCategorias`,
-  `useCuentas`, `useAvisos`, `usePlanificacion` (`usePresupuestos`,
+  `useCuentas`, `useAvisos`, `useNumeroAnimado`, `usePlanificacion` (`usePresupuestos`,
   `useMetas`, `useDeudas`, `useRecurrentes`)
 - `src/types/index.ts` — única fuente de tipos del dominio
 - `src/utils/formato.ts` — formato de moneda (`es-PE`/PEN), fecha y %
@@ -199,6 +209,15 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   pasado, proyección de cierre, categoría que más subió vs. su promedio
   de 3 meses, mayor gasto, presupuestos, pago de tarjetas, deudas,
   recurrentes próximos y metas. Todo local; excluye transferencias.
+
+## Registro rápido y pulido (v0.10)
+
+- El botón "+" (y la tecla **N** fuera de campos de texto) abre el
+  registro en un modal con `permitirContinuar` ("Registrar otro después"
+  deja el formulario abierto). El formulario sugiere montos frecuentes de
+  la categoría elegida y conceptos previos (`<datalist>`).
+- Transiciones: cada sección entra con `.entrada-seccion`; todas las
+  animaciones se anulan con `prefers-reduced-motion`.
 
 ## Autenticación y multiusuario
 

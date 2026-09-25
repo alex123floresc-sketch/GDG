@@ -27,6 +27,11 @@ import 'fomantic-ui-css/components/statistic.min.css'
 import 'fomantic-ui-css/components/table.min.css'
 import './index.css'
 import App from './App.tsx'
+import { aplicarTema, escucharTemaSistema } from './utils/tema'
+
+// Antes del primer render, para que no parpadee el tema claro.
+aplicarTema()
+escucharTemaSistema()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

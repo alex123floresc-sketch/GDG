@@ -146,7 +146,7 @@ function App() {
               </div>
             </div>
           )}
-          <Dashboard usuarioId={usuarioId} sincronizarAhora={sincronizarAhora} />
+          <Dashboard usuarioId={usuarioId} email={sesion.user.email ?? ''} sincronizarAhora={sincronizarAhora} />
         </div>
       </main>
     </Avisos>
