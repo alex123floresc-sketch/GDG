@@ -258,6 +258,10 @@ ampliar también estos CHECK o la sincronización falla.
   categorías/cuentas remotas → subirlas → re-apuntar pendientes con
   referencias rotas a "Otros"/primera cuenta → subir transacciones →
   replicar borrados (`eliminacionesPendientes`) → descargar transacciones.
+- Si Supabase rechaza una categoría/cuenta (p. ej. CHECK de `tipo`),
+  `subirCatalogo` reintenta fila por fila y `sincronizar` sigue subiendo
+  las transacciones que no dependen de ella; el error final nombra lo
+  rechazado (causa raíz), no los fallos de llave foránea que provoca.
 - `fusionarCatalogo`: si una categoría/cuenta local solo existe en este
   dispositivo y coincide en nombre+tipo con una remota (típico de las
   sembradas por defecto sin red), se adopta el id remoto y se re-apuntan

@@ -321,32 +321,58 @@ export async function descargarCatalogos(usuarioId: string): Promise<void> {
 }
 
 /**
+ * Upsert de un catálogo. Si el lote falla (p. ej. una sola fila viola un
+ * CHECK de Supabase), se reintenta fila por fila para que las demás sí
+ * suban. Devuelve el mensaje de error con los nombres rechazados, o null.
+ */
+async function subirCatalogo<T extends Categoria | Cuenta>(
+  tabla: string,
+  etiqueta: string,
+  registros: T[],
+  aFila: (registro: T) => object,
+): Promise<string | null> {
+  if (!supabase || registros.length === 0) return null
+
+  const { error } = await supabase.from(tabla).upsert(registros.map(aFila))
+  if (!error) return null
+
+  const rechazados: string[] = []
+  let ultimoError: ErrorSupabase = error
+
+  for (const registro of registros) {
+    const { error: errorFila } = await supabase.from(tabla).upsert(aFila(registro))
+    if (errorFila) {
+      rechazados.push(`"${registro.nombre}" (${registro.tipo})`)
+      ultimoError = errorFila
+    }
+  }
+
+  if (rechazados.length === 0) return null
+  return describirError(`Supabase rechazó ${etiqueta} ${rechazados.join(', ')}`, ultimoError)
+}
+
+/**
  * Sube (upsert) todas las categorías y cuentas locales del usuario. Son
  * pocas filas, así que se envían completas en cada ciclo. Deben existir en
  * Supabase antes que las transacciones que las referencian (llaves
  * foráneas `categoria_id` / `cuenta_id`).
+ *
+ * No lanza: devuelve los errores para que `sincronizar` pueda seguir
+ * subiendo las transacciones que no dependen de lo rechazado.
  */
-async function subirCatalogos(usuarioId: string, userId: string): Promise<void> {
-  if (!supabase) return
-
+async function subirCatalogos(usuarioId: string, userId: string): Promise<string[]> {
   const [categorias, cuentas] = await Promise.all([
     db.categorias.where('usuarioId').equals(usuarioId).toArray(),
     db.cuentas.where('usuarioId').equals(usuarioId).toArray(),
   ])
 
-  if (categorias.length > 0) {
-    const { error } = await supabase
-      .from(TABLA_CATEGORIAS)
-      .upsert(categorias.map((c) => aFilaCategoria(c, userId)))
-    if (error) throw new Error(describirError('No se pudieron subir las categorías', error))
-  }
-
-  if (cuentas.length > 0) {
-    const { error } = await supabase
-      .from(TABLA_CUENTAS)
-      .upsert(cuentas.map((c) => aFilaCuenta(c, userId)))
-    if (error) throw new Error(describirError('No se pudieron subir las cuentas', error))
-  }
+  const errores = [
+    await subirCatalogo(TABLA_CATEGORIAS, 'la categoría', categorias, (c) =>
+      aFilaCategoria(c, userId),
+    ),
+    await subirCatalogo(TABLA_CUENTAS, 'la cuenta', cuentas, (c) => aFilaCuenta(c, userId)),
+  ]
+  return errores.filter((e): e is string => e !== null)
 }
 
 /**
@@ -555,16 +581,32 @@ export async function descargarTransaccionesRecientes(
 export async function sincronizar(
   usuarioId: string,
 ): Promise<ResultadoSincronizacion> {
+  let erroresCatalogos: string[] = []
+
   if (supabase) {
     const userId = await usuarioSesionActiva(usuarioId)
     await descargarCatalogos(usuarioId)
-    await subirCatalogos(usuarioId, userId)
+    erroresCatalogos = await subirCatalogos(usuarioId, userId)
     await repararReferenciasHuerfanas(usuarioId)
   }
 
-  const subidas = await subirTransaccionesPendientes(usuarioId)
+  let subidas = 0
+  try {
+    subidas = await subirTransaccionesPendientes(usuarioId)
+  } catch (err) {
+    // Si falló un catálogo, las transacciones que lo usan fallan por llave
+    // foránea: se informa la causa raíz (el catálogo), no esa consecuencia.
+    if (erroresCatalogos.length === 0) throw err
+  }
+
   await procesarEliminaciones(usuarioId)
   const descargadas = await descargarTransaccionesRecientes(usuarioId)
+
+  if (erroresCatalogos.length > 0) {
+    throw new Error(
+      `${erroresCatalogos.join(' ')} Las transacciones que no dependen de eso sí se sincronizaron.`,
+    )
+  }
 
   return {
     subidas,
