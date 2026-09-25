@@ -220,6 +220,24 @@ transacciones:
 
 `presupuestos` también existe remotamente pero la app aún no la usa.
 
+Las columnas `tipo` tienen CHECK en Supabase y deben aceptar los valores
+del dominio de la app (`TipoCategoria` / `TipoCuenta` en `types/index.ts`).
+El CHECK original de `categorias` no incluía `'ambos'` (error 23514 que
+bloqueaba toda la sincronización); corrección a ejecutar en el SQL Editor:
+
+```sql
+ALTER TABLE categorias DROP CONSTRAINT categorias_tipo_check;
+ALTER TABLE categorias ADD CONSTRAINT categorias_tipo_check
+  CHECK (tipo IN ('ingreso', 'gasto', 'ambos'));
+
+ALTER TABLE cuentas DROP CONSTRAINT IF EXISTS cuentas_tipo_check;
+ALTER TABLE cuentas ADD CONSTRAINT cuentas_tipo_check
+  CHECK (tipo IN ('efectivo', 'banco', 'billetera_digital', 'otro')) NOT VALID;
+```
+
+Si se agrega un valor nuevo a `TipoCategoria`/`TipoCuenta`, hay que
+ampliar también estos CHECK o la sincronización falla.
+
 ## Sincronización (`useSync` + `syncService`)
 
 - `useSync` sincroniza al iniciar sesión, al evento `online`, al volver a
