@@ -4,6 +4,7 @@ import { useCuentas } from '../hooks/useCuentas'
 import { useDeudas, useMetas, usePresupuestos, useRecurrentes } from '../hooks/usePlanificacion'
 import { useTransacciones } from '../hooks/useTransacciones'
 import type { Transaccion } from '../types'
+import { generarInsights, type Insight } from '../utils/insights'
 import { clavePeriodo, resumenPorCategoria, resumenUltimosMeses } from '../utils/analisis'
 import Analisis from './Analisis'
 import FormularioTransaccion, { type TipoFormulario } from './FormularioTransaccion'
@@ -15,6 +16,8 @@ import ListaTransacciones from './ListaTransacciones'
 import Modal from './Modal'
 import Planificar, { type PestanaPlanificar } from './planificar/Planificar'
 import ResumenFinanciero from './ResumenFinanciero'
+import ResumenInteligente from './ResumenInteligente'
+import VistaMovimientos from './VistaMovimientos'
 
 // xlsx (usado por YapeImporter) pesa varios cientos de KB: se carga bajo
 // demanda para no inflar el bundle inicial ni el precache del Service
@@ -39,7 +42,6 @@ const SECCIONES: { id: Seccion; etiqueta: string; icono: string }[] = [
 
 const FILTRO_TODAS = 'todas'
 const RECIENTES_EN_INICIO = 5
-const LIMITE_MOVIMIENTOS = 100
 const MESES_TENDENCIA = 6
 
 function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
@@ -60,11 +62,6 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
   /** Registro rápido en modal (p. ej. "Transferir" desde Cuentas). */
   const [registroRapido, setRegistroRapido] = useState<TipoFormulario | null>(null)
   const [cuentaFiltro, setCuentaFiltro] = useState<string>(FILTRO_TODAS)
-
-  // Filtros propios de Movimientos
-  const [busqueda, setBusqueda] = useState('')
-  const [tipoFiltro, setTipoFiltro] = useState<string>(FILTRO_TODAS)
-  const [categoriaFiltro, setCategoriaFiltro] = useState<string>(FILTRO_TODAS)
 
   const transaccionesFiltradas = useMemo(
     () =>
@@ -88,25 +85,20 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
     )
   }, [transaccionesFiltradas, categorias])
 
-  const movimientos = useMemo(() => {
-    const nombresCategoria = new Map(categorias.map((c) => [c.id, c.nombre]))
-    const texto = busqueda.trim().toLocaleLowerCase('es')
-
-    return transaccionesFiltradas.filter(
-      (t) =>
-        (tipoFiltro === FILTRO_TODAS ||
-          (tipoFiltro === 'transferencia'
-            ? t.origen === 'transferencia'
-            : t.tipo === tipoFiltro && t.origen !== 'transferencia')) &&
-        (categoriaFiltro === FILTRO_TODAS || t.categoriaId === categoriaFiltro) &&
-        (!texto ||
-          (t.concepto ?? '').toLocaleLowerCase('es').includes(texto) ||
-          (nombresCategoria.get(t.categoriaId) ?? '').toLocaleLowerCase('es').includes(texto)),
-    )
-  }, [transaccionesFiltradas, categorias, busqueda, tipoFiltro, categoriaFiltro])
+  const insights = useMemo(
+    () => generarInsights({ transacciones, categorias, cuentas, presupuestos, metas, deudas, recurrentes }),
+    [transacciones, categorias, cuentas, presupuestos, metas, deudas, recurrentes],
+  )
 
   const cerrarEdicion = useCallback(() => setEditando(null), [])
   const cerrarRegistroRapido = useCallback(() => setRegistroRapido(null), [])
+
+  function navegarA(destino: NonNullable<Insight['destino']>) {
+    const [seccionDestino, sub] = destino.split(':')
+    if (seccionDestino === 'planificar') setPestanaPlanificar(sub as PestanaPlanificar)
+    if (seccionDestino === 'mas') setSubseccionMas(sub as SubseccionMas)
+    setSeccion(seccionDestino as Seccion)
+  }
 
   function irACategorias() {
     setSubseccionMas('categorias')
@@ -172,6 +164,8 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
 
           <ResumenFinanciero transacciones={transaccionesFiltradas} />
 
+          <ResumenInteligente insights={insights} onNavegar={navegarA} />
+
           <div className="ui stackable two column grid">
             <div className="column">
               <div className="ui segment altura-completa">
@@ -214,59 +208,12 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
       )}
 
       {seccion === 'movimientos' && (
-        <>
-          <div className="barra-filtros">
-            <h2 className="ui header">Movimientos</h2>
-            {filtroCuenta}
-          </div>
-
-          <div className="fila-filtros ui form">
-            <div className="ui left icon input buscador">
-              <i className="search icon" />
-              <input
-                type="search"
-                placeholder="Buscar concepto o categoría"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                aria-label="Buscar movimientos"
-              />
-            </div>
-            <select
-              aria-label="Filtrar por tipo"
-              className="ui compact dropdown"
-              value={tipoFiltro}
-              onChange={(e) => setTipoFiltro(e.target.value)}
-            >
-              <option value={FILTRO_TODAS}>Ingresos y gastos</option>
-              <option value="ingreso">Solo ingresos</option>
-              <option value="gasto">Solo gastos</option>
-              <option value="transferencia">Transferencias</option>
-            </select>
-            <select
-              aria-label="Filtrar por categoría"
-              className="ui compact dropdown"
-              value={categoriaFiltro}
-              onChange={(e) => setCategoriaFiltro(e.target.value)}
-            >
-              <option value={FILTRO_TODAS}>Todas las categorías</option>
-              {categorias.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <ListaTransacciones
-            transacciones={movimientos}
-            categorias={categorias}
-            cuentas={cuentas}
-            titulo="Historial"
-            limite={LIMITE_MOVIMIENTOS}
-            onSeleccionar={setEditando}
-            mostrarTotales
-          />
-        </>
+        <VistaMovimientos
+          transacciones={transacciones}
+          categorias={categorias}
+          cuentas={cuentas}
+          onSeleccionar={setEditando}
+        />
       )}
 
       {seccion === 'analisis' && (

@@ -1634,3 +1634,330 @@ body.con-modal {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Movimientos: búsqueda y filtros ---------- */
+
+.panel-busqueda {
+  margin-bottom: 1em;
+}
+
+.fila-busqueda {
+  display: flex;
+  gap: 0.5em;
+}
+
+.fila-busqueda .buscador {
+  flex: 1;
+}
+
+.fila-busqueda .ui.button {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.contador-filtros {
+  display: inline-block;
+  min-width: 1.5em;
+  margin-left: 0.4em;
+  padding: 0 0.4em;
+  border-radius: 999px;
+  background: var(--color-marca);
+  color: #fff;
+  font-size: 0.8em;
+  line-height: 1.5em;
+}
+
+.periodos {
+  display: flex;
+  gap: 0.35em;
+  margin-top: 0.75em;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.periodos .ui.button {
+  margin: 0;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.rango-fechas.fields {
+  margin-top: 0.75em !important;
+}
+
+.filtros-avanzados {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75em;
+  margin-top: 0.75em;
+  padding: 1em;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+}
+
+.filtros-avanzados .field {
+  margin: 0 !important;
+}
+
+.chips-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4em;
+  margin-top: 0.75em;
+}
+
+.chips-filtros .chip.ui.label {
+  margin: 0;
+  cursor: pointer;
+  border-color: var(--color-marca);
+  color: var(--color-marca);
+  font: inherit;
+  font-size: 0.85em;
+}
+
+.chips-filtros .enlace-sugerencia {
+  margin: 0 0 0 0.3em;
+}
+
+.totales-filtro {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin-bottom: 1em;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  overflow: hidden;
+  background: var(--color-borde);
+}
+
+.totales-filtro > div {
+  display: flex;
+  flex-direction: column;
+  padding: 0.7em 1em;
+  background: var(--color-superficie);
+}
+
+.totales-filtro span {
+  font-size: 0.8em;
+  color: var(--color-texto-suave);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.totales-filtro strong {
+  font-size: 1.1em;
+}
+
+/* ---------- Calendario ---------- */
+
+.leyenda-calendario {
+  display: flex;
+  align-items: center;
+  gap: 0.25em;
+  font-size: 0.8em;
+  color: var(--color-texto-suave);
+}
+
+.leyenda-calendario .muestra {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.resumen-calendario {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75em;
+  margin-bottom: 1em;
+}
+
+.resumen-calendario > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.resumen-calendario span {
+  font-size: 0.8em;
+  color: var(--color-texto-suave);
+}
+
+.rejilla-calendario {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.rejilla-calendario .nombre-dia {
+  padding: 0.3em 0;
+  text-align: center;
+  font-size: 0.8em;
+  font-weight: 700;
+  color: var(--color-texto-suave);
+}
+
+.rejilla-calendario .celda {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-height: 4.2em;
+  padding: 0.35em 0.45em;
+  border: 1px solid var(--color-borde);
+  border-radius: 8px;
+  background: var(--color-superficie);
+  color: var(--color-texto);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.rejilla-calendario .celda.vacia {
+  visibility: hidden;
+}
+
+.rejilla-calendario .celda:hover,
+.rejilla-calendario .celda:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-marca);
+  outline: none;
+}
+
+.rejilla-calendario .celda.elegida {
+  box-shadow: 0 0 0 2px var(--color-texto);
+}
+
+.rejilla-calendario .celda.hoy .numero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7em;
+  height: 1.7em;
+  border-radius: 50%;
+  background: var(--color-marca);
+  color: #fff;
+}
+
+.rejilla-calendario .celda.futuro {
+  opacity: 0.45;
+}
+
+.rejilla-calendario .numero {
+  font-size: 0.85em;
+  font-weight: 700;
+}
+
+.rejilla-calendario .monto-dia {
+  font-size: 0.72em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.punto-ingreso {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--serie-ingreso);
+  box-shadow: 0 0 0 2px var(--color-superficie);
+}
+
+.rejilla-calendario .punto-ingreso {
+  position: absolute;
+  top: 0.45em;
+  right: 0.45em;
+}
+
+.nota-calendario {
+  margin-top: 0.75em;
+  font-size: 0.8em;
+}
+
+@media (max-width: 767px) {
+  .resumen-calendario {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .rejilla-calendario {
+    gap: 2px;
+  }
+
+  .rejilla-calendario .celda {
+    min-height: 3.2em;
+    padding: 0.25em;
+  }
+
+  .rejilla-calendario .monto-dia {
+    font-size: 0.62em;
+  }
+
+  .leyenda-calendario {
+    display: none;
+  }
+}
+
+/* ---------- Resumen inteligente ---------- */
+
+.lista-insights {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lista-insights li + li {
+  border-top: 1px solid var(--color-borde);
+}
+
+.lista-insights .insight {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  width: 100%;
+  padding: 0.65em 0.2em;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.lista-insights .insight.clicable {
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.lista-insights .insight.clicable:hover,
+.lista-insights .insight.clicable:focus-visible {
+  background: var(--color-marca-suave);
+}
+
+.lista-insights .texto {
+  flex: 1;
+}
+
+.lista-insights .flecha {
+  color: var(--color-texto-suave);
+  margin: 0;
+}
+
+.icono-insight {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.2em;
+  height: 2.2em;
+  border-radius: 10px;
+}
+
+.icono-insight > i.icon {
+  margin: 0;
+  height: auto;
+}
+
+.tono-positivo { background: rgba(15, 138, 95, 0.12); color: var(--color-ingreso); }
+.tono-alerta { background: rgba(237, 161, 0, 0.16); color: var(--color-alerta-texto); }
+.tono-negativo { background: rgba(217, 72, 15, 0.12); color: var(--color-gasto); }
+.tono-info { background: var(--color-marca-suave); color: var(--color-marca); }

@@ -61,6 +61,8 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   día, clic = editar), `Analisis` (vista mensual/trimestral + exportación),
   `GestionCategorias`, `GestionCuentas` (saldos, tarjetas de crédito),
   `planificar/` (`Planificar` + un panel por pestaña), `BarraProgreso`,
+  `VistaMovimientos` (búsqueda, filtros avanzados, lista/calendario,
+  exportar lo filtrado), `CalendarioGastos`, `ResumenInteligente`,
   `Modal` (modal de Fomantic sin jQuery, vía portal), `Avisos` (toasts;
   se usan con `useAvisos().avisar(...)`), `graficos/`, `YapeImporter`
   (cargado con `React.lazy`, ver Rendimiento)
@@ -86,6 +88,11 @@ Repo: https://github.com/alex123floresc-sketch/GDG
 - `src/utils/planificacion.ts` — `estadoPresupuestos` (gastado, nivel
   ok/alerta 80 %/excedido, proyección a fin de mes), `estadoMeta` (ahorro
   mensual necesario), `estadoDeuda`
+- `src/utils/filtros.ts` — `FiltrosMovimientos`, `aplicarFiltros`
+  (periodo, tipo, categoría, cuenta, origen, montos, texto sin tildes),
+  chips legibles de los filtros activos
+- `src/utils/insights.ts` — `generarInsights`: observaciones del "resumen
+  inteligente" con prioridad y destino (sección a la que lleva)
 - `src/utils/preferencias.ts` — preferencias del dispositivo en
   localStorage (tipo de cambio, tema), siempre en try/catch
 - `supabase/migraciones/` — SQL a ejecutar a mano en el SQL Editor
@@ -179,6 +186,19 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `recurrenteId`) y avanza la fecha. El id de cada ocurrencia es
   `uuidDeterminista(recurrenteId + fecha)`: si dos dispositivos generan la
   misma, no se duplica. Máx. 36 ocurrencias por ejecución.
+
+## Movimientos, calendario y resumen inteligente (v0.9)
+
+- `VistaMovimientos` recibe TODAS las transacciones (no usa el filtro de
+  cuenta del Inicio: la cuenta es uno de sus filtros). En modo calendario
+  se ignora el periodo (el calendario navega por meses).
+- `CalendarioGastos`: intensidad por día con una escala secuencial de un
+  solo tono (`color-mix` de `--serie-gasto` con la superficie), texto
+  siempre oscuro por contraste; punto verde = día con ingresos.
+- `generarInsights` (Inicio): ritmo de gasto vs. el mismo día del mes
+  pasado, proyección de cierre, categoría que más subió vs. su promedio
+  de 3 meses, mayor gasto, presupuestos, pago de tarjetas, deudas,
+  recurrentes próximos y metas. Todo local; excluye transferencias.
 
 ## Autenticación y multiusuario
 

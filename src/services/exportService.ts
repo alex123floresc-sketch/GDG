@@ -131,3 +131,67 @@ export async function exportarAnalisisExcel({
   const sufijo = granularidad === 'mes' ? 'mensual' : 'trimestral'
   XLSX.writeFile(libro, `gastos-${anio}-${sufijo}.xlsx`)
 }
+
+/**
+ * Exporta a Excel una lista de movimientos (p. ej. el resultado de los
+ * filtros de Movimientos), con una hoja de resumen por categoría.
+ */
+export async function exportarMovimientosExcel(
+  transacciones: Transaccion[],
+  categorias: Categoria[],
+  cuentas: Cuenta[],
+  descripcionFiltros: string,
+): Promise<void> {
+  const XLSX = await import('xlsx')
+
+  const categoriasPorId = new Map(categorias.map((c) => [c.id, c.nombre]))
+  const cuentasPorId = new Map(cuentas.map((c) => [c.id, c.nombre]))
+  const ordenadas = [...transacciones].sort((a, b) => a.fecha.getTime() - b.fecha.getTime())
+
+  const detalle = XLSX.utils.json_to_sheet(
+    ordenadas.map((t) => ({
+      Fecha: t.fecha,
+      Tipo: t.origen === 'transferencia' ? 'Transferencia' : t.tipo === 'ingreso' ? 'Ingreso' : 'Gasto',
+      Categoría: t.origen === 'transferencia' ? '' : (categoriasPorId.get(t.categoriaId) ?? 'Sin categoría'),
+      Cuenta: cuentasPorId.get(t.cuentaId) ?? '',
+      Concepto: t.concepto ?? '',
+      'Monto (S/)': redondear(t.tipo === 'ingreso' ? t.monto : -t.monto),
+      Moneda: t.moneda ?? 'PEN',
+      'Monto original': t.montoOriginal ?? '',
+      'Tipo de cambio': t.tipoCambio ?? '',
+      Origen: { manual: 'Manual', yape: 'Yape', transferencia: 'Transferencia', recurrente: 'Recurrente' }[t.origen],
+      'N° operación': t.nroOperacion ?? '',
+    })),
+    { cellDates: true, dateNF: 'dd/mm/yyyy' },
+  )
+  detalle['!cols'] = [
+    { wch: 12 }, { wch: 13 }, { wch: 18 }, { wch: 14 }, { wch: 32 }, { wch: 12 },
+    { wch: 8 }, { wch: 13 }, { wch: 13 }, { wch: 13 }, { wch: 14 },
+  ]
+
+  const reales = ordenadas.filter(esMovimientoReal)
+  const porCategoria = (tipo: Transaccion['tipo']) =>
+    resumenPorCategoria(reales, categorias, tipo).map((c) => ({
+      Tipo: tipo === 'gasto' ? 'Gasto' : 'Ingreso',
+      Categoría: c.nombre,
+      Movimientos: c.cantidad,
+      'Total (S/)': redondear(c.total),
+      '%': redondear(c.porcentaje * 100),
+    }))
+  const totalIngresos = reales.filter((t) => t.tipo === 'ingreso').reduce((s, t) => s + t.monto, 0)
+  const totalGastos = reales.filter((t) => t.tipo === 'gasto').reduce((s, t) => s + t.monto, 0)
+  const resumen = XLSX.utils.json_to_sheet([
+    ...porCategoria('gasto'),
+    ...porCategoria('ingreso'),
+    { Tipo: 'TOTAL', Categoría: 'Ingresos', 'Total (S/)': redondear(totalIngresos) },
+    { Tipo: 'TOTAL', Categoría: 'Gastos', 'Total (S/)': redondear(totalGastos) },
+    { Tipo: 'TOTAL', Categoría: 'Balance', 'Total (S/)': redondear(totalIngresos - totalGastos) },
+    { Tipo: 'Filtros', Categoría: descripcionFiltros || 'Ninguno' },
+  ])
+  resumen['!cols'] = [{ wch: 10 }, { wch: 28 }, { wch: 12 }, { wch: 12 }, { wch: 8 }]
+
+  const libro = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(libro, detalle, 'Movimientos')
+  XLSX.utils.book_append_sheet(libro, resumen, 'Resumen')
+  XLSX.writeFile(libro, `movimientos-${new Date().toISOString().slice(0, 10)}.xlsx`)
+}
