@@ -3,6 +3,7 @@ import { exportarAnalisisExcel } from '../services/exportService'
 import type { Categoria, Cuenta, Transaccion } from '../types'
 import {
   aniosDisponibles,
+  esMovimientoReal,
   enPeriodo,
   resumenPorCategoria,
   resumenPorPeriodo,
@@ -33,7 +34,7 @@ function Analisis({ transacciones, categorias, cuentas, filtroCuenta }: Analisis
   const [error, setError] = useState<string | null>(null)
 
   const delAnio = useMemo(
-    () => transacciones.filter((t) => t.fecha.getFullYear() === anio),
+    () => transacciones.filter((t) => t.fecha.getFullYear() === anio && esMovimientoReal(t)),
     [transacciones, anio],
   )
 

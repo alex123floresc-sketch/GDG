@@ -2,11 +2,33 @@ export type TipoTransaccion = 'ingreso' | 'gasto'
 
 export type TipoCategoria = TipoTransaccion | 'ambos'
 
-export type TipoCuenta = 'efectivo' | 'banco' | 'billetera_digital' | 'otro'
+export type TipoCuenta =
+  | 'efectivo'
+  | 'banco'
+  | 'billetera_digital'
+  | 'tarjeta_credito'
+  | 'otro'
 
-export type OrigenTransaccion = 'manual' | 'yape'
+/**
+ * - `transferencia`: una de las dos patas de un movimiento entre cuentas
+ *   propias (no cuenta como ingreso ni gasto en los resúmenes).
+ * - `recurrente`: generada automáticamente por un `Recurrente`.
+ */
+export type OrigenTransaccion = 'manual' | 'yape' | 'transferencia' | 'recurrente'
 
-export interface Categoria {
+export type Moneda = 'PEN' | 'USD'
+
+/**
+ * Control de sincronización de las entidades editables que no son
+ * transacciones. `sincronizado !== true` = hay cambios locales por subir.
+ * Opcionales porque las filas creadas antes de v0.7 no los tienen.
+ */
+export interface ControlSync {
+  sincronizado?: boolean
+  fechaActualizacion?: Date
+}
+
+export interface Categoria extends ControlSync {
   id: string
   usuarioId: string
   nombre: string
@@ -15,53 +37,141 @@ export interface Categoria {
   color?: string
 }
 
-export interface Cuenta {
+export interface Cuenta extends ControlSync {
   id: string
   usuarioId: string
   nombre: string
   tipo: TipoCuenta
+  /** Para tarjetas de crédito: deuda inicial en negativo. */
   saldoInicial: number
+  /** Solo tarjetas de crédito. */
+  limiteCredito?: number
+  /** Día del mes (1-31) de cierre de facturación. Solo tarjetas. */
+  diaCorte?: number
+  /** Día del mes (1-31) límite de pago. Solo tarjetas. */
+  diaPago?: number
 }
 
 export interface Transaccion {
   id: string
   usuarioId: string
+  /** '' si no tiene cuenta (filas remotas antiguas). */
   cuentaId: string
+  /** '' en las transferencias (no tienen categoría). */
   categoriaId: string
+  /** Siempre en soles: es el valor que usan saldos, resúmenes y gráficos. */
   monto: number
   tipo: TipoTransaccion
   fecha: Date
   concepto?: string
   nroOperacion?: string
   origen: OrigenTransaccion
+  /** Moneda en que se registró. Ausente = PEN. */
+  moneda?: Moneda
+  /** Monto en la moneda original (solo si `moneda` ≠ PEN). */
+  montoOriginal?: number
+  /** Soles por unidad de `moneda` usados para calcular `monto`. */
+  tipoCambio?: number
+  /** Une las dos patas de una transferencia entre cuentas. */
+  transferenciaId?: string
+  /** Recurrente que la generó. */
+  recurrenteId?: string
   sincronizado: boolean
   fechaActualizacion: Date
 }
 
-export interface Presupuesto {
+export interface Presupuesto extends ControlSync {
   id: string
   usuarioId: string
   categoriaId: string
   montoLimite: number
-  /** 1-12 */
+  /**
+   * Mes (1-12) y año desde el que rige. Un presupuesto sigue vigente en
+   * los meses siguientes hasta que se defina otro para esa categoría.
+   */
   mes: number
   anio: number
 }
 
+export interface Aporte {
+  id: string
+  fecha: Date
+  /** Positivo = aporte; negativo = retiro. */
+  monto: number
+  nota?: string
+}
+
+export interface Meta extends ControlSync {
+  id: string
+  usuarioId: string
+  nombre: string
+  montoObjetivo: number
+  fechaLimite?: Date
+  icono: string
+  color: string
+  aportes: Aporte[]
+}
+
+export type TipoDeuda = 'me_deben' | 'debo'
+
+export interface Deuda extends ControlSync {
+  id: string
+  usuarioId: string
+  persona: string
+  tipo: TipoDeuda
+  monto: number
+  concepto?: string
+  fecha: Date
+  fechaLimite?: Date
+  /** Pagos parciales (siempre positivos). */
+  abonos: Aporte[]
+}
+
+export type Frecuencia = 'semanal' | 'quincenal' | 'mensual' | 'anual'
+
+export interface Recurrente extends ControlSync {
+  id: string
+  usuarioId: string
+  tipo: TipoTransaccion
+  monto: number
+  moneda?: Moneda
+  categoriaId: string
+  cuentaId: string
+  concepto: string
+  frecuencia: Frecuencia
+  /** Próxima fecha en que se generará la transacción. */
+  proximaFecha: Date
+  activa: boolean
+}
+
+export type TablaSincronizable =
+  | 'transacciones'
+  | 'categorias'
+  | 'cuentas'
+  | 'presupuestos'
+  | 'metas'
+  | 'deudas'
+  | 'recurrentes'
+
 /**
- * Registro local de una categoría/cuenta eliminada que falta borrar en
- * Supabase (se procesa en el siguiente ciclo de sincronización).
+ * Registro local de un borrado que falta replicar en Supabase (se procesa
+ * en el siguiente ciclo de sincronización).
  */
 export interface EliminacionPendiente {
   id?: number
   usuarioId: string
-  tabla: 'categorias' | 'cuentas'
+  tabla: TablaSincronizable
   registroId: string
 }
 
-export type NuevaCategoria = Omit<Categoria, 'id' | 'usuarioId'>
-export type NuevaCuenta = Omit<Cuenta, 'id' | 'usuarioId'>
-export type NuevoPresupuesto = Omit<Presupuesto, 'id' | 'usuarioId'>
+type SinControl = 'id' | 'usuarioId' | 'sincronizado' | 'fechaActualizacion'
+
+export type NuevaCategoria = Omit<Categoria, SinControl>
+export type NuevaCuenta = Omit<Cuenta, SinControl>
+export type NuevoPresupuesto = Omit<Presupuesto, SinControl>
+export type NuevaMeta = Omit<Meta, SinControl | 'aportes'>
+export type NuevaDeuda = Omit<Deuda, SinControl | 'abonos'>
+export type NuevoRecurrente = Omit<Recurrente, SinControl>
 
 export type NuevaTransaccion = Omit<
   Transaccion,
@@ -72,6 +182,8 @@ export interface ResultadoSincronizacion {
   subidas: number
   descargadas: number
   fecha: Date
+  /** Supabase aún no tiene el esquema v0.7 (supabase/migraciones/v0.7.sql). */
+  migracionPendiente: boolean
 }
 
 export interface EstadoSincronizacion {

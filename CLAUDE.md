@@ -54,21 +54,32 @@ Repo: https://github.com/alex123floresc-sketch/GDG
 ## Estructura
 
 - `src/components` — UI: `Header`, `Auth`, `Dashboard` (orquesta el resto),
-  `FormularioTransaccion`, `ResumenFinanciero`, `ListaTransacciones`,
-  `Analisis` (vista mensual/trimestral + exportación),
-  `GestionCategorias` (crear/editar/eliminar categorías), `graficos/`,
-  `YapeImporter` (cargado con `React.lazy`, ver Rendimiento)
-- `src/db/database.ts` — esquema Dexie v6 (`GestorGastosDB`, tablas
-  `transacciones`, `categorias`, `cuentas`, `presupuestos`,
-  `eliminacionesPendientes`)
+  `FormularioTransaccion` (gasto/ingreso/transferencia, S/ o US$, crear y
+  editar/eliminar), `ResumenFinanciero`, `ListaTransacciones` (agrupada por
+  día, clic = editar), `Analisis` (vista mensual/trimestral + exportación),
+  `GestionCategorias`, `GestionCuentas` (saldos, tarjetas de crédito),
+  `Modal` (modal de Fomantic sin jQuery, vía portal), `Avisos` (toasts;
+  se usan con `useAvisos().avisar(...)`), `graficos/`, `YapeImporter`
+  (cargado con `React.lazy`, ver Rendimiento)
+- `src/db/database.ts` — esquema Dexie v7 (`GestorGastosDB`, tablas
+  `transacciones`, `categorias`, `cuentas`, `presupuestos`, `metas`,
+  `deudas`, `recurrentes`, `eliminacionesPendientes`)
 - `src/services` — lógica sin React: `supabaseClient.ts`, `syncService.ts`,
-  `transaccionService.ts`, `categoriaService.ts`, `cuentaService.ts`,
-  `yapeImporter.ts`, `exportService.ts` (Excel del análisis)
-- `src/hooks` — `useSync`, `useTransacciones`, `useCategorias`, `useCuentas`
+  `transaccionService.ts` (+ transferencias, eliminar/restaurar),
+  `categoriaService.ts`, `cuentaService.ts`, `yapeImporter.ts`,
+  `exportService.ts` (Excel del análisis)
+- `src/hooks` — `useSync`, `useTransacciones`, `useCategorias`,
+  `useCuentas`, `useAvisos`
 - `src/types/index.ts` — única fuente de tipos del dominio
 - `src/utils/formato.ts` — formato de moneda (`es-PE`/PEN), fecha y %
 - `src/utils/analisis.ts` — agregaciones puras (por mes/trimestre, por
-  categoría, últimos N meses); las usan tanto la UI como la exportación
+  categoría, últimos N meses); las usan tanto la UI como la exportación.
+  `esMovimientoReal(t)` excluye las transferencias de todo resumen.
+- `src/utils/cuentas.ts` — tipos de cuenta (icono/etiqueta), saldos y
+  `estadoTarjeta` (deuda, línea disponible, ciclo, próximo pago)
+- `src/utils/preferencias.ts` — preferencias del dispositivo en
+  localStorage (tipo de cambio, tema), siempre en try/catch
+- `supabase/migraciones/` — SQL a ejecutar a mano en el SQL Editor
 
 ## Convenciones
 
@@ -81,9 +92,18 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `syncService.ts` (`aFilaRemota`/`aTransaccionLocal`) es el único lugar que
   traduce entre ambos — no dupliques ese mapeo en otro archivo.
 - `Transaccion.categoriaId` referencia `Categoria.id` y `Transaccion.cuentaId`
-  referencia `Cuenta.id`, ambas por usuario (ver siguiente punto). `origen`
-  distingue transacciones creadas a mano (`'manual'`) de las importadas
-  desde un reporte de Yape (`'yape'`).
+  referencia `Cuenta.id`, ambas por usuario (ver siguiente punto). `origen`:
+  `'manual'`, `'yape'` (importada), `'transferencia'` o `'recurrente'`.
+- **Transferencias**: dos transacciones unidas por `transferenciaId` (gasto
+  en la cuenta origen + ingreso en la destino), `categoriaId: ''`. Mueven
+  saldos pero NO cuentan como ingreso/gasto: todo resumen/gráfico/
+  presupuesto filtra con `esMovimientoReal`. Editar/eliminar una pata
+  afecta a las dos (`actualizarTransferencia`, `eliminarTransaccion`).
+- **Monedas**: `Transaccion.monto` está SIEMPRE en soles (lo que usan saldos
+  y resúmenes). Si se registró en dólares, `moneda: 'USD'`,
+  `montoOriginal` y `tipoCambio` guardan el original.
+- **Tarjetas de crédito**: `Cuenta` con `tipo: 'tarjeta_credito'`; saldo
+  negativo = deuda. Pagar la tarjeta = transferencia banco → tarjeta.
 - `sincronizado` (boolean) NO está indexado en Dexie — IndexedDB no admite
   booleans como clave de índice. Se filtra con `.filter()` en memoria.
 - Multiusuario: `Transaccion`, `Categoria` y `Cuenta` tienen `usuarioId`
@@ -141,10 +161,11 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   1. Si hay red, sube pendientes (mejor esfuerzo, no bloquea el logout).
   2. `signOut({ scope: 'local' })` — evita depender de red para salir
      (app offline-first).
-  3. `transaccionService.limpiarDatosLocales()` — limpia **las 4 tablas**
-     (`transacciones`, `categorias`, `cuentas`, `presupuestos`) para que,
-     en un dispositivo compartido, el siguiente usuario no vea datos de la
-     sesión anterior. Se re-siembran al volver a iniciar sesión.
+  3. `transaccionService.limpiarDatosLocales()` — limpia **todas las
+     tablas** de Dexie para que, en un dispositivo compartido, el siguiente
+     usuario no vea datos de la sesión anterior. Al volver a iniciar sesión
+     se descargan de Supabase (y solo si no hay nada se siembran las
+     categorías/cuentas por defecto).
 
 ## Rendimiento
 
@@ -164,120 +185,76 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 ```
 
-## Tabla remota (Supabase)
+## Esquema remoto (Supabase)
 
-Definición original (`categoria` como texto libre, sin `cuenta_id`/
-`concepto`/`nro_operacion`/`origen`):
+No hay SQL versionado del esquema inicial (se creó a mano en el panel);
+lo que se sabe de él se dedujo consultando PostgREST. Tablas: `transacciones`,
+`categorias`, `cuentas`, `presupuestos`, `profiles` (no usada), todas con
+`id uuid` y `user_id uuid` + RLS por usuario. `transacciones.cuenta_id` y
+`transacciones.categoria_id` son UUID con **llave foránea** a `cuentas` y
+`categorias`: deben subirse antes que las transacciones.
 
-```sql
-CREATE TABLE transacciones (
-    id UUID PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
-    monto DECIMAL(12,2) NOT NULL,
-    tipo VARCHAR(10) CHECK (tipo IN ('ingreso', 'gasto')),
-    categoria VARCHAR(50) NOT NULL,
-    fecha TIMESTAMP WITH TIME ZONE NOT NULL,
-    nota TEXT,
-    fecha_actualizacion TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+Particularidades que el cliente respeta:
+- `transacciones.concepto` es NOT NULL (en la app es opcional): se envía
+  `''` si no hay. `nro_operacion` viaja como `null` (no `''`): el índice
+  único `(user_id, nro_operacion)` trataría todos los `''` como duplicados.
+- Las columnas `tipo` tienen CHECK; deben aceptar los valores de
+  `TipoCategoria`/`TipoCuenta`. El CHECK original de `categorias` no
+  aceptaba `'ambos'` (error 23514 que bloqueaba toda la sincronización).
+  Si se agrega un valor nuevo a esos tipos, ampliar el CHECK.
 
-ALTER TABLE transacciones ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Acceso personal" ON transacciones
-  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-```
+### Migración v0.7 (`supabase/migraciones/v0.7.sql`)
 
-**Migración pendiente** (`syncService.ts` ya asume estas columnas; ejecutar
-en el SQL Editor de Supabase — `cuenta_id`/`categoria_id` quedan como TEXT,
-no UUID con FK, porque `categoria` ya tenía valores de texto libre que no
-son UUIDs válidos y castearlos rompería filas existentes):
+Idempotente; se ejecuta a mano en el SQL Editor. Agrega
+`fecha_actualizacion` a `categorias`/`cuentas`/`presupuestos`, columnas
+de tarjeta en `cuentas`, `moneda`/`monto_original`/`tipo_cambio`/
+`transferencia_id`/`recurrente_id` en `transacciones` (y `categoria_id`
+pasa a admitir NULL), amplía los CHECK de `tipo`/`origen`/`moneda`, y crea
+`metas`, `deudas`, `recurrentes` con RLS. Si se necesitan más cambios de
+esquema, crear `v0.X.sql` nuevo (no editar uno ya ejecutado).
 
-```sql
-ALTER TABLE transacciones RENAME COLUMN categoria TO categoria_id;
-ALTER TABLE transacciones ADD COLUMN cuenta_id TEXT;
-ALTER TABLE transacciones ADD COLUMN concepto TEXT;
-ALTER TABLE transacciones ADD COLUMN nro_operacion TEXT;
-ALTER TABLE transacciones ADD COLUMN origen VARCHAR(20) NOT NULL DEFAULT 'manual';
-
--- Solo si 'nota' ya no tiene datos que te importe conservar (se reemplazó
--- por 'concepto' en el cliente):
--- ALTER TABLE transacciones DROP COLUMN nota;
-
--- Habilita el manejo de duplicados por (usuario, n° de operación) que
--- syncService.subirUnaPorUna espera (error Postgres 23505):
-CREATE UNIQUE INDEX transacciones_user_nro_operacion_idx
-  ON transacciones (user_id, nro_operacion)
-  WHERE nro_operacion IS NOT NULL;
-```
-
-Tablas remotas `categorias` y `cuentas` (ya existen en el proyecto de
-Supabase; esquema deducido por PostgREST, no hay SQL versionado en el
-repo). `transacciones.cuenta_id` y `transacciones.categoria_id` son UUID
-con **llave foránea** a ellas, así que deben subirse antes que las
-transacciones:
-
-- `categorias`: `id uuid`, `user_id uuid`, `nombre`, `tipo`, `icono`, `color`
-- `cuentas`: `id uuid`, `user_id uuid`, `nombre`, `tipo`, `saldo_inicial numeric`
-
-`presupuestos` también existe remotamente pero la app aún no la usa.
-
-Las columnas `tipo` tienen CHECK en Supabase y deben aceptar los valores
-del dominio de la app (`TipoCategoria` / `TipoCuenta` en `types/index.ts`).
-El CHECK original de `categorias` no incluía `'ambos'` (error 23514 que
-bloqueaba toda la sincronización); corrección a ejecutar en el SQL Editor:
-
-```sql
-ALTER TABLE categorias DROP CONSTRAINT categorias_tipo_check;
-ALTER TABLE categorias ADD CONSTRAINT categorias_tipo_check
-  CHECK (tipo IN ('ingreso', 'gasto', 'ambos'));
-
-ALTER TABLE cuentas DROP CONSTRAINT IF EXISTS cuentas_tipo_check;
-ALTER TABLE cuentas ADD CONSTRAINT cuentas_tipo_check
-  CHECK (tipo IN ('efectivo', 'banco', 'billetera_digital', 'otro')) NOT VALID;
-```
-
-`transacciones.concepto` es NOT NULL en Supabase (en la app es opcional):
-`aFilaRemota` envía `''` cuando no hay concepto. `nro_operacion` sí debe
-viajar como `null` (no `''`): el índice único `(user_id, nro_operacion)`
-trataría todos los `''` como duplicados.
-
-Si se agrega un valor nuevo a `TipoCategoria`/`TipoCuenta`, hay que
-ampliar también estos CHECK o la sincronización falla.
+**Sin la migración la app sigue funcionando** ("modo legado"):
+`syncService.esquemaV7()` lo detecta con consultas `limit 0`; se
+sincronizan transacciones/categorías/cuentas como antes y `App.tsx` muestra
+un aviso. Las transacciones que usan columnas nuevas (dólares,
+transferencias) fallan individualmente sin bloquear al resto.
 
 ## Sincronización (`useSync` + `syncService`)
 
 - `useSync` sincroniza al iniciar sesión, al evento `online`, al volver a
-  la pestaña (`visibilitychange`) y **cada vez que hay transacciones
-  pendientes** (observa con `useLiveQuery` el conteo de
-  `sincronizado === false`, con 1,5 s de espera y reintento cada 60 s).
-  Así una transacción registrada a mano sube sin recargar la página.
-- El Header muestra el estado (En línea / Pendiente N / Error / Sin
-  conexión) y el botón "Sincronizar ahora"; `App.tsx` muestra el mensaje
-  de error de la última sincronización.
-- `syncService.subirTransaccionesPendientes` toma el `user_id` de
-  `supabase.auth.getSession()` (y exige que coincida con `usuarioId`).
-  `aFilaRemota` es una lista blanca tipada como `FilaTransaccionRemota`:
-  campos locales como `sincronizado` nunca se envían. `sincronizado` es
-  boolean en Dexie (no 0/1) y se pone en `true` justo después de que el
-  upsert responde sin error.
-- Orden de `sincronizar` (importa por las llaves foráneas): fusionar
-  categorías/cuentas remotas → subirlas → re-apuntar pendientes con
-  referencias rotas a "Otros"/primera cuenta → subir transacciones →
-  replicar borrados (`eliminacionesPendientes`) → descargar transacciones.
-- Si Supabase rechaza una categoría/cuenta (p. ej. CHECK de `tipo`),
-  `subirCatalogo` reintenta fila por fila y `sincronizar` sigue subiendo
-  las transacciones que no dependen de ella; el error final nombra lo
-  rechazado (causa raíz), no los fallos de llave foránea que provoca.
-- `fusionarCatalogo`: si una categoría/cuenta local solo existe en este
-  dispositivo y coincide en nombre+tipo con una remota (típico de las
-  sembradas por defecto sin red), se adopta el id remoto y se re-apuntan
-  sus transacciones; así no se duplican.
-- `describirError` traduce los errores de PostgREST (`23503` = llave
-  foránea): `PGRST204`/`42703` =
-  falta la migración SQL, `42501` = rechazo de RLS.
-
-`syncService.ts` siempre envía/filtra por `user_id`; requiere que la política
-RLS de arriba esté activa (no la versión relajada `USING (true)` que se usó
-temporalmente antes de implementar autenticación).
+  la pestaña (`visibilitychange`) y **cada vez que hay cambios locales
+  pendientes** en cualquier tabla (conteo con `useLiveQuery`, 1,5 s de
+  espera y reintento cada 60 s).
+- Header: estado (En línea / Pendiente N / Error / Sin conexión) y botón
+  "Sincronizar ahora". `App.tsx` muestra el error completo (código,
+  detalle, pista de PostgREST) con botón para copiarlo.
+- Siempre con el `user_id` de `supabase.auth.getSession()` (debe coincidir
+  con `usuarioId`). Los mapeos (`aFilaTransaccion` y la config `Entidad`
+  de cada tabla) son listas blancas: `sincronizado` nunca viaja.
+- **Transacciones**: cola `sincronizado === false` → upsert por lote; si
+  falla por un error de datos, fila por fila (una mala no bloquea al
+  resto). Al marcar como sincronizada se compara `fechaActualizacion` para
+  no perder una edición hecha mientras se subía. Luego se descargan las 200
+  más recientes (sin pisar pendientes ni borradas localmente) y
+  `reconciliarBorradosTransacciones` elimina localmente las sincronizadas
+  que ya no están en el servidor (borradas en otro dispositivo); por
+  seguridad no hace nada si no leyó la lista completa de ids o si borraría
+  una proporción sospechosa.
+- **Resto de entidades** (esquema v7): `sincronizarEntidad` descarga todo,
+  resuelve conflictos por "gana la `fechaActualizacion` más reciente",
+  borra localmente lo que ya no existe remoto (si estaba sincronizado) y
+  sube lo pendiente. Los servicios deben poner `sincronizado: false` +
+  `fechaActualizacion: new Date()` en cada alta/edición.
+- **Borrados**: se registran en `eliminacionesPendientes` y se replican en
+  orden (`ORDEN_BORRADO`: primero lo que referencia a categorías/cuentas).
+  Un error de llave foránea deja el borrado para el siguiente ciclo.
+- Orden del ciclo: categorías/cuentas (con `fusionarCatalogo`, que une las
+  sembradas por separado en dos dispositivos por nombre+tipo) → re-apuntar
+  referencias rotas → subir transacciones → borrados → presupuestos/
+  recurrentes/metas/deudas → descargar transacciones. Los errores de una
+  entidad no detienen a las demás; se lanzan juntos al final.
+- Hay pruebas de todo esto con un Supabase simulado en memoria (no están
+  en el repo; se ejecutaron con `fake-indexeddb` + `tsx`).
 
 ## Comandos
 
@@ -288,20 +265,15 @@ temporalmente antes de implementar autenticación).
 ## Pendientes conocidos
 
 - Deploy en Vercel: no hecho (requiere login del usuario en vercel.com).
-- **Migración SQL de Supabase sin ejecutar** (ver sección "Tabla remota"):
-  hasta que se aplique, la sincronización de transacciones fallará porque
-  `syncService.ts` ya envía `categoria_id`/`cuenta_id`/`concepto`/
-  `nro_operacion`/`origen`, columnas que la tabla remota original no tiene.
+- Migración `supabase/migraciones/v0.7.sql`: el usuario debe ejecutarla
+  en su proyecto de Supabase (ver "Esquema remoto").
 - El chunk principal (`index-*.js`) sigue por encima de 500kB (aviso de
   Vite) por `@supabase/supabase-js`; `xlsx` ya se separó con
   `React.lazy` (ver Rendimiento) pero el resto no se ha optimizado.
-- `presupuestos`: solo existe el esquema en Dexie y el tipo `Presupuesto`;
-  no hay UI ni servicio para crearlos/consultarlos todavía.
+- `presupuestos`, `metas`, `deudas`, `recurrentes`: modelo y
+  sincronización listos (v0.7); la UI llega en la v0.8.
 - El importador de Yape no se probó contra un archivo real exportado desde
   la app (ver sección "Importador de Yape").
-- Categorías/cuentas: no hay marca de tiempo remota, así que si el mismo
-  registro se edita en dos dispositivos gana el último que sincroniza
-  (cada ciclo sube todas las locales).
 
 ## Flujo de trabajo con git (pedido explícitamente por el usuario)
 

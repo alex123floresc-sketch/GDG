@@ -1,6 +1,7 @@
 import type { Categoria, Cuenta, Transaccion } from '../types'
 import {
   clavePeriodo,
+  esMovimientoReal,
   resumenPorCategoria,
   resumenPorPeriodo,
   type Granularidad,
@@ -38,7 +39,7 @@ export async function exportarAnalisisExcel({
   const XLSX = await import('xlsx')
 
   const delAnio = transacciones
-    .filter((t) => t.fecha.getFullYear() === anio)
+    .filter((t) => t.fecha.getFullYear() === anio && esMovimientoReal(t))
     .sort((a, b) => a.fecha.getTime() - b.fecha.getTime())
   const periodos = resumenPorPeriodo(delAnio, anio, granularidad)
   const nombrePeriodo = granularidad === 'mes' ? 'Mes' : 'Trimestre'

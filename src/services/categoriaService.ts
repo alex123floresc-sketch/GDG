@@ -97,6 +97,8 @@ export async function crearCategoria(
     nombre: await validarNombre(usuarioId, datos.nombre),
     id: crypto.randomUUID(),
     usuarioId,
+    sincronizado: false,
+    fechaActualizacion: new Date(),
   }
 
   await db.categorias.add(categoria)
@@ -109,7 +111,12 @@ export async function actualizarCategoria(
   usuarioId: string,
 ): Promise<void> {
   const nombre = await validarNombre(usuarioId, datos.nombre, id)
-  await db.categorias.update(id, { ...datos, nombre })
+  await db.categorias.update(id, {
+    ...datos,
+    nombre,
+    sincronizado: false,
+    fechaActualizacion: new Date(),
+  })
 }
 
 /** Cuántas transacciones del usuario usan la categoría. */
@@ -118,31 +125,47 @@ export function contarUsos(categoriaId: string): Promise<number> {
 }
 
 /**
- * Elimina una categoría. Si tiene transacciones, deben reasignarse a otra
- * (`reasignarA`): se marcan como no sincronizadas para que el cambio de
- * `categoria_id` llegue también a Supabase.
+ * Elimina una categoría. Si tiene transacciones o movimientos recurrentes,
+ * deben reasignarse a otra (`reasignarA`): se marcan como no sincronizados
+ * para que el cambio de `categoria_id` llegue también a Supabase. Sus
+ * presupuestos se eliminan.
  */
 export async function eliminarCategoria(
   id: string,
   reasignarA?: string,
 ): Promise<void> {
-  const tablas = [db.categorias, db.transacciones, db.eliminacionesPendientes]
+  const tablas = [
+    db.categorias,
+    db.transacciones,
+    db.presupuestos,
+    db.recurrentes,
+    db.eliminacionesPendientes,
+  ]
   await db.transaction('rw', tablas, async () => {
     const categoria = await db.categorias.get(id)
     if (!categoria) return
 
     const usos = db.transacciones.where('categoriaId').equals(id)
+    const recurrentes = db.recurrentes.filter((r) => r.categoriaId === id)
+    const cambio = { categoriaId: reasignarA, sincronizado: false, fechaActualizacion: new Date() }
 
-    if ((await usos.count()) > 0) {
+    if ((await usos.count()) + (await recurrentes.count()) > 0) {
       if (!reasignarA || reasignarA === id) {
         throw new Error('Elige a qué categoría pasan sus transacciones.')
       }
-      await usos.modify({
-        categoriaId: reasignarA,
-        sincronizado: false,
-        fechaActualizacion: new Date(),
-      })
+      await usos.modify(cambio)
+      await recurrentes.modify(cambio)
     }
+
+    const presupuestos = await db.presupuestos.where('categoriaId').equals(id).toArray()
+    await db.presupuestos.bulkDelete(presupuestos.map((p) => p.id))
+    await db.eliminacionesPendientes.bulkAdd(
+      presupuestos.map((p) => ({
+        usuarioId: categoria.usuarioId,
+        tabla: 'presupuestos' as const,
+        registroId: p.id,
+      })),
+    )
 
     await db.categorias.delete(id)
     // Se borra en Supabase en la próxima sincronización, después de subir

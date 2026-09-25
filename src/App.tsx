@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 import Auth from './components/Auth'
+import Avisos from './components/Avisos'
 import Dashboard from './components/Dashboard'
 import Header from './components/Header'
 import { useSync } from './hooks/useSync'
@@ -59,6 +60,7 @@ function App() {
     ultimaSincronizacion,
     error: errorSincronizacion,
     pendientes,
+    migracionPendiente,
     sincronizarAhora,
   } = useSync(usuarioId)
 
@@ -94,7 +96,7 @@ function App() {
   }
 
   return (
-    <>
+    <Avisos>
       <Header
         email={sesion.user.email ?? ''}
         enLinea={enLinea}
@@ -114,7 +116,7 @@ function App() {
               <div className="content">
                 <div className="header">
                   {pendientes > 0
-                    ? `${pendientes} transacción${pendientes === 1 ? '' : 'es'} sin sincronizar`
+                    ? `${pendientes} cambio${pendientes === 1 ? '' : 's'} sin sincronizar`
                     : 'No se pudo sincronizar'}
                 </div>
                 <p className="detalle-error">{errorSincronizacion}</p>
@@ -130,10 +132,24 @@ function App() {
               </div>
             </div>
           )}
+          {migracionPendiente && !errorSincronizacion && (
+            <div className="ui info icon message aviso-sincronizacion">
+              <i className="database icon" />
+              <div className="content">
+                <div className="header">Falta actualizar tu base de datos en Supabase</div>
+                <p>
+                  Tus transacciones, categorías y cuentas se sincronizan normalmente, pero las
+                  metas, deudas, recurrentes, presupuestos, transferencias y montos en dólares
+                  solo se guardan en este dispositivo hasta que ejecutes el archivo{' '}
+                  <code>supabase/migraciones/v0.7.sql</code> en el SQL Editor de Supabase.
+                </p>
+              </div>
+            </div>
+          )}
           <Dashboard usuarioId={usuarioId} sincronizarAhora={sincronizarAhora} />
         </div>
       </main>
-    </>
+    </Avisos>
   )
 }
 

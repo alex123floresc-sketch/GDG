@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { Transaccion } from '../types'
+import { esMovimientoReal } from '../utils/analisis'
 import { formatearMoneda } from '../utils/formato'
 
 interface ResumenFinancieroProps {
@@ -8,11 +9,12 @@ interface ResumenFinancieroProps {
 
 function ResumenFinanciero({ transacciones }: ResumenFinancieroProps) {
   const { totalIngresos, totalGastos, balance } = useMemo(() => {
-    const totalIngresos = transacciones
+    const reales = transacciones.filter(esMovimientoReal)
+    const totalIngresos = reales
       .filter((t) => t.tipo === 'ingreso')
       .reduce((suma, t) => suma + t.monto, 0)
 
-    const totalGastos = transacciones
+    const totalGastos = reales
       .filter((t) => t.tipo === 'gasto')
       .reduce((suma, t) => suma + t.monto, 0)
 

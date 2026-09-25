@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { COLOR_SIN_CATEGORIA, type ResumenCategoria } from '../../utils/analisis'
+import type { ResumenCategoria } from '../../utils/analisis'
 import { formatearMoneda, formatearPorcentaje } from '../../utils/formato'
 import { SinDatos } from './comun'
 
@@ -11,6 +11,7 @@ interface GraficoDonaProps {
   maxPorciones?: number
 }
 
+const COLOR_OTRAS = '#c3c2b7'
 const TAMANO = 180
 const GROSOR = 28
 const RADIO = TAMANO / 2
@@ -48,7 +49,8 @@ function GraficoDona({ datos, titulo, maxPorciones = 6 }: GraficoDonaProps) {
         categoriaId: '__otras__',
         nombre: `Otras (${resto.length})`,
         icono: 'ellipsis horizontal',
-        color: COLOR_SIN_CATEGORIA,
+        // Más claro que el gris de "Otros"/sin categoría para no confundirlos.
+        color: COLOR_OTRAS,
         total: resto.reduce((s, d) => s + d.total, 0),
         cantidad: resto.reduce((s, d) => s + d.cantidad, 0),
         porcentaje: resto.reduce((s, d) => s + d.porcentaje, 0),

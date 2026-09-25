@@ -1,14 +1,17 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { useCategorias } from '../hooks/useCategorias'
 import { useCuentas } from '../hooks/useCuentas'
 import { useTransacciones } from '../hooks/useTransacciones'
+import type { Transaccion } from '../types'
 import { clavePeriodo, resumenPorCategoria, resumenUltimosMeses } from '../utils/analisis'
 import Analisis from './Analisis'
-import FormularioTransaccion from './FormularioTransaccion'
+import FormularioTransaccion, { type TipoFormulario } from './FormularioTransaccion'
 import GestionCategorias from './GestionCategorias'
+import GestionCuentas from './GestionCuentas'
 import GraficoBarras from './graficos/GraficoBarras'
 import GraficoDona from './graficos/GraficoDona'
 import ListaTransacciones from './ListaTransacciones'
+import Modal from './Modal'
 import ResumenFinanciero from './ResumenFinanciero'
 
 // xlsx (usado por YapeImporter) pesa varios cientos de KB: se carga bajo
@@ -22,7 +25,7 @@ interface DashboardProps {
 }
 
 type Seccion = 'inicio' | 'registrar' | 'movimientos' | 'analisis' | 'mas'
-type SubseccionMas = 'categorias' | 'importar'
+type SubseccionMas = 'cuentas' | 'categorias' | 'importar'
 
 const SECCIONES: { id: Seccion; etiqueta: string; icono: string }[] = [
   { id: 'inicio', etiqueta: 'Inicio', icono: 'home' },
@@ -43,7 +46,11 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
   const transacciones = useTransacciones(usuarioId)
 
   const [seccion, setSeccion] = useState<Seccion>('inicio')
-  const [subseccionMas, setSubseccionMas] = useState<SubseccionMas>('categorias')
+  const [subseccionMas, setSubseccionMas] = useState<SubseccionMas>('cuentas')
+  /** Movimiento abierto en el modal de edición. */
+  const [editando, setEditando] = useState<Transaccion | null>(null)
+  /** Registro rápido en modal (p. ej. "Transferir" desde Cuentas). */
+  const [registroRapido, setRegistroRapido] = useState<TipoFormulario | null>(null)
   const [cuentaFiltro, setCuentaFiltro] = useState<string>(FILTRO_TODAS)
 
   // Filtros propios de Movimientos
@@ -79,13 +86,24 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
 
     return transaccionesFiltradas.filter(
       (t) =>
-        (tipoFiltro === FILTRO_TODAS || t.tipo === tipoFiltro) &&
+        (tipoFiltro === FILTRO_TODAS ||
+          (tipoFiltro === 'transferencia'
+            ? t.origen === 'transferencia'
+            : t.tipo === tipoFiltro && t.origen !== 'transferencia')) &&
         (categoriaFiltro === FILTRO_TODAS || t.categoriaId === categoriaFiltro) &&
         (!texto ||
           (t.concepto ?? '').toLocaleLowerCase('es').includes(texto) ||
           (nombresCategoria.get(t.categoriaId) ?? '').toLocaleLowerCase('es').includes(texto)),
     )
   }, [transaccionesFiltradas, categorias, busqueda, tipoFiltro, categoriaFiltro])
+
+  const cerrarEdicion = useCallback(() => setEditando(null), [])
+  const cerrarRegistroRapido = useCallback(() => setRegistroRapido(null), [])
+
+  function irACategorias() {
+    setSubseccionMas('categorias')
+    setSeccion('mas')
+  }
 
   const nombreMesActual = new Intl.DateTimeFormat('es-PE', { month: 'long' }).format(new Date())
 
@@ -168,6 +186,7 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
             categorias={categorias}
             cuentas={cuentas}
             limite={RECIENTES_EN_INICIO}
+            onSeleccionar={setEditando}
             accion={{
               texto: 'Ver todas',
               onClick: () => setSeccion('movimientos'),
@@ -177,16 +196,22 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
       )}
 
       {seccion === 'registrar' && (
-        <FormularioTransaccion
-          usuarioId={usuarioId}
-          cuentas={cuentas}
-          categorias={categorias}
-          onRegistrada={() => setSeccion('inicio')}
-          onGestionarCategorias={() => {
-            setSubseccionMas('categorias')
-            setSeccion('mas')
-          }}
-        />
+        <div className="ui segment">
+          <h3 className="ui header">
+            <i className="plus circle icon" />
+            <div className="content">
+              Nuevo movimiento
+              <div className="sub header">Registra un gasto, un ingreso o una transferencia</div>
+            </div>
+          </h3>
+          <FormularioTransaccion
+            usuarioId={usuarioId}
+            cuentas={cuentas}
+            categorias={categorias}
+            transacciones={transacciones}
+            onGestionarCategorias={irACategorias}
+          />
+        </div>
       )}
 
       {seccion === 'movimientos' && (
@@ -216,6 +241,7 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
               <option value={FILTRO_TODAS}>Ingresos y gastos</option>
               <option value="ingreso">Solo ingresos</option>
               <option value="gasto">Solo gastos</option>
+              <option value="transferencia">Transferencias</option>
             </select>
             <select
               aria-label="Filtrar por categoría"
@@ -238,6 +264,7 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
             cuentas={cuentas}
             titulo="Historial"
             limite={LIMITE_MOVIMIENTOS}
+            onSeleccionar={setEditando}
             mostrarTotales
           />
         </>
@@ -257,6 +284,14 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
           <div className="ui secondary pointing menu submenu-mas">
             <button
               type="button"
+              className={`item ${subseccionMas === 'cuentas' ? 'active' : ''}`}
+              onClick={() => setSubseccionMas('cuentas')}
+            >
+              <i className="wallet icon" />
+              Cuentas
+            </button>
+            <button
+              type="button"
               className={`item ${subseccionMas === 'categorias' ? 'active' : ''}`}
               onClick={() => setSubseccionMas('categorias')}
             >
@@ -272,6 +307,15 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
               Importar Yape
             </button>
           </div>
+
+          {subseccionMas === 'cuentas' && (
+            <GestionCuentas
+              usuarioId={usuarioId}
+              cuentas={cuentas}
+              transacciones={transacciones}
+              onTransferir={() => setRegistroRapido('transferencia')}
+            />
+          )}
 
           {subseccionMas === 'categorias' && (
             <GestionCategorias
@@ -300,6 +344,47 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
           )}
         </>
       )}
+
+      <Modal
+        abierto={editando !== null}
+        titulo={editando?.transferenciaId ? 'Editar transferencia' : 'Editar movimiento'}
+        icono="pencil alternate"
+        onCerrar={cerrarEdicion}
+      >
+        {editando && (
+          <FormularioTransaccion
+            key={editando.id}
+            usuarioId={usuarioId}
+            cuentas={cuentas}
+            categorias={categorias}
+            transacciones={transacciones}
+            transaccion={editando}
+            onListo={cerrarEdicion}
+          />
+        )}
+      </Modal>
+
+      <Modal
+        abierto={registroRapido !== null}
+        titulo="Nuevo movimiento"
+        icono="plus circle"
+        onCerrar={cerrarRegistroRapido}
+      >
+        {registroRapido && (
+          <FormularioTransaccion
+            usuarioId={usuarioId}
+            cuentas={cuentas}
+            categorias={categorias}
+            transacciones={transacciones}
+            tipoInicial={registroRapido}
+            onListo={cerrarRegistroRapido}
+            onGestionarCategorias={() => {
+              cerrarRegistroRapido()
+              irACategorias()
+            }}
+          />
+        )}
+      </Modal>
     </>
   )
 }

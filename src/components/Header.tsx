@@ -36,7 +36,7 @@ function Header({
 
   const titulo = [
     error,
-    pendientes > 0 ? `${pendientes} transacción(es) sin subir` : null,
+    pendientes > 0 ? `${pendientes} cambio(s) sin subir` : null,
     ultimaSincronizacion
       ? `Última sincronización: ${ultimaSincronizacion.toLocaleTimeString('es-PE', {
           hour: '2-digit',

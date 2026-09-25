@@ -39,6 +39,14 @@ const MESES_LARGOS = [
 
 export const COLOR_SIN_CATEGORIA = '#898781'
 
+/**
+ * ¿Cuenta como ingreso/gasto real? Las transferencias entre cuentas propias
+ * solo mueven saldos: se excluyen de resúmenes, gráficos y presupuestos.
+ */
+export function esMovimientoReal(t: Transaccion): boolean {
+  return t.origen !== 'transferencia'
+}
+
 export function trimestreDe(fecha: Date): number {
   return Math.floor(fecha.getMonth() / 3) + 1
 }
@@ -82,7 +90,7 @@ export function resumenPorPeriodo(
   const porClave = new Map(periodos.map((p) => [p.clave, p]))
 
   for (const t of transacciones) {
-    if (t.fecha.getFullYear() !== anio) continue
+    if (t.fecha.getFullYear() !== anio || !esMovimientoReal(t)) continue
     const periodo = porClave.get(clavePeriodo(t.fecha, granularidad))
     if (!periodo) continue
 
@@ -121,6 +129,7 @@ export function resumenUltimosMeses(
   const porClave = new Map(periodos.map((p) => [p.clave, p]))
 
   for (const t of transacciones) {
+    if (!esMovimientoReal(t)) continue
     const periodo = porClave.get(clavePeriodo(t.fecha, 'mes'))
     if (!periodo) continue
     if (t.tipo === 'ingreso') periodo.ingresos += t.monto
@@ -144,7 +153,7 @@ export function resumenPorCategoria(
   let totalGeneral = 0
 
   for (const t of transacciones) {
-    if (t.tipo !== tipo) continue
+    if (t.tipo !== tipo || !esMovimientoReal(t)) continue
     const actual = acumulado.get(t.categoriaId) ?? { total: 0, cantidad: 0 }
     actual.total += t.monto
     actual.cantidad++

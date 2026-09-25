@@ -1,3 +1,4 @@
+import type { Table } from 'dexie'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { db } from '../db/database'
@@ -20,6 +21,8 @@ const INTERVALO_REINTENTO_MS = 60_000
  */
 export function useSync(usuarioId: string | null): EstadoSincronizacion & {
   pendientes: number
+  /** Supabase aún no tiene el esquema v0.7 (ver supabase/migraciones). */
+  migracionPendiente: boolean
   sincronizarAhora: () => Promise<void>
 } {
   const [enLinea, setEnLinea] = useState(navigator.onLine)
@@ -27,22 +30,36 @@ export function useSync(usuarioId: string | null): EstadoSincronizacion & {
   const [ultimaSincronizacion, setUltimaSincronizacion] =
     useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [migracionPendiente, setMigracionPendiente] = useState(false)
 
   const sincronizandoRef = useRef(false)
 
+  // Cambios locales por subir en todas las tablas (+ borrados pendientes).
   // 'sincronizado' no está indexado (boolean), se filtra en memoria.
   const pendientes =
-    useLiveQuery(
-      () =>
-        usuarioId
-          ? db.transacciones
-              .where('usuarioId')
-              .equals(usuarioId)
-              .filter((t) => !t.sincronizado)
-              .count()
-          : 0,
-      [usuarioId],
-    ) ?? 0
+    useLiveQuery(async () => {
+      if (!usuarioId) return 0
+      const tablas = [
+        db.transacciones,
+        db.categorias,
+        db.cuentas,
+        db.presupuestos,
+        db.metas,
+        db.deudas,
+        db.recurrentes,
+      ] as unknown as Table<{ usuarioId: string; sincronizado?: boolean }, string>[]
+      const conteos = await Promise.all([
+        ...tablas.map((t) =>
+          t
+            .where('usuarioId')
+            .equals(usuarioId)
+            .filter((fila) => fila.sincronizado !== true)
+            .count(),
+        ),
+        db.eliminacionesPendientes.where('usuarioId').equals(usuarioId).count(),
+      ])
+      return conteos.reduce((a, b) => a + b, 0)
+    }, [usuarioId]) ?? 0
 
   const sincronizarAhora = useCallback(async () => {
     if (!usuarioId || sincronizandoRef.current || !navigator.onLine) return
@@ -51,7 +68,8 @@ export function useSync(usuarioId: string | null): EstadoSincronizacion & {
     setSincronizando(true)
 
     try {
-      await sincronizar(usuarioId)
+      const resultado = await sincronizar(usuarioId)
+      setMigracionPendiente(resultado.migracionPendiente)
       setUltimaSincronizacion(new Date())
       setError(null)
     } catch (err) {
@@ -117,6 +135,7 @@ export function useSync(usuarioId: string | null): EstadoSincronizacion & {
     ultimaSincronizacion,
     error,
     pendientes,
+    migracionPendiente,
     sincronizarAhora,
   }
 }

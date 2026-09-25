@@ -949,3 +949,381 @@ body {
   font-size: 0.9em;
   user-select: text;
 }
+
+/* ---------- Modal ---------- */
+
+body.con-modal {
+  overflow: hidden;
+}
+
+.fondo-modal.ui.page.dimmer {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 1em;
+  z-index: 1000;
+  background: rgba(15, 14, 40, 0.55);
+  animation: aparecer 0.15s ease-out;
+}
+
+.modal-app.ui.modal {
+  position: relative;
+  display: flex !important;
+  flex-direction: column;
+  margin: 0 !important;
+  max-height: calc(100svh - 2em);
+  border-radius: var(--radio) !important;
+  animation: subir 0.2s ease-out;
+}
+
+.modal-app.ui.modal > .header {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding-right: 3em !important;
+  border-radius: var(--radio) var(--radio) 0 0 !important;
+}
+
+.modal-app.ui.modal > .scrolling.content {
+  max-height: none !important;
+  overflow-y: auto;
+  border-radius: 0 0 var(--radio) var(--radio);
+}
+
+.cerrar-modal {
+  position: absolute;
+  top: 0.9em;
+  right: 0.7em;
+  background: none;
+  border: none;
+  font-size: 1.2em;
+  cursor: pointer;
+  color: var(--color-texto-suave);
+  z-index: 1;
+}
+
+@media (max-width: 767px) {
+  /* El dimmer de Fomantic es flex en columna: el eje vertical es justify. */
+  .fondo-modal.ui.page.dimmer {
+    justify-content: flex-end;
+    padding: 0;
+  }
+
+  .modal-app.ui.modal {
+    width: 100% !important;
+    max-height: 92svh;
+    border-radius: 16px 16px 0 0 !important;
+  }
+
+  .modal-app.ui.modal > .scrolling.content {
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@keyframes aparecer {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes subir {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- Avisos (toasts) ---------- */
+
+.contenedor-avisos {
+  position: fixed;
+  top: calc(var(--alto-header) + 0.75em);
+  right: 0.75em;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  pointer-events: none;
+  max-width: calc(100vw - 1.5em);
+}
+
+.aviso {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  min-width: 240px;
+  padding: 0.75em 0.9em;
+  border-radius: 10px;
+  background: var(--color-header-1);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(15, 14, 40, 0.25);
+  animation: entrarAviso 0.25s ease-out;
+}
+
+.aviso > i.icon {
+  margin: 0;
+}
+
+.aviso-exito > i.icon { color: #5ee0a6; }
+.aviso-error > i.icon { color: #ff9b85; }
+.aviso-info > i.icon { color: #a9b4ff; }
+
+.aviso .texto {
+  flex: 1;
+}
+
+.aviso .accion {
+  background: none;
+  border: none;
+  color: #a9b4ff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+  font-size: 0.85em;
+}
+
+.aviso .cerrar {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 0;
+}
+
+@keyframes entrarAviso {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (max-width: 767px) {
+  .contenedor-avisos {
+    top: auto;
+    bottom: calc(5.5em + env(safe-area-inset-bottom));
+    left: 0.75em;
+    right: 0.75em;
+  }
+}
+
+/* ---------- Lista agrupada por día ---------- */
+
+.grupo-dia + .grupo-dia {
+  margin-top: 0.75em;
+}
+
+.cabecera-dia {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4em 0;
+  border-bottom: 1px solid var(--color-borde);
+  font-size: 0.85em;
+  font-weight: 700;
+  color: var(--color-texto-suave);
+}
+
+.lista-transacciones.ui.list > button.item {
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--color-borde);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 0.12s;
+}
+
+.lista-transacciones.ui.list > button.item:last-child {
+  border-bottom: none;
+}
+
+.lista-transacciones.ui.list > button.item:hover,
+.lista-transacciones.ui.list > button.item:focus-visible {
+  background: var(--color-marca-suave);
+}
+
+.lista-transacciones.ui.list > .item {
+  padding-left: 0.4em;
+  padding-right: 0.4em;
+}
+
+.equivalente-soles {
+  font-size: 0.8em;
+  color: var(--color-texto-suave);
+}
+
+.estado-vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25em;
+  padding: 2em 1em;
+  text-align: center;
+  color: var(--color-texto-suave);
+}
+
+.estado-vacio > i.icon {
+  font-size: 2.4em;
+  height: auto;
+  opacity: 0.35;
+}
+
+.estado-vacio p {
+  margin: 0;
+}
+
+/* ---------- Formulario de movimiento ---------- */
+
+.formulario-movimiento .monto-grande input {
+  font-size: 1.6em !important;
+  font-weight: 700;
+  padding-top: 0.45em !important;
+  padding-bottom: 0.45em !important;
+}
+
+.selector-moneda.ui.buttons .button {
+  min-width: 3.4em;
+}
+
+.tipo-cambio.fields .equivalente strong {
+  display: block;
+  padding-top: 0.6em;
+  font-size: 1.1em;
+}
+
+.acciones-formulario .boton-eliminar {
+  margin-right: auto !important;
+}
+
+.formulario-movimiento .acciones-formulario .boton-guardar {
+  min-width: 11em;
+}
+
+@media (max-width: 767px) {
+  .formulario-movimiento .acciones-formulario .boton-guardar {
+    flex: 1;
+  }
+}
+
+.confirmar-borrado.ui.message p {
+  margin-bottom: 0;
+}
+
+.nota-formulario {
+  font-size: 0.9em;
+}
+
+/* ---------- Cuentas ---------- */
+
+.fondo-marca {
+  background: var(--color-marca);
+}
+
+.rejilla-cuentas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1em;
+}
+
+.tarjeta-cuenta.ui.segment {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.tarjeta-cuenta.es-tarjeta {
+  background: linear-gradient(135deg, var(--color-superficie) 60%, var(--color-marca-suave));
+}
+
+.tarjeta-cuenta .cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+}
+
+.tarjeta-cuenta .cabecera .nombre {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tarjeta-cuenta .cabecera .nombre span,
+.tarjeta-cuenta .movimientos-cuenta,
+.tarjeta-cuenta .detalle-linea,
+.tarjeta-cuenta .saldo .etiqueta {
+  font-size: 0.85em;
+  color: var(--color-texto-suave);
+}
+
+.tarjeta-cuenta .saldo {
+  display: flex;
+  flex-direction: column;
+}
+
+.tarjeta-cuenta .saldo strong {
+  font-size: 1.5em;
+}
+
+.tarjeta-cuenta .barra-linea.ui.progress {
+  margin: 0;
+  height: 6px;
+  background: var(--grafico-grilla);
+}
+
+.tarjeta-cuenta .barra-linea.ui.progress .bar {
+  height: 6px;
+  min-width: 0;
+}
+
+.tarjeta-cuenta .detalle-linea {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5em;
+}
+
+.tarjeta-cuenta .etiqueta-pago.ui.label {
+  align-self: flex-start;
+  margin: 0;
+}
+
+.selector-tipo-cuenta {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 0.5em;
+}
+
+.fondo-modal.ui.page.dimmer {
+  position: fixed !important;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.monto-grande.ui.action.input {
+  align-items: stretch;
+}
+
+.monto-grande.ui.action.input > .buttons > .button,
+.monto-grande.ui.action.input > .label {
+  display: flex;
+  align-items: center;
+}
+
+.formulario-movimiento input[type='number']::-webkit-outer-spin-button,
+.formulario-movimiento input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.formulario-movimiento input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+.ui.form .selector-tipo.field {
+  margin-bottom: 1.25em;
+}
+
+.rejilla-cuentas {
+  align-items: start;
+}

@@ -1,229 +1,352 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { crearTransaccion } from '../services/transaccionService'
-import type { Categoria, Cuenta, TipoCuenta, TipoTransaccion } from '../types'
+import { useMemo, useRef, useState, type FormEvent } from 'react'
+import { useAvisos } from '../hooks/useAvisos'
+import {
+  actualizarTransaccion,
+  actualizarTransferencia,
+  crearTransaccion,
+  crearTransferencia,
+  eliminarTransaccion,
+  restaurarTransacciones,
+} from '../services/transaccionService'
+import type { Categoria, Cuenta, Moneda, Transaccion, TipoTransaccion } from '../types'
+import { ICONO_CUENTA } from '../utils/cuentas'
+import {
+  fechaDesdeInput,
+  fechaParaInput,
+  formatearMoneda,
+} from '../utils/formato'
+import { guardarTipoCambio, leerTipoCambio } from '../utils/preferencias'
 
-const ICONO_CUENTA: Record<TipoCuenta, string> = {
-  efectivo: 'money bill alternate outline',
-  banco: 'university',
-  billetera_digital: 'mobile alternate',
-  otro: 'wallet',
-}
+export type TipoFormulario = TipoTransaccion | 'transferencia'
 
 interface FormularioTransaccionProps {
   usuarioId: string
   cuentas: Cuenta[]
   categorias: Categoria[]
-  onRegistrada?: () => void
+  /** Todas las del usuario: para ordenar categorías por uso y hallar la otra pata de una transferencia. */
+  transacciones: Transaccion[]
+  /** Si se pasa, el formulario edita esa transacción en vez de crear una. */
+  transaccion?: Transaccion
+  tipoInicial?: TipoFormulario
+  /** Se llama al guardar o eliminar, con el texto del aviso ya mostrado. */
+  onListo?: () => void
   /** Lleva a la pantalla de categorías (para crear una que falte). */
   onGestionarCategorias?: () => void
 }
 
-/** Fecha local de hoy en formato `YYYY-MM-DD` (valor de `<input type="date">`). */
-function fechaHoy(): string {
-  // No usar toISOString(): da la fecha en UTC, que en Perú (UTC-5) ya es
-  // "mañana" desde las 7 p. m.
-  const hoy = new Date()
-  const mes = String(hoy.getMonth() + 1).padStart(2, '0')
-  const dia = String(hoy.getDate()).padStart(2, '0')
-  return `${hoy.getFullYear()}-${mes}-${dia}`
-}
+const TIPOS: { id: TipoFormulario; etiqueta: string; icono: string; color: string }[] = [
+  { id: 'gasto', etiqueta: 'Gasto', icono: 'arrow up', color: 'red' },
+  { id: 'ingreso', etiqueta: 'Ingreso', icono: 'arrow down', color: 'green' },
+  { id: 'transferencia', etiqueta: 'Transferir', icono: 'exchange', color: 'primary' },
+]
 
-/**
- * Convierte el `YYYY-MM-DD` del input a una fecha local con la hora actual.
- * `new Date('YYYY-MM-DD')` lo interpretaría como medianoche UTC (el día
- * anterior en Perú); la hora actual mantiene el orden de las transacciones
- * registradas el mismo día.
- */
-function aFechaLocal(valor: string): Date {
-  const [anio, mes, dia] = valor.split('-').map(Number)
-  const ahora = new Date()
-  return new Date(
-    anio,
-    mes - 1,
-    dia,
-    ahora.getHours(),
-    ahora.getMinutes(),
-    ahora.getSeconds(),
-  )
-}
+const DIAS_USO_RECIENTE = 60
 
 function FormularioTransaccion({
   usuarioId,
   cuentas,
   categorias,
-  onRegistrada,
+  transacciones,
+  transaccion,
+  tipoInicial = 'gasto',
+  onListo,
   onGestionarCategorias,
 }: FormularioTransaccionProps) {
-  const [tipo, setTipo] = useState<TipoTransaccion>('gasto')
-  const [monto, setMonto] = useState('')
-  const [cuentaId, setCuentaId] = useState('')
-  const [categoriaId, setCategoriaId] = useState('')
-  const [fecha, setFecha] = useState(fechaHoy)
-  const [concepto, setConcepto] = useState('')
-  const [enviando, setEnviando] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { avisar } = useAvisos()
+  const editando = Boolean(transaccion)
 
-  // Selecciona una cuenta por defecto en cuanto están disponibles.
-  useEffect(() => {
-    if (!cuentaId && cuentas.length > 0) {
-      setCuentaId(cuentas[0].id)
+  // Si se edita una transferencia, se recuperan sus dos patas.
+  const patas = useMemo(() => {
+    if (!transaccion?.transferenciaId) return null
+    const delPar = transacciones.filter((t) => t.transferenciaId === transaccion.transferenciaId)
+    return {
+      salida: delPar.find((t) => t.tipo === 'gasto'),
+      entrada: delPar.find((t) => t.tipo === 'ingreso'),
     }
-  }, [cuentas, cuentaId])
+  }, [transaccion, transacciones])
 
-  const categoriasDisponibles = useMemo(
-    () =>
-      categorias
-        .filter((c) => c.tipo === tipo || c.tipo === 'ambos')
-        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
-    [categorias, tipo],
+  const [tipo, setTipo] = useState<TipoFormulario>(
+    transaccion ? (transaccion.transferenciaId ? 'transferencia' : transaccion.tipo) : tipoInicial,
   )
+  const [moneda, setMoneda] = useState<Moneda>(transaccion?.moneda ?? 'PEN')
+  const [monto, setMonto] = useState(() =>
+    transaccion ? String(transaccion.montoOriginal ?? transaccion.monto) : '',
+  )
+  const [tipoCambio, setTipoCambio] = useState(() =>
+    String(transaccion?.tipoCambio ?? leerTipoCambio()),
+  )
+  const [cuentaId, setCuentaId] = useState(
+    patas?.salida?.cuentaId ?? transaccion?.cuentaId ?? '',
+  )
+  const [cuentaDestinoId, setCuentaDestinoId] = useState(patas?.entrada?.cuentaId ?? '')
+  const [categoriaId, setCategoriaId] = useState(transaccion?.categoriaId ?? '')
+  const [fecha, setFecha] = useState(() => fechaParaInput(transaccion?.fecha))
+  const [concepto, setConcepto] = useState(transaccion?.concepto ?? '')
+  const [enviando, setEnviando] = useState(false)
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const montoRef = useRef<HTMLInputElement>(null)
 
-  const categoriaSeleccionada = categoriasDisponibles.some(
-    (c) => c.id === categoriaId,
-  )
+  const esTransferencia = tipo === 'transferencia'
+
+  // Categorías del tipo elegido, las más usadas últimamente primero.
+  const [montadoEn] = useState(() => Date.now())
+  const categoriasDisponibles = useMemo(() => {
+    const desde = montadoEn - DIAS_USO_RECIENTE * 86_400_000
+    const usos = new Map<string, number>()
+    for (const t of transacciones) {
+      if (t.fecha.getTime() >= desde) usos.set(t.categoriaId, (usos.get(t.categoriaId) ?? 0) + 1)
+    }
+    return categorias
+      .filter((c) => c.tipo === tipo || c.tipo === 'ambos')
+      .sort(
+        (a, b) =>
+          (usos.get(b.id) ?? 0) - (usos.get(a.id) ?? 0) || a.nombre.localeCompare(b.nombre, 'es'),
+      )
+  }, [categorias, transacciones, tipo, montadoEn])
+
+  // Selecciones efectivas (caen a un valor válido si la elegida ya no aplica).
+  const cuentaSeleccionada = cuentas.some((c) => c.id === cuentaId) ? cuentaId : (cuentas[0]?.id ?? '')
+  const destinoSeleccionado =
+    cuentas.some((c) => c.id === cuentaDestinoId) && cuentaDestinoId !== cuentaSeleccionada
+      ? cuentaDestinoId
+      : (cuentas.find((c) => c.id !== cuentaSeleccionada)?.id ?? '')
+  const categoriaSeleccionada = categoriasDisponibles.some((c) => c.id === categoriaId)
     ? categoriaId
     : ''
 
-  const cuentaSeleccionada = cuentas.some((c) => c.id === cuentaId)
-    ? cuentaId
-    : ''
+  const montoNumerico = Number(monto)
+  const cambioNumerico = Number(tipoCambio)
+  const montoEnSoles =
+    moneda === 'USD' ? Math.round(montoNumerico * cambioNumerico * 100) / 100 : montoNumerico
+
+  function limpiar() {
+    setMonto('')
+    setConcepto('')
+    setFecha(fechaParaInput())
+    montoRef.current?.focus()
+  }
 
   async function manejarEnvio(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
     setError(null)
 
-    const montoNumerico = Number(monto)
-
     if (!Number.isFinite(montoNumerico) || montoNumerico <= 0) {
       setError('Ingresa un monto válido mayor a 0.')
       return
     }
-
+    if (moneda === 'USD' && (!Number.isFinite(cambioNumerico) || cambioNumerico <= 0)) {
+      setError('Ingresa un tipo de cambio válido.')
+      return
+    }
     if (!cuentaSeleccionada) {
       setError('Selecciona una cuenta.')
       return
     }
-
-    if (!categoriaSeleccionada) {
+    if (esTransferencia && !destinoSeleccionado) {
+      setError('Necesitas al menos dos cuentas para transferir.')
+      return
+    }
+    if (!esTransferencia && !categoriaSeleccionada) {
       setError('Selecciona una categoría.')
       return
     }
 
     setEnviando(true)
+    // Al editar se conserva la hora original si no cambió el día.
+    const fechaFinal = fechaDesdeInput(fecha, transaccion?.fecha)
+    const conceptoFinal = concepto.trim() || undefined
 
     try {
-      await crearTransaccion(
-        {
+      if (esTransferencia) {
+        const datos = {
+          cuentaOrigenId: cuentaSeleccionada,
+          cuentaDestinoId: destinoSeleccionado,
           monto: montoNumerico,
+          fecha: fechaFinal,
+          concepto: conceptoFinal,
+        }
+        if (transaccion?.transferenciaId) {
+          await actualizarTransferencia(transaccion.transferenciaId, datos)
+        } else {
+          await crearTransferencia(datos, usuarioId)
+        }
+        avisar(editando ? 'Transferencia actualizada' : 'Transferencia registrada')
+      } else {
+        if (moneda === 'USD') guardarTipoCambio(cambioNumerico)
+        const datos = {
+          monto: montoEnSoles,
           tipo,
           cuentaId: cuentaSeleccionada,
           categoriaId: categoriaSeleccionada,
-          fecha: aFechaLocal(fecha),
-          concepto: concepto.trim() || undefined,
-          origen: 'manual',
-        },
-        usuarioId,
-      )
+          fecha: fechaFinal,
+          concepto: conceptoFinal,
+          // 'PEN' explícito solo si antes estaba en otra moneda (para que
+          // Supabase la corrija); las nuevas en soles no la envían.
+          moneda: moneda === 'USD' ? moneda : transaccion?.moneda ? ('PEN' as const) : undefined,
+          montoOriginal: moneda === 'USD' ? montoNumerico : undefined,
+          tipoCambio: moneda === 'USD' ? cambioNumerico : undefined,
+        }
+        if (transaccion) {
+          await actualizarTransaccion(transaccion.id, datos)
+          avisar('Movimiento actualizado')
+        } else {
+          await crearTransaccion({ ...datos, origen: 'manual' }, usuarioId)
+          avisar(tipo === 'gasto' ? 'Gasto registrado' : 'Ingreso registrado')
+        }
+      }
 
-      setMonto('')
-      setConcepto('')
-      setFecha(fechaHoy())
-      onRegistrada?.()
+      if (!editando) limpiar()
+      onListo?.()
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'No se pudo registrar la transacción.',
-      )
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el movimiento.')
     } finally {
       setEnviando(false)
     }
   }
 
+  async function eliminar() {
+    if (!transaccion) return
+    setEnviando(true)
+    try {
+      const borradas = await eliminarTransaccion(transaccion.id)
+      avisar('Movimiento eliminado', 'info', {
+        texto: 'Deshacer',
+        onClick: () => void restaurarTransacciones(borradas),
+      })
+      onListo?.()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar.')
+      setEnviando(false)
+    }
+  }
+
+  const botonesCuenta = (seleccionada: string, onElegir: (id: string) => void, excluir?: string) => (
+    <div className="selector-cuenta ui fluid buttons" role="radiogroup">
+      {cuentas
+        .filter((c) => c.id !== excluir)
+        .map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            role="radio"
+            aria-checked={seleccionada === c.id}
+            onClick={() => onElegir(c.id)}
+            className={`ui button ${seleccionada === c.id ? 'primary' : 'basic'}`}
+          >
+            <i className={`${ICONO_CUENTA[c.tipo]} icon`} />
+            {c.nombre}
+          </button>
+        ))}
+    </div>
+  )
+
   return (
-    <div className="ui segment">
-      <h3 className="ui header">
-        <i className="plus circle icon" />
-        <div className="content">
-          Nueva transacción
-          <div className="sub header">Registra un ingreso o un gasto</div>
-        </div>
-      </h3>
+    <form onSubmit={manejarEnvio} className={`ui form formulario-movimiento ${error ? 'error' : ''}`}>
+      <div className="selector-tipo ui fluid three buttons field">
+        {TIPOS.map((t) => {
+          // Una transacción normal no se convierte en transferencia (ni al revés).
+          const bloqueado =
+            editando && (t.id === 'transferencia') !== Boolean(transaccion?.transferenciaId)
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTipo(t.id)}
+              disabled={bloqueado}
+              aria-pressed={tipo === t.id}
+              className={`ui button ${tipo === t.id ? t.color : 'basic'}`}
+            >
+              <i className={`${t.icono} icon`} />
+              {t.etiqueta}
+            </button>
+          )
+        })}
+      </div>
 
-      <form
-        onSubmit={manejarEnvio}
-        className={`ui form ${error ? 'error' : ''}`}
-      >
-        <div className="selector-tipo ui fluid two buttons field">
-          <button
-            type="button"
-            onClick={() => setTipo('ingreso')}
-            className={`ui button ${tipo === 'ingreso' ? 'green' : 'basic'}`}
-            aria-pressed={tipo === 'ingreso'}
-          >
-            <i className="arrow down icon" />
-            Ingreso
-          </button>
-          <button
-            type="button"
-            onClick={() => setTipo('gasto')}
-            className={`ui button ${tipo === 'gasto' ? 'red' : 'basic'}`}
-            aria-pressed={tipo === 'gasto'}
-          >
-            <i className="arrow up icon" />
-            Gasto
-          </button>
-        </div>
-
-        <div className="two fields">
-          <div className="required field">
-            <label htmlFor="tx-monto">Monto</label>
-            <div className="ui left labeled input">
-              <span className="ui basic label">S/</span>
-              <input
-                id="tx-monto"
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.01"
-                value={monto}
-                onChange={(e) => setMonto(e.target.value)}
-                placeholder="0.00"
-                required
-              />
+      <div className="campo-monto field required">
+        <label htmlFor="tx-monto">Monto</label>
+        <div className="ui action input monto-grande">
+          <input
+            ref={montoRef}
+            id="tx-monto"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.01"
+            value={monto}
+            onChange={(e) => setMonto(e.target.value)}
+            placeholder="0.00"
+            autoFocus={!editando}
+            required
+          />
+          {!esTransferencia && (
+            <div className="ui buttons selector-moneda">
+              {(['PEN', 'USD'] as Moneda[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`ui button ${moneda === m ? 'primary' : 'basic'}`}
+                  onClick={() => setMoneda(m)}
+                  aria-pressed={moneda === m}
+                >
+                  {m === 'PEN' ? 'S/' : 'US$'}
+                </button>
+              ))}
             </div>
-          </div>
+          )}
+          {esTransferencia && <span className="ui basic label">S/</span>}
+        </div>
+      </div>
 
-          <div className="required field">
-            <label htmlFor="tx-fecha">Fecha</label>
+      {moneda === 'USD' && !esTransferencia && (
+        <div className="fields tipo-cambio">
+          <div className="field">
+            <label htmlFor="tx-cambio">Tipo de cambio (S/ por US$)</label>
             <input
-              id="tx-fecha"
-              type="date"
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              required
+              id="tx-cambio"
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.001"
+              value={tipoCambio}
+              onChange={(e) => setTipoCambio(e.target.value)}
             />
           </div>
-        </div>
-
-        <div className="required field">
-          <label id="tx-cuenta">Cuenta</label>
-          <div className="selector-cuenta ui fluid buttons" role="radiogroup" aria-labelledby="tx-cuenta">
-            {cuentas.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                role="radio"
-                aria-checked={cuentaSeleccionada === c.id}
-                onClick={() => setCuentaId(c.id)}
-                className={`ui button ${cuentaSeleccionada === c.id ? 'primary' : 'basic'}`}
-              >
-                <i className={`${ICONO_CUENTA[c.tipo]} icon`} />
-                {c.nombre}
-              </button>
-            ))}
+          <div className="field equivalente">
+            <label>Equivale a</label>
+            <strong>{Number.isFinite(montoEnSoles) ? formatearMoneda(montoEnSoles) : '—'}</strong>
           </div>
         </div>
+      )}
 
-        <div className="required field">
+      <div className="field required">
+        <label htmlFor="tx-fecha">Fecha</label>
+        <input
+          id="tx-fecha"
+          type="date"
+          value={fecha}
+          onChange={(e) => setFecha(e.target.value)}
+          required
+        />
+      </div>
+
+      <div className="field required">
+        <label id="tx-cuenta">{esTransferencia ? 'Desde' : 'Cuenta'}</label>
+        {botonesCuenta(cuentaSeleccionada, setCuentaId)}
+      </div>
+
+      {esTransferencia ? (
+        <div className="field required">
+          <label>Hacia</label>
+          {cuentas.length < 2 ? (
+            <p className="texto-suave">Crea otra cuenta en Más → Cuentas para poder transferir.</p>
+          ) : (
+            botonesCuenta(destinoSeleccionado, setCuentaDestinoId, cuentaSeleccionada)
+          )}
+        </div>
+      ) : (
+        <div className="field required">
           <label>
             Categoría
             {onGestionarCategorias && (
@@ -255,35 +378,71 @@ function FormularioTransaccion({
             })}
           </div>
         </div>
+      )}
 
-        <div className="field">
-          <label htmlFor="tx-concepto">Concepto (opcional)</label>
-          <input
-            id="tx-concepto"
-            type="text"
-            value={concepto}
-            onChange={(e) => setConcepto(e.target.value)}
-            placeholder="Ej. Almuerzo con el equipo"
-            maxLength={140}
-          />
+      <div className="field">
+        <label htmlFor="tx-concepto">Concepto (opcional)</label>
+        <input
+          id="tx-concepto"
+          type="text"
+          value={concepto}
+          onChange={(e) => setConcepto(e.target.value)}
+          placeholder={esTransferencia ? 'Ej. Pago de tarjeta' : 'Ej. Almuerzo con el equipo'}
+          maxLength={140}
+        />
+      </div>
+
+      {error && (
+        <div className="ui error message">
+          <p>{error}</p>
         </div>
+      )}
 
-        {error && (
-          <div className="ui error message">
-            <p>{error}</p>
+      {confirmandoBorrado ? (
+        <div className="ui warning message confirmar-borrado">
+          <p>
+            {esTransferencia
+              ? '¿Eliminar esta transferencia? Se quitará de ambas cuentas.'
+              : '¿Eliminar este movimiento?'}
+          </p>
+          <div className="acciones-formulario">
+            <button type="button" className="ui basic button" onClick={() => setConfirmandoBorrado(false)}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className={`ui red button ${enviando ? 'loading' : ''}`}
+              disabled={enviando}
+              onClick={eliminar}
+            >
+              <i className="trash icon" />
+              Eliminar
+            </button>
           </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={enviando}
-          className={`ui fluid primary button ${enviando ? 'loading' : ''}`}
-        >
-          <i className="save icon" />
-          Registrar transacción
-        </button>
-      </form>
-    </div>
+        </div>
+      ) : (
+        <div className="acciones-formulario">
+          {editando && (
+            <button
+              type="button"
+              className="ui basic red button boton-eliminar"
+              onClick={() => setConfirmandoBorrado(true)}
+            >
+              <i className="trash alternate outline icon" />
+              Eliminar
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={enviando}
+            className={`ui primary button boton-guardar ${enviando ? 'loading' : ''}`}
+          >
+            <i className="save icon" />
+            {editando ? 'Guardar cambios' : 'Registrar'}
+          </button>
+        </div>
+      )}
+    </form>
   )
 }
 

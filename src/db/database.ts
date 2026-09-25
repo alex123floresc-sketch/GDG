@@ -2,8 +2,11 @@ import Dexie, { type Table } from 'dexie'
 import type {
   Categoria,
   Cuenta,
+  Deuda,
   EliminacionPendiente,
+  Meta,
   Presupuesto,
+  Recurrente,
   Transaccion,
 } from '../types'
 
@@ -42,6 +45,9 @@ export class GestorGastosDB extends Dexie {
   cuentas!: Table<Cuenta, string>
   presupuestos!: Table<Presupuesto, string>
   eliminacionesPendientes!: Table<EliminacionPendiente, number>
+  metas!: Table<Meta, string>
+  deudas!: Table<Deuda, string>
+  recurrentes!: Table<Recurrente, string>
 
   constructor() {
     super('GestorGastosDB')
@@ -112,6 +118,16 @@ export class GestorGastosDB extends Dexie {
     // faltan replicar en el servidor.
     this.version(6).stores({
       eliminacionesPendientes: '++id, usuarioId',
+    })
+
+    // v7: transferencias (índice `transferenciaId` para encontrar la otra
+    // pata), metas de ahorro, deudas/préstamos y movimientos recurrentes.
+    this.version(7).stores({
+      transacciones:
+        'id, usuarioId, cuentaId, categoriaId, tipo, fecha, fechaActualizacion, [usuarioId+nroOperacion], transferenciaId',
+      metas: 'id, usuarioId',
+      deudas: 'id, usuarioId',
+      recurrentes: 'id, usuarioId',
     })
   }
 }
