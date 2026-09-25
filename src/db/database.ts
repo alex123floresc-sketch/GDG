@@ -1,5 +1,11 @@
 import Dexie, { type Table } from 'dexie'
-import type { Categoria, Cuenta, Presupuesto, Transaccion } from '../types'
+import type {
+  Categoria,
+  Cuenta,
+  EliminacionPendiente,
+  Presupuesto,
+  Transaccion,
+} from '../types'
 
 /** Emojis de las categorías por defecto hasta v3 → icono de Semantic UI. */
 const ICONOS_EMOJI_V3: Record<string, string> = {
@@ -35,6 +41,7 @@ export class GestorGastosDB extends Dexie {
   categorias!: Table<Categoria, string>
   cuentas!: Table<Cuenta, string>
   presupuestos!: Table<Presupuesto, string>
+  eliminacionesPendientes!: Table<EliminacionPendiente, number>
 
   constructor() {
     super('GestorGastosDB')
@@ -99,6 +106,13 @@ export class GestorGastosDB extends Dexie {
             if (categoria.icono === 'chart line') categoria.icono = 'chartline'
           }),
       )
+
+    // v6: categorías y cuentas se sincronizan con Supabase (tablas remotas
+    // `categorias`/`cuentas`). Nueva tabla con los borrados locales que
+    // faltan replicar en el servidor.
+    this.version(6).stores({
+      eliminacionesPendientes: '++id, usuarioId',
+    })
   }
 }
 

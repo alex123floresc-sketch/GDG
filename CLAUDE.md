@@ -58,8 +58,9 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `Analisis` (vista mensual/trimestral + exportación),
   `GestionCategorias` (crear/editar/eliminar categorías), `graficos/`,
   `YapeImporter` (cargado con `React.lazy`, ver Rendimiento)
-- `src/db/database.ts` — esquema Dexie v5 (`GestorGastosDB`, tablas
-  `transacciones`, `categorias`, `cuentas`, `presupuestos`)
+- `src/db/database.ts` — esquema Dexie v6 (`GestorGastosDB`, tablas
+  `transacciones`, `categorias`, `cuentas`, `presupuestos`,
+  `eliminacionesPendientes`)
 - `src/services` — lógica sin React: `supabaseClient.ts`, `syncService.ts`,
   `transaccionService.ts`, `categoriaService.ts`, `cuentaService.ts`,
   `yapeImporter.ts`, `exportService.ts` (Excel del análisis)
@@ -87,10 +88,12 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   booleans como clave de índice. Se filtra con `.filter()` en memoria.
 - Multiusuario: `Transaccion`, `Categoria` y `Cuenta` tienen `usuarioId`
   (indexado, Dexie schema v3). `categorias`/`cuentas` ya NO son una
-  taxonomía global compartida — cada usuario tiene su propia copia, sembrada
-  por `categoriaService.asegurarCategoriasPorDefecto` /
-  `cuentaService.asegurarCuentasPorDefecto` en el primer login de ese
-  usuario en el dispositivo (llamado desde `App.tsx`). Los hooks/servicios
+  taxonomía global compartida — cada usuario tiene su propia copia, que se
+  sincroniza con las tablas remotas `categorias`/`cuentas`. Al iniciar
+  sesión, `App.tsx` primero llama a `syncService.descargarCatalogos` y
+  solo si el usuario sigue sin ninguna siembra las de por defecto
+  (`categoriaService.asegurarCategoriasPorDefecto` /
+  `cuentaService.asegurarCuentasPorDefecto`). Los hooks/servicios
   siempre reciben `usuarioId` de forma explícita, nunca lo infieren de un
   estado global.
 - `supabaseClient.ts` exporta `supabase: SupabaseClient | null`. Si faltan
@@ -206,8 +209,16 @@ CREATE UNIQUE INDEX transacciones_user_nro_operacion_idx
   WHERE nro_operacion IS NOT NULL;
 ```
 
-No existen tablas remotas de `categorias`, `cuentas` ni `presupuestos` — son
-locales por usuario (ver Convenciones), no sincronizan con Supabase.
+Tablas remotas `categorias` y `cuentas` (ya existen en el proyecto de
+Supabase; esquema deducido por PostgREST, no hay SQL versionado en el
+repo). `transacciones.cuenta_id` y `transacciones.categoria_id` son UUID
+con **llave foránea** a ellas, así que deben subirse antes que las
+transacciones:
+
+- `categorias`: `id uuid`, `user_id uuid`, `nombre`, `tipo`, `icono`, `color`
+- `cuentas`: `id uuid`, `user_id uuid`, `nombre`, `tipo`, `saldo_inicial numeric`
+
+`presupuestos` también existe remotamente pero la app aún no la usa.
 
 ## Sincronización (`useSync` + `syncService`)
 
@@ -225,7 +236,16 @@ locales por usuario (ver Convenciones), no sincronizan con Supabase.
   campos locales como `sincronizado` nunca se envían. `sincronizado` es
   boolean en Dexie (no 0/1) y se pone en `true` justo después de que el
   upsert responde sin error.
-- `describirError` traduce los errores de PostgREST: `PGRST204`/`42703` =
+- Orden de `sincronizar` (importa por las llaves foráneas): fusionar
+  categorías/cuentas remotas → subirlas → re-apuntar pendientes con
+  referencias rotas a "Otros"/primera cuenta → subir transacciones →
+  replicar borrados (`eliminacionesPendientes`) → descargar transacciones.
+- `fusionarCatalogo`: si una categoría/cuenta local solo existe en este
+  dispositivo y coincide en nombre+tipo con una remota (típico de las
+  sembradas por defecto sin red), se adopta el id remoto y se re-apuntan
+  sus transacciones; así no se duplican.
+- `describirError` traduce los errores de PostgREST (`23503` = llave
+  foránea): `PGRST204`/`42703` =
   falta la migración SQL, `42501` = rechazo de RLS.
 
 `syncService.ts` siempre envía/filtra por `user_id`; requiere que la política
@@ -252,11 +272,9 @@ temporalmente antes de implementar autenticación).
   no hay UI ni servicio para crearlos/consultarlos todavía.
 - El importador de Yape no se probó contra un archivo real exportado desde
   la app (ver sección "Importador de Yape").
-- Las categorías personalizadas son solo locales: al cerrar sesión se
-  borran (`limpiarDatosLocales`) y al volver a entrar se re-siembran las
-  por defecto con UUIDs nuevos, así que las transacciones descargadas de
-  Supabase quedan con un `categoria_id` huérfano ("Sin categoría").
-  Solución: tabla remota `categorias` sincronizada (requiere migración SQL).
+- Categorías/cuentas: no hay marca de tiempo remota, así que si el mismo
+  registro se edita en dos dispositivos gana el último que sincroniza
+  (cada ciclo sube todas las locales).
 
 ## Flujo de trabajo con git (pedido explícitamente por el usuario)
 

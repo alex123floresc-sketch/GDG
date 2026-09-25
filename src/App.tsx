@@ -7,6 +7,7 @@ import { useSync } from './hooks/useSync'
 import { asegurarCategoriasPorDefecto } from './services/categoriaService'
 import { asegurarCuentasPorDefecto } from './services/cuentaService'
 import { supabase } from './services/supabaseClient'
+import { descargarCatalogos } from './services/syncService'
 import { limpiarDatosLocales } from './services/transaccionService'
 
 function App() {
@@ -37,13 +38,19 @@ function App() {
 
   const usuarioId = sesion?.user.id ?? null
 
-  // Primer inicio de sesión de este usuario en este dispositivo: crea sus
-  // categorías y cuentas por defecto si todavía no tiene ninguna.
+  // Al iniciar sesión: primero recupera de Supabase las categorías/cuentas
+  // del usuario (si hay red) y solo si sigue sin tener ninguna crea las de
+  // por defecto. Así no se duplican con ids nuevos en cada inicio de sesión.
   useEffect(() => {
     if (!usuarioId) return
 
-    void asegurarCategoriasPorDefecto(usuarioId)
-    void asegurarCuentasPorDefecto(usuarioId)
+    void (async () => {
+      if (navigator.onLine) {
+        await descargarCatalogos(usuarioId).catch(() => {})
+      }
+      await asegurarCategoriasPorDefecto(usuarioId)
+      await asegurarCuentasPorDefecto(usuarioId)
+    })()
   }, [usuarioId])
 
   const {

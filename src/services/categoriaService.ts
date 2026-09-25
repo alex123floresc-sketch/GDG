@@ -126,7 +126,11 @@ export async function eliminarCategoria(
   id: string,
   reasignarA?: string,
 ): Promise<void> {
-  await db.transaction('rw', db.categorias, db.transacciones, async () => {
+  const tablas = [db.categorias, db.transacciones, db.eliminacionesPendientes]
+  await db.transaction('rw', tablas, async () => {
+    const categoria = await db.categorias.get(id)
+    if (!categoria) return
+
     const usos = db.transacciones.where('categoriaId').equals(id)
 
     if ((await usos.count()) > 0) {
@@ -141,5 +145,12 @@ export async function eliminarCategoria(
     }
 
     await db.categorias.delete(id)
+    // Se borra en Supabase en la próxima sincronización, después de subir
+    // las transacciones reasignadas (si no, la llave foránea lo impediría).
+    await db.eliminacionesPendientes.add({
+      usuarioId: categoria.usuarioId,
+      tabla: 'categorias',
+      registroId: id,
+    })
   })
 }

@@ -1,12 +1,25 @@
+import type { Table } from 'dexie'
 import { db } from '../db/database'
-import type { OrigenTransaccion, ResultadoSincronizacion, Transaccion } from '../types'
+import type {
+  Categoria,
+  Cuenta,
+  OrigenTransaccion,
+  ResultadoSincronizacion,
+  TipoCategoria,
+  TipoCuenta,
+  Transaccion,
+} from '../types'
 import { supabase } from './supabaseClient'
 
 const TABLA_TRANSACCIONES = 'transacciones'
+const TABLA_CATEGORIAS = 'categorias'
+const TABLA_CUENTAS = 'cuentas'
 const LIMITE_DESCARGA = 200
 
 /** Código de error de Postgres para violación de restricción única (23505). */
 const CODIGO_ERROR_DUPLICADO = '23505'
+/** Violación de llave foránea (p. ej. `cuenta_id` que no existe en `cuentas`). */
+const CODIGO_ERROR_LLAVE_FORANEA = '23503'
 
 interface FilaTransaccionRemota {
   id: string
@@ -22,6 +35,23 @@ interface FilaTransaccionRemota {
   fecha_actualizacion: string
 }
 
+interface FilaCategoriaRemota {
+  id: string
+  user_id: string
+  nombre: string
+  tipo: TipoCategoria
+  icono: string | null
+  color: string | null
+}
+
+interface FilaCuentaRemota {
+  id: string
+  user_id: string
+  nombre: string
+  tipo: TipoCuenta
+  saldo_inicial: number
+}
+
 interface ErrorSupabase {
   message: string
   code?: string
@@ -29,17 +59,18 @@ interface ErrorSupabase {
 
 /**
  * Traduce un error de Supabase/PostgREST a un mensaje que diga qué hacer.
- * El caso más común es que la tabla remota aún no tenga las columnas que
- * envía el cliente (migración SQL pendiente, ver CLAUDE.md).
  */
 function describirError(accion: string, error: ErrorSupabase): string {
   // PGRST204: columna desconocida en el payload; 42703: columna inexistente.
   if (error.code === 'PGRST204' || error.code === '42703') {
-    return `${accion}: la tabla "transacciones" de Supabase no tiene todas las columnas que usa la app (falta ejecutar la migración SQL). Detalle: ${error.message}`
+    return `${accion}: una tabla de Supabase no tiene todas las columnas que usa la app (falta ejecutar la migración SQL). Detalle: ${error.message}`
+  }
+  if (error.code === CODIGO_ERROR_LLAVE_FORANEA) {
+    return `${accion}: una transacción apunta a una cuenta o categoría que no existe en Supabase. Detalle: ${error.message}`
   }
   // 42501: la política RLS rechazó la fila (user_id distinto a auth.uid()).
   if (error.code === '42501') {
-    return `${accion}: Supabase rechazó los datos por permisos (RLS). Cierra sesión y vuelve a entrar. Detalle: ${error.message}`
+    return `${accion}: Supabase rechazó los datos por permisos (RLS). Revisa las políticas de la tabla o vuelve a iniciar sesión. Detalle: ${error.message}`
   }
   return `${accion}: ${error.message}`
 }
@@ -63,10 +94,12 @@ async function usuarioSesionActiva(usuarioId: string): Promise<string> {
   return idSesion
 }
 
-/**
- * Fila tal cual se envía a Supabase. Se construye campo por campo (lista
- * blanca), así que los campos solo-locales como `sincronizado` nunca viajan.
- */
+// ---------------------------------------------------------------------------
+// Traducción local (camelCase) <-> remoto (snake_case). Único lugar que lo
+// hace. Las filas remotas se construyen campo por campo (lista blanca), así
+// que los campos solo-locales como `sincronizado` nunca viajan.
+// ---------------------------------------------------------------------------
+
 function aFilaRemota(
   transaccion: Transaccion,
   userId: string,
@@ -74,7 +107,8 @@ function aFilaRemota(
   return {
     id: transaccion.id,
     user_id: userId,
-    cuenta_id: transaccion.cuentaId,
+    // Las descargadas sin cuenta llegan como '' (ver aTransaccionLocal).
+    cuenta_id: transaccion.cuentaId || null,
     categoria_id: transaccion.categoriaId,
     monto: transaccion.monto,
     tipo: transaccion.tipo,
@@ -96,7 +130,7 @@ function aTransaccionLocal(fila: FilaTransaccionRemota): Transaccion {
     usuarioId: fila.user_id,
     cuentaId: fila.cuenta_id ?? '',
     categoriaId: fila.categoria_id,
-    monto: fila.monto,
+    monto: Number(fila.monto),
     tipo: fila.tipo,
     fecha: new Date(fila.fecha),
     concepto: fila.concepto ?? undefined,
@@ -106,6 +140,254 @@ function aTransaccionLocal(fila: FilaTransaccionRemota): Transaccion {
     fechaActualizacion: new Date(fila.fecha_actualizacion),
   }
 }
+
+function aFilaCategoria(categoria: Categoria, userId: string): FilaCategoriaRemota {
+  return {
+    id: categoria.id,
+    user_id: userId,
+    nombre: categoria.nombre,
+    tipo: categoria.tipo,
+    icono: categoria.icono ?? null,
+    color: categoria.color ?? null,
+  }
+}
+
+function aCategoriaLocal(fila: FilaCategoriaRemota): Categoria {
+  return {
+    id: fila.id,
+    usuarioId: fila.user_id,
+    nombre: fila.nombre,
+    tipo: fila.tipo,
+    icono: fila.icono ?? undefined,
+    color: fila.color ?? undefined,
+  }
+}
+
+function aFilaCuenta(cuenta: Cuenta, userId: string): FilaCuentaRemota {
+  return {
+    id: cuenta.id,
+    user_id: userId,
+    nombre: cuenta.nombre,
+    tipo: cuenta.tipo,
+    saldo_inicial: cuenta.saldoInicial,
+  }
+}
+
+function aCuentaLocal(fila: FilaCuentaRemota): Cuenta {
+  return {
+    id: fila.id,
+    usuarioId: fila.user_id,
+    nombre: fila.nombre,
+    tipo: fila.tipo,
+    saldoInicial: Number(fila.saldo_inicial) || 0,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Catálogos (categorías y cuentas)
+// ---------------------------------------------------------------------------
+
+/** Nombre comparable: sin mayúsculas, espacios extremos ni tildes. */
+function normalizar(texto: string): string {
+  return texto
+    .trim()
+    .toLocaleLowerCase('es')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+}
+
+/**
+ * Fusiona en Dexie las filas remotas de un catálogo (categorías o cuentas):
+ * - las que no existen localmente se agregan (p. ej. al volver a iniciar
+ *   sesión, o creadas en otro dispositivo);
+ * - si localmente hay una con el mismo nombre y tipo pero otro id que aún
+ *   no está en el servidor (típico de las sembradas por defecto en cada
+ *   dispositivo), se adopta el id remoto y se re-apuntan las transacciones
+ *   locales a él;
+ * - las que ya existen con el mismo id se dejan como están localmente (se
+ *   suben después con `subirCatalogos`).
+ */
+async function fusionarCatalogo<T extends Categoria | Cuenta>(
+  usuarioId: string,
+  tabla: Table<T, string>,
+  campo: 'categoriaId' | 'cuentaId',
+  remotos: T[],
+): Promise<void> {
+  if (remotos.length === 0) return
+
+  const clave = (r: T) => `${normalizar(r.nombre)}|${r.tipo}`
+
+  await db.transaction('rw', tabla, db.transacciones, async () => {
+    const locales = await tabla.where('usuarioId').equals(usuarioId).toArray()
+    const idsLocales = new Set(locales.map((l) => l.id))
+    const idsRemotos = new Set(remotos.map((r) => r.id))
+    const localesSoloAqui = new Map(
+      locales.filter((l) => !idsRemotos.has(l.id)).map((l) => [clave(l), l]),
+    )
+
+    for (const remoto of remotos) {
+      if (idsLocales.has(remoto.id)) continue
+
+      const duplicado = localesSoloAqui.get(clave(remoto))
+      if (duplicado) {
+        await db.transacciones
+          .where(campo)
+          .equals(duplicado.id)
+          .modify({ [campo]: remoto.id, sincronizado: false, fechaActualizacion: new Date() })
+        await tabla.delete(duplicado.id)
+        localesSoloAqui.delete(clave(remoto))
+      }
+
+      await tabla.put(remoto)
+    }
+  })
+}
+
+/**
+ * Trae las categorías y cuentas remotas del usuario y las fusiona en Dexie
+ * (ver `fusionarCatalogo`). Se llama al iniciar sesión, antes de sembrar
+ * las categorías/cuentas por defecto, y en cada ciclo de sincronización.
+ */
+export async function descargarCatalogos(usuarioId: string): Promise<void> {
+  if (!supabase) return
+
+  const [categorias, cuentas] = await Promise.all([
+    supabase
+      .from(TABLA_CATEGORIAS)
+      .select('id, user_id, nombre, tipo, icono, color')
+      .eq('user_id', usuarioId),
+    supabase
+      .from(TABLA_CUENTAS)
+      .select('id, user_id, nombre, tipo, saldo_inicial')
+      .eq('user_id', usuarioId),
+  ])
+
+  if (categorias.error) {
+    throw new Error(describirError('No se pudieron descargar las categorías', categorias.error))
+  }
+  if (cuentas.error) {
+    throw new Error(describirError('No se pudieron descargar las cuentas', cuentas.error))
+  }
+
+  // Borrados locales aún no replicados: no se deben "resucitar".
+  const borrados = new Set(
+    (await db.eliminacionesPendientes.where('usuarioId').equals(usuarioId).toArray()).map(
+      (e) => e.registroId,
+    ),
+  )
+
+  await fusionarCatalogo(
+    usuarioId,
+    db.categorias,
+    'categoriaId',
+    ((categorias.data ?? []) as FilaCategoriaRemota[])
+      .map(aCategoriaLocal)
+      .filter((c) => !borrados.has(c.id)),
+  )
+  await fusionarCatalogo(
+    usuarioId,
+    db.cuentas,
+    'cuentaId',
+    ((cuentas.data ?? []) as FilaCuentaRemota[])
+      .map(aCuentaLocal)
+      .filter((c) => !borrados.has(c.id)),
+  )
+}
+
+/**
+ * Sube (upsert) todas las categorías y cuentas locales del usuario. Son
+ * pocas filas, así que se envían completas en cada ciclo. Deben existir en
+ * Supabase antes que las transacciones que las referencian (llaves
+ * foráneas `categoria_id` / `cuenta_id`).
+ */
+async function subirCatalogos(usuarioId: string, userId: string): Promise<void> {
+  if (!supabase) return
+
+  const [categorias, cuentas] = await Promise.all([
+    db.categorias.where('usuarioId').equals(usuarioId).toArray(),
+    db.cuentas.where('usuarioId').equals(usuarioId).toArray(),
+  ])
+
+  if (categorias.length > 0) {
+    const { error } = await supabase
+      .from(TABLA_CATEGORIAS)
+      .upsert(categorias.map((c) => aFilaCategoria(c, userId)))
+    if (error) throw new Error(describirError('No se pudieron subir las categorías', error))
+  }
+
+  if (cuentas.length > 0) {
+    const { error } = await supabase
+      .from(TABLA_CUENTAS)
+      .upsert(cuentas.map((c) => aFilaCuenta(c, userId)))
+    if (error) throw new Error(describirError('No se pudieron subir las cuentas', error))
+  }
+}
+
+/**
+ * Una transacción pendiente cuya categoría/cuenta ya no existe localmente
+ * nunca podría subirse (llave foránea). Se re-apunta a la categoría
+ * "ambos"/"Otros" y a la primera cuenta, para que no quede pendiente para
+ * siempre.
+ */
+async function repararReferenciasHuerfanas(usuarioId: string): Promise<void> {
+  const [categorias, cuentas] = await Promise.all([
+    db.categorias.where('usuarioId').equals(usuarioId).toArray(),
+    db.cuentas.where('usuarioId').equals(usuarioId).toArray(),
+  ])
+  if (categorias.length === 0) return
+
+  const idsCategorias = new Set(categorias.map((c) => c.id))
+  const idsCuentas = new Set(cuentas.map((c) => c.id))
+  const categoriaRespaldo =
+    categorias.find((c) => c.tipo === 'ambos') ??
+    categorias.find((c) => normalizar(c.nombre) === 'otros') ??
+    categorias[0]
+  const cuentaRespaldo = cuentas[0]?.id ?? ''
+
+  await db.transacciones
+    .where('usuarioId')
+    .equals(usuarioId)
+    .filter(
+      (t) =>
+        !t.sincronizado &&
+        (!idsCategorias.has(t.categoriaId) ||
+          (t.cuentaId !== '' && !idsCuentas.has(t.cuentaId))),
+    )
+    .modify((t) => {
+      if (!idsCategorias.has(t.categoriaId)) t.categoriaId = categoriaRespaldo.id
+      if (t.cuentaId !== '' && !idsCuentas.has(t.cuentaId)) t.cuentaId = cuentaRespaldo
+    })
+}
+
+/** Replica en Supabase los borrados locales de categorías/cuentas. */
+async function procesarEliminaciones(usuarioId: string): Promise<void> {
+  if (!supabase) return
+
+  const pendientes = await db.eliminacionesPendientes
+    .where('usuarioId')
+    .equals(usuarioId)
+    .toArray()
+
+  for (const e of pendientes) {
+    const { error } = await supabase
+      .from(e.tabla)
+      .delete()
+      .eq('id', e.registroId)
+      .eq('user_id', usuarioId)
+
+    if (!error) {
+      await db.eliminacionesPendientes.delete(e.id!)
+    } else if (error.code !== CODIGO_ERROR_LLAVE_FORANEA) {
+      // Con llave foránea (aún la usa alguna transacción remota) se
+      // reintenta en el siguiente ciclo; otros errores se reportan.
+      throw new Error(describirError('No se pudo eliminar en Supabase', error))
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Transacciones
+// ---------------------------------------------------------------------------
 
 function esErrorDuplicado(error: ErrorSupabase): boolean {
   return error.code === CODIGO_ERROR_DUPLICADO
@@ -125,11 +407,11 @@ async function marcarComoSincronizadas(
 }
 
 /**
- * Reintenta la subida fila por fila cuando el upsert por lotes chocó con la
- * restricción única (user_id, nro_operacion). Así una sola fila duplicada
- * no bloquea al resto de la cola: los duplicados se descartan localmente
- * (ya existe esa operación en el servidor) y se marcan como sincronizados
- * para no reintentarlos en cada ciclo.
+ * Reintenta la subida fila por fila cuando el upsert por lotes falló por
+ * una sola fila (restricción única (user_id, nro_operacion) o llave
+ * foránea). Así esa fila no bloquea al resto de la cola: los duplicados se
+ * descartan localmente (ya existe esa operación en el servidor) y se marcan
+ * como sincronizados para no reintentarlos en cada ciclo.
  */
 async function subirUnaPorUna(
   pendientes: Transaccion[],
@@ -168,7 +450,7 @@ async function subirUnaPorUna(
 
 /**
  * Sube a Supabase las transacciones locales pendientes (sincronizado === false)
- * del usuario indicado, asignando explícitamente su user_id, y las marca
+ * del usuario indicado, con el user_id de la sesión activa, y las marca
  * como sincronizadas en Dexie si la subida tiene éxito.
  */
 export async function subirTransaccionesPendientes(
@@ -193,7 +475,7 @@ export async function subirTransaccionesPendientes(
   const { error } = await supabase.from(TABLA_TRANSACCIONES).upsert(filas)
 
   if (error) {
-    if (esErrorDuplicado(error)) {
+    if (esErrorDuplicado(error) || error.code === CODIGO_ERROR_LLAVE_FORANEA) {
       return subirUnaPorUna(pendientes, userId)
     }
     throw new Error(describirError('No se pudieron subir las transacciones', error))
@@ -235,14 +517,27 @@ export async function descargarTransaccionesRecientes(
 }
 
 /**
- * Ejecuta un ciclo completo de sincronización para el usuario indicado:
- * primero sube sus cambios locales pendientes y luego descarga sus
- * transacciones remotas recientes.
+ * Ejecuta un ciclo completo de sincronización para el usuario indicado.
+ * El orden importa por las llaves foráneas de `transacciones`:
+ * 1. fusiona categorías/cuentas remotas en Dexie,
+ * 2. sube categorías/cuentas locales,
+ * 3. re-apunta transacciones pendientes con referencias rotas,
+ * 4. sube las transacciones pendientes,
+ * 5. replica los borrados de categorías/cuentas,
+ * 6. descarga las transacciones remotas recientes.
  */
 export async function sincronizar(
   usuarioId: string,
 ): Promise<ResultadoSincronizacion> {
+  if (supabase) {
+    const userId = await usuarioSesionActiva(usuarioId)
+    await descargarCatalogos(usuarioId)
+    await subirCatalogos(usuarioId, userId)
+    await repararReferenciasHuerfanas(usuarioId)
+  }
+
   const subidas = await subirTransaccionesPendientes(usuarioId)
+  await procesarEliminaciones(usuarioId)
   const descargadas = await descargarTransaccionesRecientes(usuarioId)
 
   return {

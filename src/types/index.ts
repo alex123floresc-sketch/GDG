@@ -48,6 +48,17 @@ export interface Presupuesto {
   anio: number
 }
 
+/**
+ * Registro local de una categoría/cuenta eliminada que falta borrar en
+ * Supabase (se procesa en el siguiente ciclo de sincronización).
+ */
+export interface EliminacionPendiente {
+  id?: number
+  usuarioId: string
+  tabla: 'categorias' | 'cuentas'
+  registroId: string
+}
+
 export type NuevaCategoria = Omit<Categoria, 'id' | 'usuarioId'>
 export type NuevaCuenta = Omit<Cuenta, 'id' | 'usuarioId'>
 export type NuevoPresupuesto = Omit<Presupuesto, 'id' | 'usuarioId'>
