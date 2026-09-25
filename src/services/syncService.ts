@@ -139,7 +139,9 @@ function aFilaRemota(
     monto: transaccion.monto,
     tipo: transaccion.tipo,
     fecha: transaccion.fecha.toISOString(),
-    concepto: transaccion.concepto ?? null,
+    // En Supabase `concepto` es NOT NULL; en la app es opcional. Sin
+    // concepto se envía '' (y al descargar '' vuelve a ser undefined).
+    concepto: transaccion.concepto ?? '',
     nro_operacion: transaccion.nroOperacion ?? null,
     origen: transaccion.origen,
     fecha_actualizacion: transaccion.fechaActualizacion.toISOString(),
@@ -159,7 +161,7 @@ function aTransaccionLocal(fila: FilaTransaccionRemota): Transaccion {
     monto: Number(fila.monto),
     tipo: fila.tipo,
     fecha: new Date(fila.fecha),
-    concepto: fila.concepto ?? undefined,
+    concepto: fila.concepto || undefined,
     nroOperacion: fila.nro_operacion ?? undefined,
     origen: aOrigen(fila.origen),
     sincronizado: true,

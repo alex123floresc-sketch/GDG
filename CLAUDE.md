@@ -235,6 +235,11 @@ ALTER TABLE cuentas ADD CONSTRAINT cuentas_tipo_check
   CHECK (tipo IN ('efectivo', 'banco', 'billetera_digital', 'otro')) NOT VALID;
 ```
 
+`transacciones.concepto` es NOT NULL en Supabase (en la app es opcional):
+`aFilaRemota` envía `''` cuando no hay concepto. `nro_operacion` sí debe
+viajar como `null` (no `''`): el índice único `(user_id, nro_operacion)`
+trataría todos los `''` como duplicados.
+
 Si se agrega un valor nuevo a `TipoCategoria`/`TipoCuenta`, hay que
 ampliar también estos CHECK o la sincronización falla.
 
