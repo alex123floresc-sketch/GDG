@@ -324,7 +324,7 @@ function YapeImporter({
               type="button"
               onClick={confirmarImportacion}
               disabled={importando || !cuentaSeleccionada || !categoriaSeleccionada}
-              className={`ui fluid teal button ${importando ? 'loading' : ''}`}
+              className={`ui fluid primary button ${importando ? 'loading' : ''}`}
             >
               <i className="download icon" />
               Confirmar e importar

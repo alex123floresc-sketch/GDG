@@ -2,7 +2,12 @@ import { lazy, Suspense, useMemo, useState } from 'react'
 import { useCategorias } from '../hooks/useCategorias'
 import { useCuentas } from '../hooks/useCuentas'
 import { useTransacciones } from '../hooks/useTransacciones'
+import { clavePeriodo, resumenPorCategoria, resumenUltimosMeses } from '../utils/analisis'
+import Analisis from './Analisis'
 import FormularioTransaccion from './FormularioTransaccion'
+import GestionCategorias from './GestionCategorias'
+import GraficoBarras from './graficos/GraficoBarras'
+import GraficoDona from './graficos/GraficoDona'
 import ListaTransacciones from './ListaTransacciones'
 import ResumenFinanciero from './ResumenFinanciero'
 
@@ -16,18 +21,21 @@ interface DashboardProps {
   sincronizarAhora: () => Promise<void>
 }
 
-type Seccion = 'inicio' | 'registrar' | 'movimientos' | 'importar'
+type Seccion = 'inicio' | 'registrar' | 'movimientos' | 'analisis' | 'mas'
+type SubseccionMas = 'categorias' | 'importar'
 
 const SECCIONES: { id: Seccion; etiqueta: string; icono: string }[] = [
-  { id: 'inicio', etiqueta: 'Inicio', icono: 'chart pie' },
+  { id: 'inicio', etiqueta: 'Inicio', icono: 'home' },
   { id: 'registrar', etiqueta: 'Registrar', icono: 'plus circle' },
   { id: 'movimientos', etiqueta: 'Movimientos', icono: 'exchange' },
-  { id: 'importar', etiqueta: 'Importar', icono: 'file excel outline' },
+  { id: 'analisis', etiqueta: 'Análisis', icono: 'chart bar' },
+  { id: 'mas', etiqueta: 'Más', icono: 'th large' },
 ]
 
 const FILTRO_TODAS = 'todas'
 const RECIENTES_EN_INICIO = 5
-const LIMITE_MOVIMIENTOS = 50
+const LIMITE_MOVIMIENTOS = 100
+const MESES_TENDENCIA = 6
 
 function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
   const categorias = useCategorias(usuarioId)
@@ -35,7 +43,13 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
   const transacciones = useTransacciones(usuarioId)
 
   const [seccion, setSeccion] = useState<Seccion>('inicio')
+  const [subseccionMas, setSubseccionMas] = useState<SubseccionMas>('categorias')
   const [cuentaFiltro, setCuentaFiltro] = useState<string>(FILTRO_TODAS)
+
+  // Filtros propios de Movimientos
+  const [busqueda, setBusqueda] = useState('')
+  const [tipoFiltro, setTipoFiltro] = useState<string>(FILTRO_TODAS)
+  const [categoriaFiltro, setCategoriaFiltro] = useState<string>(FILTRO_TODAS)
 
   const transaccionesFiltradas = useMemo(
     () =>
@@ -44,6 +58,36 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
         : transacciones.filter((t) => t.cuentaId === cuentaFiltro),
     [transacciones, cuentaFiltro],
   )
+
+  const tendencia = useMemo(
+    () => resumenUltimosMeses(transaccionesFiltradas, MESES_TENDENCIA),
+    [transaccionesFiltradas],
+  )
+
+  const gastosMesActual = useMemo(() => {
+    const claveMes = clavePeriodo(new Date(), 'mes')
+    return resumenPorCategoria(
+      transaccionesFiltradas.filter((t) => clavePeriodo(t.fecha, 'mes') === claveMes),
+      categorias,
+      'gasto',
+    )
+  }, [transaccionesFiltradas, categorias])
+
+  const movimientos = useMemo(() => {
+    const nombresCategoria = new Map(categorias.map((c) => [c.id, c.nombre]))
+    const texto = busqueda.trim().toLocaleLowerCase('es')
+
+    return transaccionesFiltradas.filter(
+      (t) =>
+        (tipoFiltro === FILTRO_TODAS || t.tipo === tipoFiltro) &&
+        (categoriaFiltro === FILTRO_TODAS || t.categoriaId === categoriaFiltro) &&
+        (!texto ||
+          (t.concepto ?? '').toLocaleLowerCase('es').includes(texto) ||
+          (nombresCategoria.get(t.categoriaId) ?? '').toLocaleLowerCase('es').includes(texto)),
+    )
+  }, [transaccionesFiltradas, categorias, busqueda, tipoFiltro, categoriaFiltro])
+
+  const nombreMesActual = new Intl.DateTimeFormat('es-PE', { month: 'long' }).format(new Date())
 
   const filtroCuenta = (
     <div className="ui form">
@@ -65,13 +109,13 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
 
   return (
     <>
-      <nav className="nav-principal ui four item labeled icon menu">
+      <nav className="nav-principal ui five item labeled icon menu no-imprimir">
         {SECCIONES.map((s) => (
           <button
             key={s.id}
             type="button"
             onClick={() => setSeccion(s.id)}
-            className={`item ${seccion === s.id ? 'active teal' : ''}`}
+            className={`item ${seccion === s.id ? 'active' : ''}`}
             aria-current={seccion === s.id ? 'page' : undefined}
           >
             <i className={`${s.icono} icon`} />
@@ -92,6 +136,33 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
 
           <ResumenFinanciero transacciones={transaccionesFiltradas} />
 
+          <div className="ui stackable two column grid">
+            <div className="column">
+              <div className="ui segment altura-completa">
+                <h3 className="ui header">
+                  <i className="chart bar outline icon" />
+                  <div className="content">
+                    Últimos {MESES_TENDENCIA} meses
+                    <div className="sub header">Ingresos vs. gastos</div>
+                  </div>
+                </h3>
+                <GraficoBarras periodos={tendencia} alto={220} />
+              </div>
+            </div>
+            <div className="column">
+              <div className="ui segment altura-completa">
+                <h3 className="ui header">
+                  <i className="chart pie icon" />
+                  <div className="content">
+                    Gastos de {nombreMesActual}
+                    <div className="sub header">Por categoría</div>
+                  </div>
+                </h3>
+                <GraficoDona datos={gastosMesActual} titulo="Gastos" maxPorciones={5} />
+              </div>
+            </div>
+          </div>
+
           <ListaTransacciones
             transacciones={transaccionesFiltradas}
             categorias={categorias}
@@ -111,6 +182,10 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
           cuentas={cuentas}
           categorias={categorias}
           onRegistrada={() => setSeccion('inicio')}
+          onGestionarCategorias={() => {
+            setSubseccionMas('categorias')
+            setSeccion('mas')
+          }}
         />
       )}
 
@@ -121,32 +196,109 @@ function Dashboard({ usuarioId, sincronizarAhora }: DashboardProps) {
             {filtroCuenta}
           </div>
 
+          <div className="fila-filtros ui form">
+            <div className="ui left icon input buscador">
+              <i className="search icon" />
+              <input
+                type="search"
+                placeholder="Buscar concepto o categoría"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                aria-label="Buscar movimientos"
+              />
+            </div>
+            <select
+              aria-label="Filtrar por tipo"
+              className="ui compact dropdown"
+              value={tipoFiltro}
+              onChange={(e) => setTipoFiltro(e.target.value)}
+            >
+              <option value={FILTRO_TODAS}>Ingresos y gastos</option>
+              <option value="ingreso">Solo ingresos</option>
+              <option value="gasto">Solo gastos</option>
+            </select>
+            <select
+              aria-label="Filtrar por categoría"
+              className="ui compact dropdown"
+              value={categoriaFiltro}
+              onChange={(e) => setCategoriaFiltro(e.target.value)}
+            >
+              <option value={FILTRO_TODAS}>Todas las categorías</option>
+              {categorias.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <ListaTransacciones
-            transacciones={transaccionesFiltradas}
+            transacciones={movimientos}
             categorias={categorias}
             cuentas={cuentas}
             titulo="Historial"
             limite={LIMITE_MOVIMIENTOS}
+            mostrarTotales
           />
         </>
       )}
 
-      {seccion === 'importar' && (
-        <Suspense
-          fallback={
-            <div className="ui segment">
-              <div className="ui active centered inline loader" />
-            </div>
-          }
-        >
-          <YapeImporter
-            usuarioId={usuarioId}
-            cuentas={cuentas}
-            categorias={categorias}
-            sincronizarAhora={sincronizarAhora}
-            onImportado={() => setSeccion('movimientos')}
-          />
-        </Suspense>
+      {seccion === 'analisis' && (
+        <Analisis
+          transacciones={transaccionesFiltradas}
+          categorias={categorias}
+          cuentas={cuentas}
+          filtroCuenta={filtroCuenta}
+        />
+      )}
+
+      {seccion === 'mas' && (
+        <>
+          <div className="ui secondary pointing menu submenu-mas">
+            <button
+              type="button"
+              className={`item ${subseccionMas === 'categorias' ? 'active' : ''}`}
+              onClick={() => setSubseccionMas('categorias')}
+            >
+              <i className="tags icon" />
+              Categorías
+            </button>
+            <button
+              type="button"
+              className={`item ${subseccionMas === 'importar' ? 'active' : ''}`}
+              onClick={() => setSubseccionMas('importar')}
+            >
+              <i className="file excel outline icon" />
+              Importar Yape
+            </button>
+          </div>
+
+          {subseccionMas === 'categorias' && (
+            <GestionCategorias
+              usuarioId={usuarioId}
+              categorias={categorias}
+              transacciones={transacciones}
+            />
+          )}
+
+          {subseccionMas === 'importar' && (
+            <Suspense
+              fallback={
+                <div className="ui segment">
+                  <div className="ui active centered inline loader" />
+                </div>
+              }
+            >
+              <YapeImporter
+                usuarioId={usuarioId}
+                cuentas={cuentas}
+                categorias={categorias}
+                sincronizarAhora={sincronizarAhora}
+                onImportado={() => setSeccion('movimientos')}
+              />
+            </Suspense>
+          )}
+        </>
       )}
     </>
   )

@@ -99,14 +99,14 @@ function Auth() {
             <button
               type="button"
               onClick={() => cambiarPestana('login')}
-              className={`item ${pestana === 'login' ? 'active teal' : ''}`}
+              className={`item ${pestana === 'login' ? 'active' : ''}`}
             >
               Iniciar sesión
             </button>
             <button
               type="button"
               onClick={() => cambiarPestana('registro')}
-              className={`item ${pestana === 'registro' ? 'active teal' : ''}`}
+              className={`item ${pestana === 'registro' ? 'active' : ''}`}
             >
               Crear cuenta
             </button>
@@ -166,7 +166,7 @@ function Auth() {
             <button
               type="submit"
               disabled={cargando}
-              className={`ui fluid large teal button ${cargando ? 'loading' : ''}`}
+              className={`ui fluid large primary button ${cargando ? 'loading' : ''}`}
             >
               <i
                 className={`${pestana === 'login' ? 'sign in alternate' : 'user plus'} icon`}

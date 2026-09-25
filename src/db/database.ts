@@ -5,13 +5,29 @@ import type { Categoria, Cuenta, Presupuesto, Transaccion } from '../types'
 const ICONOS_EMOJI_V3: Record<string, string> = {
   '💼': 'briefcase',
   '🧾': 'file invoice dollar',
-  '📈': 'chart line',
+  '📈': 'chartline',
   '🍽️': 'utensils',
   '🚌': 'bus',
   '🏠': 'home',
   '💊': 'medkit',
   '🎬': 'film',
   '📦': 'box',
+}
+
+/**
+ * Colores de las categorías por defecto hasta v4 → paleta categórica nueva
+ * (validada para daltonismo, ver `categoriaService.COLORES_CATEGORIA`).
+ */
+const COLORES_V4: Record<string, string> = {
+  '#22c55e': '#008300', // Salario
+  '#14b8a6': '#4a3aa7', // Freelance
+  '#0ea5e9': '#2a78d6', // Inversiones
+  '#f97316': '#2a78d6', // Alimentación
+  '#eab308': '#eb6834', // Transporte
+  '#a855f7': '#1baf7a', // Vivienda
+  '#ef4444': '#eda100', // Salud
+  '#ec4899': '#e87ba4', // Entretenimiento
+  '#64748b': '#898781', // Otros
 }
 
 export class GestorGastosDB extends Dexie {
@@ -63,6 +79,24 @@ export class GestorGastosDB extends Dexie {
             if (categoria.icono && categoria.icono in ICONOS_EMOJI_V3) {
               categoria.icono = ICONOS_EMOJI_V3[categoria.icono]
             }
+          }),
+      )
+
+    // v5: nueva paleta de colores. Mismo esquema; solo recolorea las
+    // categorías que conservan el color por defecto anterior (las que el
+    // usuario ya personalizó no se tocan). También corrige el icono
+    // 'chart line', que no existe en Fomantic (se llama 'chartline').
+    this.version(5)
+      .stores({})
+      .upgrade((tx) =>
+        tx
+          .table<Categoria, string>('categorias')
+          .toCollection()
+          .modify((categoria) => {
+            if (categoria.color && categoria.color in COLORES_V4) {
+              categoria.color = COLORES_V4[categoria.color]
+            }
+            if (categoria.icono === 'chart line') categoria.icono = 'chartline'
           }),
       )
   }

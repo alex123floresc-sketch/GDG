@@ -10,9 +10,11 @@ interface ListaTransaccionesProps {
   limite?: number
   /** Acción opcional junto al título (p. ej. "Ver todas"). */
   accion?: { texto: string; onClick: () => void }
+  /** Muestra la suma de ingresos y gastos de la lista junto al título. */
+  mostrarTotales?: boolean
 }
 
-const COLOR_ICONO_POR_DEFECTO = '#767676'
+const COLOR_ICONO_POR_DEFECTO = '#898781'
 
 function ListaTransacciones({
   transacciones,
@@ -21,6 +23,7 @@ function ListaTransacciones({
   titulo = 'Transacciones recientes',
   limite = 15,
   accion,
+  mostrarTotales = false,
 }: ListaTransaccionesProps) {
   const categoriasPorId = useMemo(
     () => new Map(categorias.map((c) => [c.id, c])),
@@ -34,6 +37,17 @@ function ListaTransacciones({
 
   const visibles = transacciones.slice(0, limite)
 
+  const totales = useMemo(() => {
+    if (!mostrarTotales) return null
+    let ingresos = 0
+    let gastos = 0
+    for (const t of transacciones) {
+      if (t.tipo === 'ingreso') ingresos += t.monto
+      else gastos += t.monto
+    }
+    return { ingresos, gastos }
+  }, [transacciones, mostrarTotales])
+
   return (
     <div className="ui segment">
       <div className="barra-filtros">
@@ -44,9 +58,22 @@ function ListaTransacciones({
             <div className="sub header">
               {transacciones.length} movimiento
               {transacciones.length === 1 ? '' : 's'}
+              {transacciones.length > limite && ` · mostrando ${limite}`}
             </div>
           </div>
         </h3>
+        {totales && (
+          <div className="totales-lista">
+            <span className="ui basic label">
+              <i className="arrow down icon texto-ingreso" />
+              {formatearMoneda(totales.ingresos)}
+            </span>
+            <span className="ui basic label">
+              <i className="arrow up icon texto-gasto" />
+              {formatearMoneda(totales.gastos)}
+            </span>
+          </div>
+        )}
         {accion && transacciones.length > limite && (
           <button
             type="button"
@@ -63,7 +90,7 @@ function ListaTransacciones({
         <div className="ui placeholder segment">
           <div className="ui icon header">
             <i className="inbox icon" />
-            Aún no hay transacciones registradas.
+            No hay movimientos que mostrar.
           </div>
         </div>
       ) : (
@@ -102,7 +129,10 @@ function ListaTransacciones({
                   </strong>
                   <div>
                     {t.origen === 'yape' && (
-                      <span className="ui mini purple basic label">Yape</span>
+                      <span className="ui mini violet basic label">
+                        <i className="mobile alternate icon" />
+                        Yape
+                      </span>
                     )}
                     <span
                       className={`ui mini basic label ${t.sincronizado ? '' : 'orange'}`}

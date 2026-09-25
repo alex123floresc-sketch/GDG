@@ -27,10 +27,26 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   de Semantic, agregar su import ahí. Estilos propios en `src/index.css`.
 - Iconos: fuente de iconos de Semantic (`<i className="bus icon" />`).
   `Categoria.icono` guarda el nombre del icono (ya no emojis; Dexie v4
-  migra las categorías viejas).
-- Navegación principal en `Dashboard.tsx`: 4 secciones (Inicio,
-  Registrar, Movimientos, Importar); en móvil (<768px) la barra pasa al
-  pie de pantalla.
+  migra las categorías viejas). Verificar que el nombre exista en
+  `fomantic-ui-css/components/icon.min.css` (p. ej. es `chartline`, no
+  `chart line`: un nombre inválido se ve como un círculo vacío).
+- Paleta: variables CSS en `:root` de `src/index.css` (índigo como marca).
+  `index.css` sobrescribe los colores de `.ui.primary/.green/.red` de
+  Semantic con esa paleta; usar `primary` para acciones principales (ya
+  no `teal`). Colores de series de gráficos: `--serie-ingreso`,
+  `--serie-gasto`, `--serie-balance`. Colores de categorías:
+  `categoriaService.COLORES_CATEGORIA` (8 tonos validados para daltonismo
+  + gris; mantener ese orden).
+- Navegación principal en `Dashboard.tsx`: 5 secciones (Inicio,
+  Registrar, Movimientos, Análisis, Más → subpestañas Categorías /
+  Importar Yape); en móvil (<768px) la barra pasa al pie de pantalla.
+- Gráficos: SVG propio en `src/components/graficos/` (sin librería de
+  gráficos, para no inflar el bundle): `GraficoBarras` (ingresos vs.
+  gastos por periodo), `GraficoDona` (reparto por categoría, agrupa en
+  "Otras" pasado `maxPorciones`), `GraficoLinea` (balance acumulado).
+  Tooltip/leyenda en `comun.tsx`; hook `useAncho` y escalas en
+  `utilidades.ts`. Todo gráfico va acompañado de leyenda y de una tabla
+  con los mismos datos (el color nunca es la única pista).
 - Iconos de la app/PWA: `public/favicon.svg` es la fuente; los PNG/ICO se
   regeneran con `npx pwa-assets-generator` (config en
   `pwa-assets.config.ts`).
@@ -39,15 +55,19 @@ Repo: https://github.com/alex123floresc-sketch/GDG
 
 - `src/components` — UI: `Header`, `Auth`, `Dashboard` (orquesta el resto),
   `FormularioTransaccion`, `ResumenFinanciero`, `ListaTransacciones`,
+  `Analisis` (vista mensual/trimestral + exportación),
+  `GestionCategorias` (crear/editar/eliminar categorías), `graficos/`,
   `YapeImporter` (cargado con `React.lazy`, ver Rendimiento)
-- `src/db/database.ts` — esquema Dexie v4 (`GestorGastosDB`, tablas
+- `src/db/database.ts` — esquema Dexie v5 (`GestorGastosDB`, tablas
   `transacciones`, `categorias`, `cuentas`, `presupuestos`)
 - `src/services` — lógica sin React: `supabaseClient.ts`, `syncService.ts`,
   `transaccionService.ts`, `categoriaService.ts`, `cuentaService.ts`,
-  `yapeImporter.ts`
+  `yapeImporter.ts`, `exportService.ts` (Excel del análisis)
 - `src/hooks` — `useSync`, `useTransacciones`, `useCategorias`, `useCuentas`
 - `src/types/index.ts` — única fuente de tipos del dominio
-- `src/utils/formato.ts` — formato de moneda (`es-PE`/PEN) y fecha
+- `src/utils/formato.ts` — formato de moneda (`es-PE`/PEN), fecha y %
+- `src/utils/analisis.ts` — agregaciones puras (por mes/trimestre, por
+  categoría, últimos N meses); las usan tanto la UI como la exportación
 
 ## Convenciones
 
@@ -94,6 +114,22 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   insertar (índice compuesto en `database.ts`). Filas sin número de
   operación se descartan (se cuentan en `erroresFilas`).
 
+## Categorías personalizadas y Análisis
+
+- `GestionCategorias` permite crear/editar/eliminar categorías (nombre
+  único por usuario, sin distinguir mayúsculas/tildes). Eliminar una
+  categoría con transacciones exige reasignarlas a otra
+  (`categoriaService.eliminarCategoria`); las reasignadas se marcan
+  `sincronizado: false` para que el nuevo `categoria_id` suba a Supabase.
+- `Analisis` agrupa por mes o trimestre del año elegido; el filtro de
+  cuenta del Dashboard también aplica. Exporta a Excel
+  (`exportService.exportarAnalisisExcel`: hojas Resumen, Gastos por
+  categoría, Ingresos por categoría, Detalle) y a PDF vía
+  `window.print()` (estilos `@media print` en `index.css`; `.no-imprimir`
+  / `.solo-imprimir`).
+- Dexie v5 recolorea las categorías por defecto a la paleta nueva (solo
+  las que conservan el color viejo) y corrige el icono `chart line`.
+
 ## Autenticación y multiusuario
 
 - `App.tsx` gestiona la sesión con `supabase.auth.onAuthStateChange` +
@@ -111,7 +147,8 @@ Repo: https://github.com/alex123floresc-sketch/GDG
 
 - `YapeImporter` se carga con `React.lazy` desde `Dashboard.tsx`: `xlsx`
   pesa ~370kB y solo lo necesitan las sesiones que abren el importador, así
-  que no va en el bundle inicial. Si se agregan más dependencias pesadas
+  que no va en el bundle inicial. `exportService` hace lo mismo con
+  `await import('xlsx')` al pulsar "Exportar Excel". Si se agregan más dependencias pesadas
   de uso ocasional, seguir el mismo patrón en vez de importarlas arriba del
   archivo.
 
@@ -196,6 +233,11 @@ temporalmente antes de implementar autenticación).
   no hay UI ni servicio para crearlos/consultarlos todavía.
 - El importador de Yape no se probó contra un archivo real exportado desde
   la app (ver sección "Importador de Yape").
+- Las categorías personalizadas son solo locales: al cerrar sesión se
+  borran (`limpiarDatosLocales`) y al volver a entrar se re-siembran las
+  por defecto con UUIDs nuevos, así que las transacciones descargadas de
+  Supabase quedan con un `categoria_id` huérfano ("Sin categoría").
+  Solución: tabla remota `categorias` sincronizada (requiere migración SQL).
 
 ## Flujo de trabajo con git (pedido explícitamente por el usuario)
 

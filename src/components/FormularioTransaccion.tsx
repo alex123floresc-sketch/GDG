@@ -1,12 +1,21 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { crearTransaccion } from '../services/transaccionService'
-import type { Categoria, Cuenta, TipoTransaccion } from '../types'
+import type { Categoria, Cuenta, TipoCuenta, TipoTransaccion } from '../types'
+
+const ICONO_CUENTA: Record<TipoCuenta, string> = {
+  efectivo: 'money bill alternate outline',
+  banco: 'university',
+  billetera_digital: 'mobile alternate',
+  otro: 'wallet',
+}
 
 interface FormularioTransaccionProps {
   usuarioId: string
   cuentas: Cuenta[]
   categorias: Categoria[]
   onRegistrada?: () => void
+  /** Lleva a la pantalla de categorías (para crear una que falte). */
+  onGestionarCategorias?: () => void
 }
 
 /** Fecha local de hoy en formato `YYYY-MM-DD` (valor de `<input type="date">`). */
@@ -43,6 +52,7 @@ function FormularioTransaccion({
   cuentas,
   categorias,
   onRegistrada,
+  onGestionarCategorias,
 }: FormularioTransaccionProps) {
   const [tipo, setTipo] = useState<TipoTransaccion>('gasto')
   const [monto, setMonto] = useState('')
@@ -61,7 +71,10 @@ function FormularioTransaccion({
   }, [cuentas, cuentaId])
 
   const categoriasDisponibles = useMemo(
-    () => categorias.filter((c) => c.tipo === tipo || c.tipo === 'ambos'),
+    () =>
+      categorias
+        .filter((c) => c.tipo === tipo || c.tipo === 'ambos')
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
     [categorias, tipo],
   )
 
@@ -144,6 +157,7 @@ function FormularioTransaccion({
             type="button"
             onClick={() => setTipo('ingreso')}
             className={`ui button ${tipo === 'ingreso' ? 'green' : 'basic'}`}
+            aria-pressed={tipo === 'ingreso'}
           >
             <i className="arrow down icon" />
             Ingreso
@@ -152,6 +166,7 @@ function FormularioTransaccion({
             type="button"
             onClick={() => setTipo('gasto')}
             className={`ui button ${tipo === 'gasto' ? 'red' : 'basic'}`}
+            aria-pressed={tipo === 'gasto'}
           >
             <i className="arrow up icon" />
             Gasto
@@ -189,45 +204,55 @@ function FormularioTransaccion({
           </div>
         </div>
 
-        <div className="two fields">
-          <div className="required field">
-            <label htmlFor="tx-cuenta">Cuenta</label>
-            <select
-              id="tx-cuenta"
-              value={cuentaSeleccionada}
-              onChange={(e) => setCuentaId(e.target.value)}
-              className="ui fluid dropdown"
-              required
-            >
-              <option value="" disabled>
-                Selecciona una cuenta
-              </option>
-              {cuentas.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
+        <div className="required field">
+          <label id="tx-cuenta">Cuenta</label>
+          <div className="selector-cuenta ui fluid buttons" role="radiogroup" aria-labelledby="tx-cuenta">
+            {cuentas.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                role="radio"
+                aria-checked={cuentaSeleccionada === c.id}
+                onClick={() => setCuentaId(c.id)}
+                className={`ui button ${cuentaSeleccionada === c.id ? 'primary' : 'basic'}`}
+              >
+                <i className={`${ICONO_CUENTA[c.tipo]} icon`} />
+                {c.nombre}
+              </button>
+            ))}
           </div>
+        </div>
 
-          <div className="required field">
-            <label htmlFor="tx-categoria">Categoría</label>
-            <select
-              id="tx-categoria"
-              value={categoriaSeleccionada}
-              onChange={(e) => setCategoriaId(e.target.value)}
-              className="ui fluid dropdown"
-              required
-            >
-              <option value="" disabled>
-                Selecciona una categoría
-              </option>
-              {categoriasDisponibles.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
+        <div className="required field">
+          <label>
+            Categoría
+            {onGestionarCategorias && (
+              <button type="button" className="enlace-lateral" onClick={onGestionarCategorias}>
+                <i className="cog icon" />
+                Gestionar
+              </button>
+            )}
+          </label>
+          <div className="selector-categoria" role="radiogroup" aria-label="Categoría">
+            {categoriasDisponibles.map((c) => {
+              const activa = categoriaSeleccionada === c.id
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={activa}
+                  onClick={() => setCategoriaId(c.id)}
+                  className={`opcion-categoria ${activa ? 'activa' : ''}`}
+                  style={activa ? { borderColor: c.color, background: `${c.color}1a` } : undefined}
+                >
+                  <span className="icono-circulo" style={{ background: c.color ?? '#898781' }}>
+                    <i className={`${c.icono ?? 'tag'} icon`} />
+                  </span>
+                  <span className="nombre">{c.nombre}</span>
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -252,7 +277,7 @@ function FormularioTransaccion({
         <button
           type="submit"
           disabled={enviando}
-          className={`ui fluid teal button ${enviando ? 'loading' : ''}`}
+          className={`ui fluid primary button ${enviando ? 'loading' : ''}`}
         >
           <i className="save icon" />
           Registrar transacción

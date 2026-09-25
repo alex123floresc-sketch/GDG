@@ -13,8 +13,8 @@ export default defineConfig({
         name: 'Gestor de Gastos',
         short_name: 'Gestor Gastos',
         description: 'Aplicación de control de finanzas personales',
-        theme_color: '#1b1c1d',
-        background_color: '#f3f5f9',
+        theme_color: '#1e1b4b',
+        background_color: '#f4f5fb',
         display: 'standalone',
         start_url: '/',
         // Generados desde public/favicon.svg con pwa-assets.config.ts
