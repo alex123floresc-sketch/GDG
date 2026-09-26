@@ -1,5 +1,6 @@
 import { db } from '../db/database'
 import type { Categoria, NuevaCategoria } from '../types'
+import { uuidDeterminista } from './sincronizable'
 
 /**
  * Paleta para categorías: los 8 tonos categóricos validados para daltonismo
@@ -50,20 +51,20 @@ const CATEGORIAS_BASE: NuevaCategoria[] = [
 export async function asegurarCategoriasPorDefecto(
   usuarioId: string,
 ): Promise<void> {
-  const existentes = await db.categorias
-    .where('usuarioId')
-    .equals(usuarioId)
-    .count()
-
-  if (existentes > 0) return
-
-  await db.categorias.bulkAdd(
-    CATEGORIAS_BASE.map((categoria) => ({
+  // Ids deterministas (usuario + nombre): dos siembras simultáneas generan
+  // los mismos y no se duplican (ver asegurarCuentasPorDefecto).
+  const base: Categoria[] = await Promise.all(
+    CATEGORIAS_BASE.map(async (categoria) => ({
       ...categoria,
-      id: crypto.randomUUID(),
+      id: await uuidDeterminista(`${usuarioId}|categoria|${categoria.nombre}`),
       usuarioId,
     })),
   )
+
+  await db.transaction('rw', db.categorias, async () => {
+    if ((await db.categorias.where('usuarioId').equals(usuarioId).count()) > 0) return
+    await db.categorias.bulkPut(base)
+  })
 }
 
 async function validarNombre(

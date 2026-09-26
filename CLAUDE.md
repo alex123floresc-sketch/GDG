@@ -155,7 +155,15 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   sesión, `App.tsx` primero llama a `syncService.descargarCatalogos` y
   solo si el usuario sigue sin ninguna siembra las de por defecto
   (`categoriaService.asegurarCategoriasPorDefecto` /
-  `cuentaService.asegurarCuentasPorDefecto`). Los hooks/servicios
+  `cuentaService.asegurarCuentasPorDefecto`). La siembra usa ids
+  deterministas (`uuidDeterminista(usuarioId|cuenta|nombre)`) dentro de
+  una transacción Dexie: dos siembras simultáneas (doble efecto de
+  StrictMode, dos pestañas o dispositivos) no duplican. Los repetidos
+  que ya existían (antes de v0.13.2) los une
+  `syncService.deduplicarCatalogos` al inicio y tras la descarga de cada
+  sincronización: conserva la del servidor con id menor (misma elección
+  en todos los dispositivos), re-apunta movimientos/recurrentes/
+  presupuestos, suma saldos iniciales y borra el resto también remoto. Los hooks/servicios
   siempre reciben `usuarioId` de forma explícita, nunca lo infieren de un
   estado global.
 - `supabaseClient.ts` exporta `supabase: SupabaseClient | null`. Si faltan

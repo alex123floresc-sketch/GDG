@@ -1,5 +1,6 @@
 import { db } from '../db/database'
 import type { Cuenta, NuevaCuenta } from '../types'
+import { uuidDeterminista } from './sincronizable'
 
 const CUENTAS_BASE: NuevaCuenta[] = [
   { nombre: 'Efectivo', tipo: 'efectivo', saldoInicial: 0 },
@@ -10,19 +11,24 @@ const CUENTAS_BASE: NuevaCuenta[] = [
 /**
  * Crea las cuentas por defecto para un usuario si todavía no tiene ninguna
  * (p. ej. su primer inicio de sesión en este dispositivo).
+ *
+ * Los ids salen del usuario + nombre: si esto corre dos veces a la vez (dos
+ * pestañas, dos dispositivos, el doble efecto de React en desarrollo) se
+ * generan los mismos ids y no se duplican.
  */
 export async function asegurarCuentasPorDefecto(usuarioId: string): Promise<void> {
-  const existentes = await db.cuentas.where('usuarioId').equals(usuarioId).count()
-
-  if (existentes > 0) return
-
-  await db.cuentas.bulkAdd(
-    CUENTAS_BASE.map((cuenta) => ({
+  const base: Cuenta[] = await Promise.all(
+    CUENTAS_BASE.map(async (cuenta) => ({
       ...cuenta,
-      id: crypto.randomUUID(),
+      id: await uuidDeterminista(`${usuarioId}|cuenta|${cuenta.nombre}`),
       usuarioId,
     })),
   )
+
+  await db.transaction('rw', db.cuentas, async () => {
+    if ((await db.cuentas.where('usuarioId').equals(usuarioId).count()) > 0) return
+    await db.cuentas.bulkPut(base)
+  })
 }
 
 function validar(datos: NuevaCuenta): NuevaCuenta {

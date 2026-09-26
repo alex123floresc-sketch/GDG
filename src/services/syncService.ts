@@ -20,6 +20,7 @@ import type {
   TipoTransaccion,
   Transaccion,
 } from '../types'
+import { registrarBorrado } from './sincronizable'
 import { supabase } from './supabaseClient'
 
 /*
@@ -694,6 +695,109 @@ async function fusionarCatalogo<T extends Categoria | Cuenta>(
 }
 
 /**
+ * Une las categorías/cuentas repetidas (mismo nombre y tipo) que quedaron
+ * de sembrar las de por defecto dos veces (antes de v0.13.2 los ids eran
+ * aleatorios y dos inicios de sesión simultáneos creaban el doble).
+ *
+ * Por cada grupo se conserva una: la que ya está en el servidor y, entre
+ * ellas, el id menor. Así todos los dispositivos eligen la misma y ninguno
+ * borra la que otro conservó. Sus movimientos, recurrentes y presupuestos
+ * pasan a la conservada; en cuentas se suman los saldos iniciales (el
+ * saldo total no cambia). Las demás se borran también en Supabase.
+ * Devuelve cuántas se unieron.
+ */
+async function deduplicarCatalogo<T extends Categoria | Cuenta>(
+  usuarioId: string,
+  tabla: Table<T, string>,
+  tablaRemota: 'categorias' | 'cuentas',
+  campo: 'categoriaId' | 'cuentaId',
+): Promise<number> {
+  const tablas = [tabla, db.transacciones, db.presupuestos, db.recurrentes, db.eliminacionesPendientes]
+  let unidas = 0
+
+  await db.transaction('rw', tablas, async () => {
+    const grupos = new Map<string, T[]>()
+    for (const item of await tabla.where('usuarioId').equals(usuarioId).toArray()) {
+      const clave = `${normalizar(item.nombre)}|${item.tipo}`
+      grupos.set(clave, [...(grupos.get(clave) ?? []), item])
+    }
+
+    for (const grupo of grupos.values()) {
+      if (grupo.length < 2) continue
+
+      grupo.sort(
+        (a, b) => Number(b.sincronizado === true) - Number(a.sincronizado === true) || a.id.localeCompare(b.id),
+      )
+      const [conservada, ...repetidas] = grupo
+      const idsRepetidas = new Set(repetidas.map((r) => r.id))
+      const ahora = new Date()
+      const reapuntar = (fila: { categoriaId: string; cuentaId: string } & ControlSync) => {
+        fila[campo] = conservada.id
+        fila.sincronizado = false
+        fila.fechaActualizacion = ahora
+      }
+
+      await db.transacciones.where(campo).anyOf([...idsRepetidas]).modify(reapuntar)
+      await db.recurrentes
+        .where('usuarioId')
+        .equals(usuarioId)
+        .filter((r) => idsRepetidas.has(r[campo]))
+        .modify(reapuntar)
+
+      if (campo === 'categoriaId') {
+        // Un presupuesto por categoría: si ambas tenían, queda el más reciente.
+        const presupuestos = await db.presupuestos
+          .where('categoriaId')
+          .anyOf([conservada.id, ...idsRepetidas])
+          .toArray()
+        presupuestos.sort(
+          (a, b) => (b.fechaActualizacion?.getTime() ?? 0) - (a.fechaActualizacion?.getTime() ?? 0),
+        )
+        const [vigente, ...sobrantes] = presupuestos
+        if (vigente && vigente.categoriaId !== conservada.id) {
+          await db.presupuestos.update(vigente.id, {
+            categoriaId: conservada.id,
+            sincronizado: false,
+            fechaActualizacion: ahora,
+          })
+        }
+        if (sobrantes.length > 0) {
+          await db.presupuestos.bulkDelete(sobrantes.map((p) => p.id))
+          await registrarBorrado('presupuestos', usuarioId, sobrantes.map((p) => p.id))
+        }
+      } else {
+        const cuentas = [conservada, ...repetidas] as Cuenta[]
+        const saldo = cuentas.reduce((suma, c) => suma + (c.saldoInicial || 0), 0)
+        await db.cuentas.update(conservada.id, {
+          saldoInicial: Math.round(saldo * 100) / 100,
+          sincronizado: false,
+          fechaActualizacion: ahora,
+        })
+      }
+
+      await tabla.bulkDelete([...idsRepetidas])
+      // Solo las que llegaron al servidor necesitan borrarse allá.
+      await registrarBorrado(
+        tablaRemota,
+        usuarioId,
+        repetidas.filter((r) => r.sincronizado === true).map((r) => r.id),
+      )
+      unidas += repetidas.length
+    }
+  })
+
+  return unidas
+}
+
+/** Une categorías y cuentas repetidas (ver `deduplicarCatalogo`). */
+export async function deduplicarCatalogos(usuarioId: string): Promise<number> {
+  return (
+    (await deduplicarCatalogo(usuarioId, db.categorias, 'categorias', 'categoriaId')) +
+    (await deduplicarCatalogo(usuarioId, db.cuentas, 'cuentas', 'cuentaId'))
+  )
+}
+
+/**
  * Trae las categorías y cuentas remotas del usuario y agrega a Dexie las
  * que falten (ver `fusionarCatalogo`). Se llama al iniciar sesión, antes de
  * sembrar las categorías/cuentas por defecto.
@@ -719,6 +823,7 @@ export async function descargarCatalogos(usuarioId: string): Promise<void> {
 
   await fusionarCatalogo(usuarioId, db.categorias, 'categoriaId', convertir(categorias.data, CATEGORIAS.aLocal))
   await fusionarCatalogo(usuarioId, db.cuentas, 'cuentaId', convertir(cuentas.data, CUENTAS.aLocal))
+  await deduplicarCatalogos(usuarioId)
 }
 
 /**
@@ -1026,6 +1131,10 @@ export async function sincronizar(usuarioId: string): Promise<ResultadoSincroniz
   const errores: string[] = []
   const agregar = (e: string | null) => e && errores.push(e)
 
+  // Antes de descargar: si otro dispositivo ya unió los repetidos, aquí se
+  // unen igual (misma elección) antes de que la descarga los quite.
+  await deduplicarCatalogos(usuarioId)
+
   if (v7) {
     agregar(
       await sincronizarEntidad(CATEGORIAS, usuarioId, userId, borrados, (r) =>
@@ -1043,6 +1152,8 @@ export async function sincronizar(usuarioId: string): Promise<ResultadoSincroniz
   }
   const erroresCatalogos = errores.length
 
+  // La descarga pudo traer repetidos creados en otro dispositivo.
+  await deduplicarCatalogos(usuarioId)
   await repararReferenciasHuerfanas(usuarioId)
 
   let subidas = 0
