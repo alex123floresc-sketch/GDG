@@ -177,15 +177,8 @@ function App() {
                     : migracionesPendientes.includes('v0.11.sql')
                       ? 'etiquetas, gastos divididos y recurrentes de fin de mes'
                       : 'recurrentes programados para el 29, 30 o 31'}
-                  ) solo se guarda en este dispositivo hasta que ejecutes, en este orden, en el SQL
-                  Editor de Supabase:{' '}
-                  {migracionesPendientes.map((m, i) => (
-                    <span key={m}>
-                      {i > 0 && ', '}
-                      <code>supabase/migraciones/{m}</code>
-                    </span>
-                  ))}
-                  .
+                  ) solo se guarda en este dispositivo hasta que ejecutes el archivo{' '}
+                  <code>BASE_DE_DATOS.sql</code> completo en el SQL Editor de Supabase.
                 </p>
               </div>
             </div>

@@ -120,7 +120,8 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   ofrece como sugerencia editable)
 - `src/utils/preferencias.ts` — preferencias del dispositivo en
   localStorage (tipo de cambio, tema), siempre en try/catch
-- `supabase/migraciones/` — SQL a ejecutar a mano en el SQL Editor
+- `BASE_DE_DATOS.sql` — todo el SQL de Supabase en un solo archivo
+- `supabase/migraciones/` — historial de migraciones (ya incluidas arriba)
 
 ## Convenciones
 
@@ -308,7 +309,19 @@ VITE_SUPABASE_ANON_KEY=
 
 ## Esquema remoto (Supabase)
 
-No hay SQL versionado del esquema inicial (se creó a mano en el panel);
+**`BASE_DE_DATOS.sql` (raíz del repo) es el SQL completo y único** que el
+usuario pega en el SQL Editor (pedido explícito del usuario):
+- Sección 1 tablas, 2 índices/RLS/permisos + consulta de comprobación,
+  3 borrado total (3A vaciar datos, 3B eliminar tablas) dentro de
+  `/* */` para que pegar el archivo entero nunca borre nada.
+- Idempotente: sirve en base vacía y en la actual (`CREATE TABLE IF NOT
+  EXISTS` con todas las columnas + `ADD COLUMN IF NOT EXISTS`).
+- **Todo cambio de base que necesite una función nueva se agrega ahí**
+  (y en su HISTORIAL), no en archivos sueltos. `supabase/migraciones/`
+  queda solo como historial. Probar el script con PGlite (esquema `auth`
+  simulado) en base vacía, base antigua y ejecutándolo dos veces.
+
+El esquema inicial se creó a mano en el panel;
 lo que se sabe de él se dedujo consultando PostgREST. Tablas: `transacciones`,
 `categorias`, `cuentas`, `presupuestos`, `profiles` (no usada), todas con
 `id uuid` y `user_id uuid` + RLS por usuario. `transacciones.cuenta_id` y
@@ -328,10 +341,11 @@ Particularidades que el cliente respeta:
 
 `syncService.MIGRACIONES` lista cada archivo con una consulta `limit 0` que
 solo funciona si ya se ejecutó; `sincronizar` devuelve
-`migracionesPendientes` y `App.tsx` avisa cuáles faltan. Al crear una
-migración nueva: archivo `supabase/migraciones/v0.X.sql` idempotente +
-entrada en `MIGRACIONES`, y enviar las columnas nuevas solo cuando tienen
-valor (así lo demás sigue subiendo sin la migración).
+`migracionesPendientes` y `App.tsx` pide ejecutar `BASE_DE_DATOS.sql`. Al
+cambiar el esquema: agregarlo a `BASE_DE_DATOS.sql` + entrada en
+`MIGRACIONES` (el nombre `v0.X.sql` es solo un identificador), y enviar las
+columnas nuevas solo cuando tienen valor (así lo demás sigue subiendo sin
+la migración).
 
 - `v0.11.sql`: `transacciones.etiquetas text[]` y `deudas.gasto_dividido`.
 - `v0.13.sql`: `recurrentes.dia_mes`.
@@ -400,8 +414,8 @@ transferencias) fallan individualmente sin bloquear al resto.
 - Deploy en Vercel: no hecho (requiere login del usuario en vercel.com).
   `vercel.json` ya está listo (Vite, sin caché para `sw.js`, assets
   inmutables); falta importar el repo en Vercel y cargar las env vars.
-- Migraciones `v0.7.sql`, `v0.11.sql`, `v0.13.sql`: el usuario debe
-  ejecutarlas en orden en su proyecto de Supabase (ver "Esquema remoto").
+- `BASE_DE_DATOS.sql`: el usuario debe ejecutarlo en su proyecto de
+  Supabase (ver "Esquema remoto").
 - Recurrentes recortados ANTES de v0.13 (sin `diaMes`) siguen en el día
   recortado; basta con editar la fecha de la regla para corregirlos.
 - El importador de Yape no se probó contra un archivo real exportado desde

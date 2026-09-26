@@ -531,7 +531,9 @@ async function subirPendientes<L extends { id: string; usuarioId: string } & Con
 
   const { error } = await supabase
     .from(entidad.tabla)
-    .upsert(pendientes.map((l) => entidad.aFila(l, userId, conFecha)))
+    // Columnas opcionales (gasto_dividido, dia_mes) que no trae una fila del
+    // lote toman su DEFAULT, no NULL (gasto_dividido es NOT NULL).
+    .upsert(pendientes.map((l) => entidad.aFila(l, userId, conFecha)), { defaultToNull: false })
 
   if (!error) {
     subidas.push(...pendientes)
