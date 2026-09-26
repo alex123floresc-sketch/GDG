@@ -1,9 +1,15 @@
+import { montosOcultos } from './privacidad'
+
+/** Lo que se muestra en lugar de un monto con "Ocultar montos" activo. */
+const OCULTO = '•••'
+
 const formateadorMoneda = new Intl.NumberFormat('es-PE', {
   style: 'currency',
   currency: 'PEN',
 })
 
 export function formatearMoneda(monto: number): string {
+  if (montosOcultos()) return `S/ ${OCULTO}`
   return formateadorMoneda.format(monto)
 }
 
@@ -24,6 +30,7 @@ const formateadorCompacto = new Intl.NumberFormat('es-PE', {
 
 /** Monto abreviado para ejes de gráficos: `S/ 1.2 mil`. */
 export function formatearMonedaCorta(monto: number): string {
+  if (montosOcultos()) return `S/ ${OCULTO}`
   return `S/ ${formateadorCompacto.format(monto)}`
 }
 
@@ -64,5 +71,6 @@ const formateadorUSD = new Intl.NumberFormat('es-PE', {
 
 /** `US$ 20.00` */
 export function formatearDolares(monto: number): string {
+  if (montosOcultos()) return `US$ ${OCULTO}`
   return `US${formateadorUSD.format(monto)}`
 }

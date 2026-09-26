@@ -291,6 +291,20 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   saldo 0; un apartado con historial se archiva (borrar sus
   transferencias cambiaría otras cuentas).
 
+## Ocultar montos y respaldo (v0.15)
+
+- Ojo del Header → `utils/privacidad.ts` (`useMontosOcultos`,
+  localStorage). `formatearMoneda/MonedaCorta/Dolares` devuelven
+  "S/ •••" mientras está activo; App usa el hook arriba del todo para que
+  se repinte todo. Si un `useMemo` guarda textos con montos, agregar
+  `ocultos` a sus dependencias (como `insights` en Dashboard).
+- Más → Seguridad y respaldo: `respaldoService` exporta todas las tablas
+  del usuario a JSON (sin `sincronizado`) y restaura: `bulkPut` como
+  pendiente de subir, cancela borrados pendientes de lo restaurado. Si el
+  respaldo es de otro usuario, renueva todos los ids y re-apunta
+  `cuentaId`/`categoriaId`/`recurrenteId`/`transferenciaId`; los
+  catálogos repetidos los une `deduplicarCatalogos`.
+
 ## Bloqueo con PIN (v0.13)
 
 - `utils/pin.ts`: PIN de 4–6 dígitos por dispositivo (localStorage, NO se

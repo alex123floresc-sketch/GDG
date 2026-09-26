@@ -12,10 +12,15 @@ import { supabase } from './services/supabaseClient'
 import { descargarCatalogos } from './services/syncService'
 import { limpiarDatosLocales } from './services/transaccionService'
 import { minutosParaBloquear, pinActivo, quitarPin } from './utils/pin'
+import { useMontosOcultos } from './utils/privacidad'
 
 function App() {
   const [sesion, setSesion] = useState<Session | null>(null)
   const [cargandoSesion, setCargandoSesion] = useState(true)
+  // Al activar "Ocultar montos" se repinta toda la app (los formateadores
+  // de utils/formato.ts leen esa preferencia).
+  const ocultos = useMontosOcultos()
+
   // Con PIN activo, la app arranca bloqueada.
   const [bloqueado, setBloqueado] = useState(pinActivo)
 
@@ -130,6 +135,7 @@ function App() {
   return (
     <Avisos>
       <Header
+        montosOcultos={ocultos}
         email={sesion.user.email ?? ''}
         enLinea={enLinea}
         sincronizando={sincronizando}

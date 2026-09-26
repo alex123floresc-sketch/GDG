@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { guardarTema, leerTema, type Tema } from '../utils/preferencias'
+import { alternarMontosOcultos } from '../utils/privacidad'
 import { aplicarTema } from '../utils/tema'
 
 const TEMAS: { id: Tema; icono: string; etiqueta: string }[] = [
@@ -10,6 +11,8 @@ const TEMAS: { id: Tema; icono: string; etiqueta: string }[] = [
 
 interface HeaderProps {
   email: string
+  /** "Ocultar montos" activo (ver utils/privacidad.ts). */
+  montosOcultos: boolean
   enLinea: boolean
   sincronizando: boolean
   ultimaSincronizacion: Date | null
@@ -22,6 +25,7 @@ interface HeaderProps {
 
 function Header({
   email,
+  montosOcultos,
   enLinea,
   sincronizando,
   ultimaSincronizacion,
@@ -99,6 +103,17 @@ function Header({
           >
             <i className={`sync alternate icon ${sincronizando ? 'loading' : ''}`} />
             <span className="solo-escritorio">Sincronizar ahora</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={alternarMontosOcultos}
+            className="link item"
+            title={montosOcultos ? 'Mostrar montos' : 'Ocultar montos'}
+            aria-label={montosOcultos ? 'Mostrar montos' : 'Ocultar montos'}
+            aria-pressed={montosOcultos}
+          >
+            <i className={`${montosOcultos ? 'eye slash' : 'eye'} icon`} />
           </button>
 
           <button

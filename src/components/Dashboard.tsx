@@ -9,12 +9,14 @@ import SeccionAnalisis, { type PestanaAnalisis } from './analisis/SeccionAnalisi
 import FormularioTransaccion, { type TipoFormulario } from './FormularioTransaccion'
 import GestionCategorias from './GestionCategorias'
 import GestionCuentas from './GestionCuentas'
+import Respaldo from './Respaldo'
 import Seguridad from './Seguridad'
 import Inicio from './Inicio'
 import Modal from './Modal'
 import Planificar, { type PestanaPlanificar } from './planificar/Planificar'
 import VistaMovimientos from './VistaMovimientos'
 import { cuentasOperativas } from '../utils/cuentas'
+import { useMontosOcultos } from '../utils/privacidad'
 
 // xlsx (usado por YapeImporter) pesa varios cientos de KB: se carga bajo
 // demanda para no inflar el bundle inicial ni el precache del Service
@@ -43,7 +45,7 @@ const SUBSECCIONES_MAS: { id: SubseccionMas; etiqueta: string; icono: string }[]
   { id: 'cuentas', etiqueta: 'Cuentas', icono: 'wallet' },
   { id: 'categorias', etiqueta: 'Categorías', icono: 'tags' },
   { id: 'importar', etiqueta: 'Importar Yape', icono: 'file excel outline' },
-  { id: 'seguridad', etiqueta: 'Seguridad', icono: 'lock' },
+  { id: 'seguridad', etiqueta: 'Seguridad y respaldo', icono: 'lock' },
 ]
 
 const FILTRO_TODAS = 'todas'
@@ -66,6 +68,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   const presupuestos = usePresupuestos(usuarioId)
   const metas = useMetas(usuarioId)
   const chanchitos = useChanchitos(usuarioId)
+  const ocultos = useMontosOcultos()
   const deudas = useDeudas(usuarioId)
   // Además de listarlos, genera las transacciones recurrentes vencidas.
   const recurrentes = useRecurrentes(usuarioId)
@@ -91,7 +94,9 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
 
   const insights = useMemo(
     () => generarInsights({ transacciones, categorias, cuentas, presupuestos, metas, deudas, recurrentes, chanchitos }),
-    [transacciones, categorias, cuentas, presupuestos, metas, deudas, recurrentes, chanchitos],
+    // `ocultos`: los textos llevan montos formateados.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [transacciones, categorias, cuentas, presupuestos, metas, deudas, recurrentes, chanchitos, ocultos],
   )
 
   const personasPrevias = useMemo(() => [...new Set(deudas.map((d) => d.persona))], [deudas])
@@ -262,7 +267,12 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
                 <GestionCategorias usuarioId={usuarioId} categorias={categorias} transacciones={transacciones} />
               )}
 
-              {subseccionMas === 'seguridad' && <Seguridad />}
+              {subseccionMas === 'seguridad' && (
+                <>
+                  <Seguridad />
+                  <Respaldo usuarioId={usuarioId} email={email} />
+                </>
+              )}
 
               {subseccionMas === 'importar' && (
                 <Suspense

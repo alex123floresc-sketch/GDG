@@ -99,6 +99,12 @@ function Seguridad() {
       </h3>
 
       <p className="texto-suave">
+        <i className="eye slash icon" />
+        ¿Solo quieres que no se vean las cifras? Toca el ojo del encabezado para ocultar todos los
+        montos al instante.
+      </p>
+
+      <p className="texto-suave">
         Es una barrera para que nadie vea tus finanzas si toma tu celular desbloqueado; no cifra
         los datos. Solo aplica a este dispositivo. Si lo olvidas, puedes cerrar sesión y volver a
         entrar con tu contraseña.
