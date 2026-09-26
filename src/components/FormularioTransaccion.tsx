@@ -135,9 +135,13 @@ function FormularioTransaccion({
 
   // "Por cobrar" es una cuenta de sistema (gastos divididos): solo se ofrece
   // en transferencias, o si el movimiento que se edita ya la usa.
-  const cuentasElegibles = esTransferencia
-    ? cuentas
-    : cuentas.filter((c) => c.nombre !== NOMBRE_POR_COBRAR || c.id === transaccion?.cuentaId)
+  // Las cuentas de los chanchitos se mueven desde Planificar → Chanchitos:
+  // solo aparecen al editar un movimiento que ya las usa.
+  const cuentasElegibles = cuentas.filter(
+    (c) =>
+      (c.tipo !== 'chanchito' || transaccion !== undefined) &&
+      (esTransferencia || c.nombre !== NOMBRE_POR_COBRAR || c.id === transaccion?.cuentaId),
+  )
 
   // Selecciones efectivas (caen a un valor válido si la elegida ya no aplica).
   const cuentaSeleccionada = cuentasElegibles.some((c) => c.id === cuentaId)

@@ -138,7 +138,7 @@ function Inicio({
       </section>
 
       <section className="carrusel-cuentas" aria-label="Tus cuentas">
-        {cuentas.map((c) => {
+        {cuentas.filter((c) => c.tipo !== 'chanchito').map((c) => {
           const saldo = saldos.get(c.id) ?? c.saldoInicial
           return (
             <button key={c.id} type="button" className="chip-cuenta" onClick={() => onNavegar('mas:cuentas')}>
@@ -152,6 +152,21 @@ function Inicio({
             </button>
           )
         })}
+        {cuentas.some((c) => c.tipo === 'chanchito') && (
+          <button type="button" className="chip-cuenta" onClick={() => onNavegar('planificar:chanchitos')}>
+            <span className="icono-circulo mini fondo-marca">
+              <i className="piggy bank icon" />
+            </span>
+            <span className="datos">
+              <span className="nombre">Chanchitos</span>
+              <strong>
+                {formatearMoneda(
+                  cuentas.filter((c) => c.tipo === 'chanchito').reduce((s, c) => s + (saldos.get(c.id) ?? 0), 0),
+                )}
+              </strong>
+            </span>
+          </button>
+        )}
       </section>
 
       <ResumenInteligente insights={insights} onNavegar={onNavegar} />

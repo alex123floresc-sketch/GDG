@@ -47,6 +47,7 @@ export function useSync(usuarioId: string | null): EstadoSincronizacion & {
         db.metas,
         db.deudas,
         db.recurrentes,
+        db.chanchitos,
       ] as unknown as Table<{ usuarioId: string; sincronizado?: boolean }, string>[]
       const conteos = await Promise.all([
         ...tablas.map((t) =>

@@ -161,6 +161,7 @@ export async function limpiarDatosLocales(): Promise<void> {
     db.metas,
     db.deudas,
     db.recurrentes,
+    db.chanchitos,
   ]
   await db.transaction('rw', tablas, async () => {
     await Promise.all(tablas.map((t) => t.clear()))

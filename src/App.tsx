@@ -175,8 +175,10 @@ function App() {
                   {migracionesPendientes.includes('v0.7.sql')
                     ? 'metas, deudas, recurrentes, presupuestos, transferencias, dólares, etiquetas'
                     : migracionesPendientes.includes('v0.11.sql')
-                      ? 'etiquetas, gastos divididos y recurrentes de fin de mes'
-                      : 'recurrentes programados para el 29, 30 o 31'}
+                      ? 'etiquetas, gastos divididos, recurrentes de fin de mes y chanchitos'
+                      : migracionesPendientes.includes('v0.13.sql')
+                        ? 'recurrentes programados para el 29, 30 o 31, y chanchitos'
+                        : 'chanchitos'}
                   ) solo se guarda en este dispositivo hasta que ejecutes el archivo{' '}
                   <code>BASE_DE_DATOS.sql</code> completo en el SQL Editor de Supabase.
                 </p>

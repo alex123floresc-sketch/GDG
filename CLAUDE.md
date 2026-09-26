@@ -81,9 +81,9 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `Modal` (modal de Fomantic sin jQuery, vía portal), `Avisos` (toasts;
   se usan con `useAvisos().avisar(...)`), `graficos/`, `YapeImporter`
   (cargado con `React.lazy`, ver Rendimiento)
-- `src/db/database.ts` — esquema Dexie v8 (`GestorGastosDB`, tablas
+- `src/db/database.ts` — esquema Dexie v9 (`GestorGastosDB`, tablas
   `transacciones`, `categorias`, `cuentas`, `presupuestos`, `metas`,
-  `deudas`, `recurrentes`, `eliminacionesPendientes`)
+  `deudas`, `recurrentes`, `chanchitos`, `eliminacionesPendientes`)
 - `src/services` — lógica sin React: `supabaseClient.ts`, `syncService.ts`,
   `transaccionService.ts` (+ transferencias, eliminar/restaurar),
   `categoriaService.ts`, `cuentaService.ts`, `presupuestoService.ts`,
@@ -269,6 +269,27 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   de impresión oculta todo menos `.reporte-imprimible`) y fuerza el tema
   claro mientras dura la impresión. Del día 1 al 7 el resumen inteligente
   avisa que el reporte del mes anterior está listo.
+
+## Chanchitos (v0.14)
+
+- Planificar → Chanchitos (`PanelChanchitos`, `chanchitoService`,
+  `utils/chanchitos.ts`, `utils/retos.ts`). Distinto de Metas: sin
+  objetivo ni fecha. Tabla remota `chanchitos` (movimientos/reto jsonb).
+- Tipo `cuenta` ("apartado"): crea una cuenta de sistema `tipo:
+  'chanchito'` (nombre único "Chanchito X", "… (2)"); echar/sacar son
+  transferencias → bajan el saldo disponible sin contar como gasto y el
+  patrimonio incluye lo apartado. Esas cuentas NO se ofrecen al registrar
+  (`cuentasOperativas`, FormularioTransaccion), no se editan en Cuentas
+  y `deduplicarCatalogos` las ignora. Saldo = saldo de su cuenta.
+- Tipo `fisico`: solo `movimientos` (no toca cuentas). Sacarlo a una
+  cuenta = ingreso con categoría; "lo usé" = solo se descuenta.
+- Retos (`RetoAhorro`): `semanas52` (semana N = N × base), `diario`
+  (base × días), `monedas` (contador). `cumplidos` guarda claves
+  ('s3', 'AAAA-MM-DD', 'm<ts>'); `estadoReto` calcula lo de hoy y los
+  atrasados. Insight "reto-chanchito" en Inicio.
+- Romper = sacar todo, a una cuenta o a una meta (aporte). Eliminar exige
+  saldo 0; un apartado con historial se archiva (borrar sus
+  transferencias cambiaría otras cuentas).
 
 ## Bloqueo con PIN (v0.13)
 

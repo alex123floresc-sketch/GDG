@@ -8,6 +8,8 @@ export type TipoCuenta =
   | 'billetera_digital'
   | 'tarjeta_credito'
   | 'otro'
+  /** Cuenta de sistema de un chanchito "apartado" (ver `Chanchito`). */
+  | 'chanchito'
 
 /**
  * - `transferencia`: una de las dos patas de un movimiento entre cuentas
@@ -114,6 +116,50 @@ export interface Meta extends ControlSync {
   aportes: Aporte[]
 }
 
+/**
+ * Chanchito (alcancía), distinto de una Meta: no tiene objetivo ni fecha.
+ * - `cuenta`: el dinero se aparta de tus cuentas. Vive en una cuenta de
+ *   sistema (tipo 'chanchito'); echar/sacar son transferencias, así que
+ *   baja tu saldo disponible pero no cuenta como gasto.
+ * - `fisico`: tu alcancía de verdad; solo se anotan los movimientos
+ *   (`movimientos`), no toca cuentas.
+ */
+export type TipoChanchito = 'cuenta' | 'fisico'
+
+/**
+ * Reto de ahorro de un chanchito:
+ * - `semanas52`: la semana N toca N × montoBase (52 semanas).
+ * - `diario`: montoBase cada día durante `duracion` días.
+ * - `monedas`: cada vez que guardas una moneda/billete de montoBase.
+ * `cumplidos` guarda las claves de lo ya cumplido ('s12', '2026-09-25', …).
+ */
+export type TipoReto = 'semanas52' | 'diario' | 'monedas'
+
+export interface RetoAhorro {
+  tipo: TipoReto
+  montoBase: number
+  inicio: Date
+  /** Solo `diario`: cantidad de días. */
+  duracion?: number
+  cumplidos: string[]
+}
+
+export interface Chanchito extends ControlSync {
+  id: string
+  usuarioId: string
+  nombre: string
+  icono: string
+  color: string
+  tipo: TipoChanchito
+  /** Solo `cuenta`: la cuenta de sistema donde está el dinero apartado. */
+  cuentaId?: string
+  /** Solo `fisico`: lo que metiste (+) o sacaste (−). */
+  movimientos: Aporte[]
+  reto?: RetoAhorro
+  /** Oculto de la lista (se archiva en vez de borrar si tiene historial). */
+  archivado?: boolean
+}
+
 export type TipoDeuda = 'me_deben' | 'debo'
 
 export interface Deuda extends ControlSync {
@@ -165,6 +211,7 @@ export type TablaSincronizable =
   | 'metas'
   | 'deudas'
   | 'recurrentes'
+  | 'chanchitos'
 
 /**
  * Registro local de un borrado que falta replicar en Supabase (se procesa
@@ -185,6 +232,7 @@ export type NuevoPresupuesto = Omit<Presupuesto, SinControl>
 export type NuevaMeta = Omit<Meta, SinControl | 'aportes'>
 export type NuevaDeuda = Omit<Deuda, SinControl | 'abonos'>
 export type NuevoRecurrente = Omit<Recurrente, SinControl>
+export type NuevoChanchito = Pick<Chanchito, 'nombre' | 'icono' | 'color' | 'tipo' | 'reto'>
 
 export type NuevaTransaccion = Omit<
   Transaccion,

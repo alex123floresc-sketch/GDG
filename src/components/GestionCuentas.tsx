@@ -3,6 +3,7 @@ import { useAvisos } from '../hooks/useAvisos'
 import { actualizarCuenta, crearCuenta, eliminarCuenta } from '../services/cuentaService'
 import type { Cuenta, TipoCuenta, Transaccion } from '../types'
 import {
+  cuentasOperativas,
   ETIQUETA_CUENTA,
   estadoTarjeta,
   ICONO_CUENTA,
@@ -112,7 +113,7 @@ function GestionCuentas({ usuarioId, cuentas, transacciones, onTransferir }: Ges
   function pedirEliminacion(c: Cuenta) {
     setError(null)
     setEliminando(c)
-    setReasignarA(cuentas.find((o) => o.id !== c.id)?.id ?? '')
+    setReasignarA(cuentasOperativas(cuentas).find((o) => o.id !== c.id)?.id ?? '')
   }
 
   async function confirmarEliminacion() {
@@ -176,6 +177,12 @@ function GestionCuentas({ usuarioId, cuentas, transacciones, onTransferir }: Ges
                   <strong>{c.nombre}</strong>
                   <span>{ETIQUETA_CUENTA[c.tipo]}</span>
                 </div>
+                {c.tipo === 'chanchito' ? (
+                  <span className="ui mini basic label" title="Se maneja en Planificar → Chanchitos">
+                    <i className="piggy bank icon" />
+                    Chanchito
+                  </span>
+                ) : (
                 <div className="ui mini basic icon buttons">
                   <button type="button" className="ui button" title="Editar" aria-label={`Editar ${c.nombre}`} onClick={() => abrir(c)}>
                     <i className="pencil alternate icon" />
@@ -191,6 +198,7 @@ function GestionCuentas({ usuarioId, cuentas, transacciones, onTransferir }: Ges
                     <i className="trash alternate outline icon" />
                   </button>
                 </div>
+                )}
               </div>
 
               {tarjeta ? (
@@ -392,7 +400,7 @@ function GestionCuentas({ usuarioId, cuentas, transacciones, onTransferir }: Ges
                   value={reasignarA}
                   onChange={(e) => setReasignarA(e.target.value)}
                 >
-                  {cuentas
+                  {cuentasOperativas(cuentas)
                     .filter((c) => c.id !== eliminando.id)
                     .map((c) => (
                       <option key={c.id} value={c.id}>

@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect } from 'react'
 import { db } from '../db/database'
 import { generarRecurrentesPendientes } from '../services/recurrenteService'
-import type { Deuda, Meta, Presupuesto, Recurrente } from '../types'
+import type { Chanchito, Deuda, Meta, Presupuesto, Recurrente } from '../types'
 
 export function usePresupuestos(usuarioId: string): Presupuesto[] {
   return useLiveQuery(() => db.presupuestos.where('usuarioId').equals(usuarioId).toArray(), [usuarioId]) ?? []
@@ -10,6 +10,10 @@ export function usePresupuestos(usuarioId: string): Presupuesto[] {
 
 export function useMetas(usuarioId: string): Meta[] {
   return useLiveQuery(() => db.metas.where('usuarioId').equals(usuarioId).toArray(), [usuarioId]) ?? []
+}
+
+export function useChanchitos(usuarioId: string): Chanchito[] {
+  return useLiveQuery(() => db.chanchitos.where('usuarioId').equals(usuarioId).toArray(), [usuarioId]) ?? []
 }
 
 export function useDeudas(usuarioId: string): Deuda[] {

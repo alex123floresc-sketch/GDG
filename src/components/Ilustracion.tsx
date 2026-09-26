@@ -12,6 +12,7 @@ export type NombreIlustracion =
   | 'recurrentes'
   | 'graficos'
   | 'etiquetas'
+  | 'chanchito'
 
 const FONDO = 'var(--color-marca-suave)'
 const TRAZO = 'var(--color-marca)'
@@ -33,6 +34,22 @@ function Dibujo({ nombre }: { nombre: NombreIlustracion }) {
           <rect x="48" y="66" width="40" height="4" rx="2" fill={SUAVE} />
           <circle cx="108" cy="30" r="12" fill={INGRESO} />
           <path d="M108 24 v12 M102 30 h12" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />
+        </>
+      )
+    case 'chanchito':
+      return (
+        <>
+          <ellipse cx="68" cy="66" rx="40" ry="30" fill={SUPERFICIE} stroke={TRAZO} strokeWidth="2.5" />
+          <path d="M44 42 l-4 -16 16 10" fill={FONDO} stroke={TRAZO} strokeWidth="2.5" strokeLinejoin="round" />
+          <ellipse cx="106" cy="68" rx="8" ry="10" fill={FONDO} stroke={TRAZO} strokeWidth="2.5" />
+          <circle cx="104" cy="65" r="1.6" fill={TRAZO} />
+          <circle cx="104" cy="71" r="1.6" fill={TRAZO} />
+          <circle cx="88" cy="56" r="3" fill={TRAZO} />
+          <rect x="56" y="38" width="22" height="5" rx="2.5" fill={TRAZO} />
+          <path d="M44 92 v10 M58 95 v10 M80 95 v10 M92 92 v10" stroke={TRAZO} strokeWidth="5" strokeLinecap="round" />
+          <path d="M28 62 q-8 -2 -6 -9" fill="none" stroke={TRAZO} strokeWidth="2.5" strokeLinecap="round" />
+          <circle cx="67" cy="18" r="10" fill={INGRESO} />
+          <path d="M67 13 v10" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />
         </>
       )
     case 'buscar':

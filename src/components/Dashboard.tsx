@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useCategorias } from '../hooks/useCategorias'
 import { useCuentas } from '../hooks/useCuentas'
-import { useDeudas, useMetas, usePresupuestos, useRecurrentes } from '../hooks/usePlanificacion'
+import { useChanchitos, useDeudas, useMetas, usePresupuestos, useRecurrentes } from '../hooks/usePlanificacion'
 import { useTransacciones } from '../hooks/useTransacciones'
 import type { Transaccion } from '../types'
 import { generarInsights, type Insight } from '../utils/insights'
@@ -14,6 +14,7 @@ import Inicio from './Inicio'
 import Modal from './Modal'
 import Planificar, { type PestanaPlanificar } from './planificar/Planificar'
 import VistaMovimientos from './VistaMovimientos'
+import { cuentasOperativas } from '../utils/cuentas'
 
 // xlsx (usado por YapeImporter) pesa varios cientos de KB: se carga bajo
 // demanda para no inflar el bundle inicial ni el precache del Service
@@ -64,6 +65,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   const transacciones = useTransacciones(usuarioId)
   const presupuestos = usePresupuestos(usuarioId)
   const metas = useMetas(usuarioId)
+  const chanchitos = useChanchitos(usuarioId)
   const deudas = useDeudas(usuarioId)
   // Además de listarlos, genera las transacciones recurrentes vencidas.
   const recurrentes = useRecurrentes(usuarioId)
@@ -88,8 +90,8 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   )
 
   const insights = useMemo(
-    () => generarInsights({ transacciones, categorias, cuentas, presupuestos, metas, deudas, recurrentes }),
-    [transacciones, categorias, cuentas, presupuestos, metas, deudas, recurrentes],
+    () => generarInsights({ transacciones, categorias, cuentas, presupuestos, metas, deudas, recurrentes, chanchitos }),
+    [transacciones, categorias, cuentas, presupuestos, metas, deudas, recurrentes, chanchitos],
   )
 
   const personasPrevias = useMemo(() => [...new Set(deudas.map((d) => d.persona))], [deudas])
@@ -224,6 +226,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
             transacciones={transacciones}
             presupuestos={presupuestos}
             metas={metas}
+            chanchitos={chanchitos}
             deudas={deudas}
             recurrentes={recurrentes}
           />
@@ -271,7 +274,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
                 >
                   <YapeImporter
                     usuarioId={usuarioId}
-                    cuentas={cuentas}
+                    cuentas={cuentasOperativas(cuentas)}
                     categorias={categorias}
                     sincronizarAhora={sincronizarAhora}
                     onImportado={() => irA('movimientos')}

@@ -8,13 +8,26 @@ export const TIPOS_CUENTA: { id: TipoCuenta; etiqueta: string; icono: string }[]
   { id: 'otro', etiqueta: 'Otra', icono: 'wallet' },
 ]
 
+/** Tipos de sistema: no se eligen al crear una cuenta. */
+const TIPOS_SISTEMA: { id: TipoCuenta; etiqueta: string; icono: string }[] = [
+  { id: 'chanchito', etiqueta: 'Chanchito', icono: 'piggy bank' },
+]
+
 export const ICONO_CUENTA: Record<TipoCuenta, string> = Object.fromEntries(
-  TIPOS_CUENTA.map((t) => [t.id, t.icono]),
+  [...TIPOS_CUENTA, ...TIPOS_SISTEMA].map((t) => [t.id, t.icono]),
 ) as Record<TipoCuenta, string>
 
 export const ETIQUETA_CUENTA: Record<TipoCuenta, string> = Object.fromEntries(
-  TIPOS_CUENTA.map((t) => [t.id, t.etiqueta]),
+  [...TIPOS_CUENTA, ...TIPOS_SISTEMA].map((t) => [t.id, t.etiqueta]),
 ) as Record<TipoCuenta, string>
+
+/**
+ * Cuentas donde se registran gastos/ingresos a mano: sin las de los
+ * chanchitos (su dinero se mueve desde Planificar → Chanchitos).
+ */
+export function cuentasOperativas(cuentas: Cuenta[]): Cuenta[] {
+  return cuentas.filter((c) => c.tipo !== 'chanchito')
+}
 
 /**
  * Saldo actual de una cuenta: saldo inicial + ingresos − gastos (incluye

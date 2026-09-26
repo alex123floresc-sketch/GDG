@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie'
 import type {
   Categoria,
+  Chanchito,
   Cuenta,
   Deuda,
   EliminacionPendiente,
@@ -48,6 +49,7 @@ export class GestorGastosDB extends Dexie {
   metas!: Table<Meta, string>
   deudas!: Table<Deuda, string>
   recurrentes!: Table<Recurrente, string>
+  chanchitos!: Table<Chanchito, string>
 
   constructor() {
     super('GestorGastosDB')
@@ -135,6 +137,11 @@ export class GestorGastosDB extends Dexie {
     this.version(8).stores({
       transacciones:
         'id, usuarioId, cuentaId, categoriaId, tipo, fecha, fechaActualizacion, [usuarioId+nroOperacion], transferenciaId, *etiquetas',
+    })
+
+    // v9: chanchitos (alcancías).
+    this.version(9).stores({
+      chanchitos: 'id, usuarioId',
     })
   }
 }

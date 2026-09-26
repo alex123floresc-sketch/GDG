@@ -3,6 +3,7 @@ import { db } from '../db/database'
 import type {
   Aporte,
   Categoria,
+  Chanchito,
   ControlSync,
   Cuenta,
   Deuda,
@@ -13,10 +14,13 @@ import type {
   Presupuesto,
   Recurrente,
   ResultadoSincronizacion,
+  RetoAhorro,
   TablaSincronizable,
   TipoCategoria,
+  TipoChanchito,
   TipoCuenta,
   TipoDeuda,
+  TipoReto,
   TipoTransaccion,
   Transaccion,
 } from '../types'
@@ -150,6 +154,11 @@ const MIGRACIONES: { archivo: string; comprobar: () => PromiseLike<{ error: unkn
   {
     archivo: 'v0.13.sql',
     comprobar: () => [supabase!.from('recurrentes').select('dia_mes').limit(0)],
+  },
+  {
+    // Tabla chanchitos + tipo de cuenta 'chanchito' (BASE_DE_DATOS.sql).
+    archivo: 'v0.14.sql',
+    comprobar: () => [supabase!.from('chanchitos').select('id').limit(0)],
   },
 ]
 
@@ -455,6 +464,64 @@ const DEUDAS: Entidad<Deuda> = {
   }),
 }
 
+interface RetoRemoto {
+  tipo: TipoReto
+  monto_base: number
+  inicio: string
+  duracion: number | null
+  cumplidos: string[]
+}
+
+const aRetoRemoto = (r?: RetoAhorro): RetoRemoto | null =>
+  r
+    ? { tipo: r.tipo, monto_base: r.montoBase, inicio: aFechaSql(r.inicio), duracion: r.duracion ?? null, cumplidos: r.cumplidos }
+    : null
+
+const aRetoLocal = (r: unknown): RetoAhorro | undefined => {
+  if (!r || typeof r !== 'object') return undefined
+  const f = r as RetoRemoto
+  return {
+    tipo: f.tipo,
+    montoBase: aNumero(f.monto_base),
+    inicio: deFechaSql(f.inicio),
+    duracion: f.duracion ?? undefined,
+    cumplidos: Array.isArray(f.cumplidos) ? f.cumplidos : [],
+  }
+}
+
+const CHANCHITOS: Entidad<Chanchito> = {
+  tabla: 'chanchitos',
+  local: db.chanchitos,
+  etiqueta: 'el chanchito',
+  nombre: (c) => `"${c.nombre}"`,
+  aFila: (c, userId) => ({
+    id: c.id,
+    user_id: userId,
+    nombre: c.nombre,
+    icono: c.icono,
+    color: c.color,
+    tipo: c.tipo,
+    cuenta_id: c.cuentaId ?? null,
+    movimientos: aAportesRemotos(c.movimientos),
+    reto: aRetoRemoto(c.reto),
+    archivado: c.archivado === true,
+    fecha_actualizacion: fechaRemota(c),
+  }),
+  aLocal: (f) => ({
+    id: f.id as string,
+    usuarioId: f.user_id as string,
+    nombre: f.nombre as string,
+    icono: (f.icono as string | null) ?? 'piggy bank',
+    color: (f.color as string | null) ?? '#e0619a',
+    tipo: (f.tipo === 'cuenta' ? 'cuenta' : 'fisico') as TipoChanchito,
+    cuentaId: (f.cuenta_id as string | null) ?? undefined,
+    movimientos: aAportesLocales(f.movimientos),
+    reto: aRetoLocal(f.reto),
+    archivado: f.archivado === true ? true : undefined,
+    ...marcaDeTiempo(f),
+  }),
+}
+
 const RECURRENTES: Entidad<Recurrente> = {
   tabla: 'recurrentes',
   local: db.recurrentes,
@@ -718,6 +785,8 @@ async function deduplicarCatalogo<T extends Categoria | Cuenta>(
   await db.transaction('rw', tablas, async () => {
     const grupos = new Map<string, T[]>()
     for (const item of await tabla.where('usuarioId').equals(usuarioId).toArray()) {
+      // Las cuentas de chanchitos nunca se unen: cada una es de un chanchito.
+      if (item.tipo === 'chanchito') continue
       const clave = `${normalizar(item.nombre)}|${item.tipo}`
       grupos.set(clave, [...(grupos.get(clave) ?? []), item])
     }
@@ -889,6 +958,7 @@ const ORDEN_BORRADO: TablaSincronizable[] = [
   'recurrentes',
   'metas',
   'deudas',
+  'chanchitos',
   'categorias',
   'cuentas',
 ]
@@ -1170,6 +1240,11 @@ export async function sincronizar(usuarioId: string): Promise<ResultadoSincroniz
   if (v7) {
     agregar(await sincronizarEntidad(PRESUPUESTOS, usuarioId, userId, borrados))
     agregar(await sincronizarEntidad(RECURRENTES, usuarioId, userId, borrados))
+    // Sin la tabla (falta ejecutar BASE_DE_DATOS.sql) los chanchitos se
+    // quedan en el dispositivo; no es un error de sincronización.
+    if (!pendientesEsquema.includes('v0.14.sql')) {
+      agregar(await sincronizarEntidad(CHANCHITOS, usuarioId, userId, borrados))
+    }
     agregar(await sincronizarEntidad(METAS, usuarioId, userId, borrados))
     agregar(await sincronizarEntidad(DEUDAS, usuarioId, userId, borrados))
   }

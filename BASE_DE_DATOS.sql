@@ -2,7 +2,7 @@
 --  GESTOR DE GASTOS — BASE DE DATOS COMPLETA (Supabase / PostgreSQL)
 -- =============================================================================
 --
---  Esquema al día con la app v0.13.1.
+--  Esquema al día con la app v0.14.0.
 --
 --  CÓMO USARLO
 --  -----------
@@ -28,6 +28,7 @@
 --  v0.11  transacciones.etiquetas, deudas.gasto_dividido
 --  v0.13  recurrentes.dia_mes (recurrentes del 29, 30 o 31)
 --  v0.13.1 script único; índices por usuario; permisos explícitos
+--  v0.14  tabla chanchitos; tipo de cuenta 'chanchito'
 -- =============================================================================
 
 
@@ -86,7 +87,7 @@ ALTER TABLE public.cuentas
 
 ALTER TABLE public.cuentas DROP CONSTRAINT IF EXISTS cuentas_tipo_check;
 ALTER TABLE public.cuentas ADD CONSTRAINT cuentas_tipo_check
-  CHECK (tipo IN ('efectivo', 'banco', 'billetera_digital', 'tarjeta_credito', 'otro')) NOT VALID;
+  CHECK (tipo IN ('efectivo', 'banco', 'billetera_digital', 'tarjeta_credito', 'otro', 'chanchito')) NOT VALID;
 
 -- -----------------------------------------------------------------------------
 -- 1.3 Transacciones
@@ -221,6 +222,30 @@ ALTER TABLE public.recurrentes
   ADD COLUMN IF NOT EXISTS dia_mes smallint CHECK (dia_mes IS NULL OR dia_mes BETWEEN 1 AND 31);
 
 
+-- -----------------------------------------------------------------------------
+-- 1.8 Chanchitos (alcancías; distintos de las metas: sin objetivo ni fecha)
+-- -----------------------------------------------------------------------------
+-- tipo 'cuenta': el dinero está apartado en una cuenta de sistema
+--   (cuentas.tipo = 'chanchito', cuenta_id); echar/sacar son transferencias.
+-- tipo 'fisico': alcancía de verdad; solo se anotan los movimientos.
+CREATE TABLE IF NOT EXISTS public.chanchitos (
+  id                  uuid PRIMARY KEY,
+  user_id             uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users (id) ON DELETE CASCADE,
+  nombre              text NOT NULL,
+  icono               text,
+  color               text,
+  tipo                text NOT NULL CHECK (tipo IN ('cuenta', 'fisico')),
+  cuenta_id           uuid REFERENCES public.cuentas (id) ON DELETE SET NULL,
+  -- Solo físicos: [{ id, fecha, monto, nota }] — monto negativo = sacaste
+  movimientos         jsonb NOT NULL DEFAULT '[]'::jsonb,
+  -- Reto de ahorro: { tipo: 'semanas52'|'diario'|'monedas', monto_base,
+  --   inicio, duracion, cumplidos: [...] } o NULL
+  reto                jsonb,
+  archivado           boolean NOT NULL DEFAULT false,
+  fecha_actualizacion timestamptz NOT NULL DEFAULT now()
+);
+
+
 -- #############################################################################
 -- 2. ÍNDICES, SEGURIDAD (RLS) Y PERMISOS
 -- #############################################################################
@@ -240,6 +265,7 @@ CREATE INDEX IF NOT EXISTS presupuestos_user_idx  ON public.presupuestos (user_i
 CREATE INDEX IF NOT EXISTS metas_user_idx         ON public.metas (user_id);
 CREATE INDEX IF NOT EXISTS deudas_user_idx        ON public.deudas (user_id);
 CREATE INDEX IF NOT EXISTS recurrentes_user_idx   ON public.recurrentes (user_id);
+CREATE INDEX IF NOT EXISTS chanchitos_user_idx    ON public.chanchitos (user_id);
 
 -- Anti-duplicados del importador de Yape: un nro_operacion por usuario.
 -- (Los NULL no chocan entre sí.) Solo se crea si la base no tiene ya un
@@ -267,7 +293,7 @@ DECLARE
 BEGIN
   FOREACH tabla IN ARRAY ARRAY[
     'categorias', 'cuentas', 'transacciones', 'presupuestos',
-    'metas', 'deudas', 'recurrentes'
+    'metas', 'deudas', 'recurrentes', 'chanchitos'
   ] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tabla);
     EXECUTE format('DROP POLICY IF EXISTS "Acceso personal" ON public.%I', tabla);
@@ -288,7 +314,7 @@ END $$;
 NOTIFY pgrst, 'reload schema';
 
 -- -----------------------------------------------------------------------------
--- 2.4 Comprobación: debe mostrar 7 filas, todas con rls = true
+-- 2.4 Comprobación: debe mostrar 8 filas, todas con rls = true
 -- -----------------------------------------------------------------------------
 SELECT c.relname                                   AS tabla,
        c.relrowsecurity                            AS rls,
@@ -298,7 +324,7 @@ FROM pg_class c
 JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public'
   AND c.relname IN ('categorias', 'cuentas', 'transacciones', 'presupuestos',
-                    'metas', 'deudas', 'recurrentes')
+                    'metas', 'deudas', 'recurrentes', 'chanchitos')
 ORDER BY 1;
 
 
@@ -323,6 +349,7 @@ TRUNCATE TABLE
   public.recurrentes,
   public.metas,
   public.deudas,
+  public.chanchitos,
   public.categorias,
   public.cuentas
 RESTART IDENTITY CASCADE;
@@ -336,6 +363,7 @@ DROP TABLE IF EXISTS public.presupuestos  CASCADE;
 DROP TABLE IF EXISTS public.recurrentes   CASCADE;
 DROP TABLE IF EXISTS public.metas         CASCADE;
 DROP TABLE IF EXISTS public.deudas        CASCADE;
+DROP TABLE IF EXISTS public.chanchitos    CASCADE;
 DROP TABLE IF EXISTS public.categorias    CASCADE;
 DROP TABLE IF EXISTS public.cuentas       CASCADE;
 

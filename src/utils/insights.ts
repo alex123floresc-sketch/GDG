@@ -1,9 +1,10 @@
-import type { Categoria, Cuenta, Deuda, Meta, Presupuesto, Recurrente, Transaccion } from '../types'
+import type { Categoria, Chanchito, Cuenta, Deuda, Meta, Presupuesto, Recurrente, Transaccion } from '../types'
 import { esMovimientoReal } from './analisis'
 import { estadoTarjeta } from './cuentas'
 import { formatearDolares, formatearFecha, formatearMoneda, formatearPorcentaje } from './formato'
 import { leerTipoCambio } from './preferencias'
 import { estadoDeuda, estadoMeta, estadoPresupuestos } from './planificacion'
+import { estadoReto } from './retos'
 
 export type TonoInsight = 'positivo' | 'alerta' | 'negativo' | 'info'
 
@@ -19,6 +20,7 @@ export interface Insight {
     | 'planificar:presupuestos'
     | 'planificar:deudas'
     | 'planificar:metas'
+    | 'planificar:chanchitos'
     | 'planificar:recurrentes'
     | 'mas:cuentas'
     | 'analisis'
@@ -34,6 +36,7 @@ interface DatosInsights {
   metas: Meta[]
   deudas: Deuda[]
   recurrentes: Recurrente[]
+  chanchitos?: Chanchito[]
   hoy?: Date
 }
 
@@ -52,6 +55,7 @@ export function generarInsights({
   metas,
   deudas,
   recurrentes,
+  chanchitos = [],
   hoy = new Date(),
 }: DatosInsights): Insight[] {
   const insights: Insight[] = []
@@ -282,6 +286,26 @@ export function generarInsights({
       texto: `Para "${metaUrgente.m.nombre}" te conviene ahorrar ${formatearMoneda(metaUrgente.e.ahorroMensualNecesario!)} al mes.`,
       prioridad: 22,
       destino: 'planificar:metas',
+    })
+  }
+
+  // 9b. Retos de ahorro de los chanchitos: lo que toca hoy/esta semana.
+  const retoPendiente = chanchitos
+    .filter((c) => !c.archivado && c.reto && c.reto.tipo !== 'monedas')
+    .map((c) => ({ c, e: estadoReto(c.reto!, hoy) }))
+    .find((x) => x.e.actual && !x.e.actual.cumplido)
+  if (retoPendiente) {
+    const { c, e } = retoPendiente
+    const atrasados = e.atrasados.length
+    insights.push({
+      id: 'reto-chanchito',
+      icono: 'piggy bank',
+      tono: 'info',
+      texto:
+        `${c.reto!.tipo === 'semanas52' ? 'Esta semana' : 'Hoy'} toca echar ${formatearMoneda(e.actual!.monto)} a "${c.nombre}"` +
+        (atrasados > 0 ? ` (y tienes ${atrasados} pendiente${atrasados === 1 ? '' : 's'}).` : '.'),
+      prioridad: 24,
+      destino: 'planificar:chanchitos',
     })
   }
 
