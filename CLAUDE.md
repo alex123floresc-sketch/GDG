@@ -205,7 +205,10 @@ Repo: https://github.com/alex123floresc-sketch/GDG
 - **Deudas**: `tipo` `me_deben`/`debo`, `abonos` en la propia deuda. Al
   registrar un cobro/pago se puede crear además la transacción (ingreso o
   gasto) en una cuenta.
-- **Recurrentes**: `useRecurrentes` (llamado siempre desde `Dashboard`)
+- **Recurrentes**: `diaMes` guarda el día elegido (mensual/anual) porque
+  `proximaFecha` puede quedar recortada (31 → 30 de abril); así mayo
+  vuelve al 31. Remoto `dia_mes` (v0.13) solo viaja si difiere del día de
+  `proxima_fecha`. `useRecurrentes` (llamado siempre desde `Dashboard`)
   ejecuta `generarRecurrentesPendientes` cuando hay reglas activas con
   `proximaFecha <= hoy`: crea las transacciones (`origen: 'recurrente'`,
   `recurrenteId`) y avanza la fecha. El id de cada ocurrencia es
@@ -258,6 +261,16 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   claro mientras dura la impresión. Del día 1 al 7 el resumen inteligente
   avisa que el reporte del mes anterior está listo.
 
+## Bloqueo con PIN (v0.13)
+
+- `utils/pin.ts`: PIN de 4–6 dígitos por dispositivo (localStorage, NO se
+  sincroniza); se guarda solo un hash PBKDF2 con sal. 5 fallos → espera de
+  30 s por intento. Es barrera de privacidad, no cifrado.
+- `App.tsx` arranca bloqueado si hay PIN y vuelve a bloquear tras N
+  minutos en segundo plano (`visibilitychange`); `BloqueoPin` tapa toda la
+  app. "Olvidé mi PIN" = cerrar sesión. Cerrar sesión quita el PIN.
+- Configuración en Más → Seguridad (`Seguridad.tsx`).
+
 ## Autenticación y multiusuario
 
 - `App.tsx` gestiona la sesión con `supabase.auth.onAuthStateChange` +
@@ -274,6 +287,9 @@ Repo: https://github.com/alex123floresc-sketch/GDG
 
 ## Rendimiento
 
+- `vite.config.ts` separa supabase, react y dexie en chunks propios
+  (`rolldownOptions.output.codeSplitting.groups`): se cachean entre
+  versiones y ningún chunk supera 500 kB.
 - `YapeImporter` se carga con `React.lazy` desde `Dashboard.tsx`: `xlsx`
   pesa ~370kB y solo lo necesitan las sesiones que abren el importador, así
   que no va en el bundle inicial. `exportService` hace lo mismo con
@@ -318,6 +334,7 @@ entrada en `MIGRACIONES`, y enviar las columnas nuevas solo cuando tienen
 valor (así lo demás sigue subiendo sin la migración).
 
 - `v0.11.sql`: `transacciones.etiquetas text[]` y `deudas.gasto_dividido`.
+- `v0.13.sql`: `recurrentes.dia_mes`.
 
 ### Migración v0.7 (`supabase/migraciones/v0.7.sql`)
 
@@ -381,14 +398,12 @@ transferencias) fallan individualmente sin bloquear al resto.
 ## Pendientes conocidos
 
 - Deploy en Vercel: no hecho (requiere login del usuario en vercel.com).
-- Migración `supabase/migraciones/v0.7.sql`: el usuario debe ejecutarla
-  en su proyecto de Supabase (ver "Esquema remoto").
-- El chunk principal (`index-*.js`) sigue por encima de 500kB (aviso de
-  Vite) por `@supabase/supabase-js`; `xlsx` ya se separó con
-  `React.lazy` (ver Rendimiento) pero el resto no se ha optimizado.
-- Recurrentes mensuales: si el día original no existe en un mes (31 →
-  30), la regla guarda la fecha recortada y los meses siguientes usan ese
-  día (no vuelve al 31).
+  `vercel.json` ya está listo (Vite, sin caché para `sw.js`, assets
+  inmutables); falta importar el repo en Vercel y cargar las env vars.
+- Migraciones `v0.7.sql`, `v0.11.sql`, `v0.13.sql`: el usuario debe
+  ejecutarlas en orden en su proyecto de Supabase (ver "Esquema remoto").
+- Recurrentes recortados ANTES de v0.13 (sin `diaMes`) siguen en el día
+  recortado; basta con editar la fecha de la regla para corregirlos.
 - El importador de Yape no se probó contra un archivo real exportado desde
   la app (ver sección "Importador de Yape").
 

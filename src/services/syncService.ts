@@ -146,6 +146,10 @@ const MIGRACIONES: { archivo: string; comprobar: () => PromiseLike<{ error: unkn
       supabase!.from('deudas').select('gasto_dividido').limit(0),
     ],
   },
+  {
+    archivo: 'v0.13.sql',
+    comprobar: () => [supabase!.from('recurrentes').select('dia_mes').limit(0)],
+  },
 ]
 
 /** Migraciones ya confirmadas en esta sesión (no se vuelven a consultar). */
@@ -466,6 +470,9 @@ const RECURRENTES: Entidad<Recurrente> = {
     concepto: r.concepto,
     frecuencia: r.frecuencia,
     proxima_fecha: aFechaSql(r.proximaFecha),
+    // Solo viaja si difiere del día de proxima_fecha (fecha recortada): así
+    // los recurrentes siguen subiendo aunque falte la migración v0.13.
+    ...(r.diaMes && r.diaMes !== r.proximaFecha.getDate() ? { dia_mes: r.diaMes } : {}),
     activa: r.activa,
     fecha_actualizacion: fechaRemota(r),
   }),
@@ -480,6 +487,7 @@ const RECURRENTES: Entidad<Recurrente> = {
     concepto: (f.concepto as string | null) ?? '',
     frecuencia: f.frecuencia as Frecuencia,
     proximaFecha: deFechaSql(f.proxima_fecha as string),
+    diaMes: typeof f.dia_mes === 'number' ? f.dia_mes : undefined,
     activa: f.activa !== false,
     ...marcaDeTiempo(f),
   }),

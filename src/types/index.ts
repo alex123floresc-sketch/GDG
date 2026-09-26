@@ -148,6 +148,12 @@ export interface Recurrente extends ControlSync {
   frecuencia: Frecuencia
   /** Próxima fecha en que se generará la transacción. */
   proximaFecha: Date
+  /**
+   * Día del mes elegido (mensual/anual). Se guarda aparte porque
+   * `proximaFecha` puede estar recortada (31 → 30 de abril) y los meses
+   * siguientes deben volver al 31. Sin valor = el de `proximaFecha`.
+   */
+  diaMes?: number
   activa: boolean
 }
 

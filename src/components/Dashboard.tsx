@@ -9,6 +9,7 @@ import SeccionAnalisis, { type PestanaAnalisis } from './analisis/SeccionAnalisi
 import FormularioTransaccion, { type TipoFormulario } from './FormularioTransaccion'
 import GestionCategorias from './GestionCategorias'
 import GestionCuentas from './GestionCuentas'
+import Seguridad from './Seguridad'
 import Inicio from './Inicio'
 import Modal from './Modal'
 import Planificar, { type PestanaPlanificar } from './planificar/Planificar'
@@ -26,7 +27,7 @@ interface DashboardProps {
 }
 
 type Seccion = 'inicio' | 'movimientos' | 'analisis' | 'planificar' | 'mas'
-type SubseccionMas = 'cuentas' | 'categorias' | 'importar'
+type SubseccionMas = 'cuentas' | 'categorias' | 'importar' | 'seguridad'
 type Destino = NonNullable<Insight['destino']> | 'movimientos'
 
 const SECCIONES: { id: Seccion; etiqueta: string; icono: string }[] = [
@@ -41,6 +42,7 @@ const SUBSECCIONES_MAS: { id: SubseccionMas; etiqueta: string; icono: string }[]
   { id: 'cuentas', etiqueta: 'Cuentas', icono: 'wallet' },
   { id: 'categorias', etiqueta: 'Categorías', icono: 'tags' },
   { id: 'importar', etiqueta: 'Importar Yape', icono: 'file excel outline' },
+  { id: 'seguridad', etiqueta: 'Seguridad', icono: 'lock' },
 ]
 
 const FILTRO_TODAS = 'todas'
@@ -256,6 +258,8 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
               {subseccionMas === 'categorias' && (
                 <GestionCategorias usuarioId={usuarioId} categorias={categorias} transacciones={transacciones} />
               )}
+
+              {subseccionMas === 'seguridad' && <Seguridad />}
 
               {subseccionMas === 'importar' && (
                 <Suspense

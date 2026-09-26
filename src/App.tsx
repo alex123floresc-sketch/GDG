@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 import Auth from './components/Auth'
 import Avisos from './components/Avisos'
+import BloqueoPin from './components/BloqueoPin'
 import Dashboard from './components/Dashboard'
 import Header from './components/Header'
 import { useSync } from './hooks/useSync'
@@ -10,10 +11,28 @@ import { asegurarCuentasPorDefecto } from './services/cuentaService'
 import { supabase } from './services/supabaseClient'
 import { descargarCatalogos } from './services/syncService'
 import { limpiarDatosLocales } from './services/transaccionService'
+import { minutosParaBloquear, pinActivo, quitarPin } from './utils/pin'
 
 function App() {
   const [sesion, setSesion] = useState<Session | null>(null)
   const [cargandoSesion, setCargandoSesion] = useState(true)
+  // Con PIN activo, la app arranca bloqueada.
+  const [bloqueado, setBloqueado] = useState(pinActivo)
+
+  // Vuelve a bloquear si la app estuvo en segundo plano más del tiempo
+  // configurado.
+  useEffect(() => {
+    let ocultaDesde = 0
+    const manejarVisibilidad = () => {
+      if (document.visibilityState === 'hidden') {
+        ocultaDesde = Date.now()
+      } else if (ocultaDesde && pinActivo() && Date.now() - ocultaDesde >= minutosParaBloquear() * 60_000) {
+        setBloqueado(true)
+      }
+    }
+    document.addEventListener('visibilitychange', manejarVisibilidad)
+    return () => document.removeEventListener('visibilitychange', manejarVisibilidad)
+  }, [])
 
   useEffect(() => {
     if (!supabase) {
@@ -80,6 +99,9 @@ function App() {
       // inicie sesión vea datos financieros de esta sesión, aun si el
       // signOut remoto falló.
       await limpiarDatosLocales()
+      // El PIN es de quien usaba el dispositivo, no del siguiente usuario.
+      quitarPin()
+      setBloqueado(false)
     }
   }
 
@@ -93,6 +115,16 @@ function App() {
 
   if (!sesion || !usuarioId) {
     return <Auth />
+  }
+
+  if (bloqueado && pinActivo()) {
+    return (
+      <BloqueoPin
+        email={sesion.user.email ?? ''}
+        onDesbloquear={() => setBloqueado(false)}
+        onCerrarSesion={manejarCerrarSesion}
+      />
+    )
   }
 
   return (
@@ -142,7 +174,9 @@ function App() {
                   nuevo (
                   {migracionesPendientes.includes('v0.7.sql')
                     ? 'metas, deudas, recurrentes, presupuestos, transferencias, dólares, etiquetas'
-                    : 'etiquetas y gastos divididos'}
+                    : migracionesPendientes.includes('v0.11.sql')
+                      ? 'etiquetas, gastos divididos y recurrentes de fin de mes'
+                      : 'recurrentes programados para el 29, 30 o 31'}
                   ) solo se guarda en este dispositivo hasta que ejecutes, en este orden, en el SQL
                   Editor de Supabase:{' '}
                   {migracionesPendientes.map((m, i) => (

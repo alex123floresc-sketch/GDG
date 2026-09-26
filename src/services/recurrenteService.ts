@@ -34,7 +34,14 @@ function validar(datos: NuevoRecurrente): NuevoRecurrente {
   if (!datos.cuentaId) throw new Error('Elige una cuenta.')
   const proxima = new Date(datos.proximaFecha)
   proxima.setHours(0, 0, 0, 0)
-  return { ...datos, concepto, proximaFecha: proxima, monto: Math.round(datos.monto * 100) / 100 }
+  const porDia = datos.frecuencia === 'mensual' || datos.frecuencia === 'anual'
+  return {
+    ...datos,
+    concepto,
+    proximaFecha: proxima,
+    diaMes: porDia ? (datos.diaMes ?? proxima.getDate()) : undefined,
+    monto: Math.round(datos.monto * 100) / 100,
+  }
 }
 
 export async function crearRecurrente(datos: NuevoRecurrente, usuarioId: string): Promise<Recurrente> {
@@ -51,7 +58,12 @@ export async function crearRecurrente(datos: NuevoRecurrente, usuarioId: string)
 export async function actualizarRecurrente(id: string, datos: NuevoRecurrente): Promise<void> {
   const actual = await db.recurrentes.get(id)
   if (!actual) throw new Error('El movimiento recurrente ya no existe.')
-  await db.recurrentes.put({ ...actual, ...validar(datos), ...marcaCambio() })
+  // Si no se tocó la fecha se conserva el día original (la fecha puede
+  // estar recortada, p. ej. 30 de abril para una regla del 31); si se
+  // cambió, el nuevo día manda.
+  const mismaFecha = new Date(datos.proximaFecha).toDateString() === actual.proximaFecha.toDateString()
+  const diaMes = mismaFecha && datos.frecuencia === actual.frecuencia ? actual.diaMes : undefined
+  await db.recurrentes.put({ ...actual, ...validar({ ...datos, diaMes }), ...marcaCambio() })
 }
 
 export async function alternarRecurrente(recurrente: Recurrente): Promise<void> {
@@ -84,7 +96,7 @@ export async function generarRecurrentesPendientes(usuarioId: string, hoy = new 
 
   for (const recurrente of vencidos) {
     const nuevas: Transaccion[] = []
-    const diaOriginal = recurrente.proximaFecha.getDate()
+    const diaOriginal = recurrente.diaMes ?? recurrente.proximaFecha.getDate()
     let fecha = recurrente.proximaFecha
 
     while (fecha <= finDeHoy && nuevas.length < MAX_OCURRENCIAS) {
@@ -124,7 +136,12 @@ export async function generarRecurrentesPendientes(usuarioId: string, hoy = new 
       // Se relee por si cambió mientras tanto (p. ej. llegó por sync).
       const actual = await db.recurrentes.get(recurrente.id)
       if (actual && actual.proximaFecha < fecha) {
-        await db.recurrentes.update(recurrente.id, { proximaFecha: fecha, ...marcaCambio() })
+        const porDia = recurrente.frecuencia === 'mensual' || recurrente.frecuencia === 'anual'
+        await db.recurrentes.update(recurrente.id, {
+          proximaFecha: fecha,
+          diaMes: porDia ? (actual.diaMes ?? diaOriginal) : undefined,
+          ...marcaCambio(),
+        })
       }
     })
   }

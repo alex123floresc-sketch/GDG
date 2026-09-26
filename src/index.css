@@ -2899,3 +2899,26 @@ body.con-modal {
     display: none !important;
   }
 }
+
+/* ---------- Bloqueo con PIN ---------- */
+
+.campo-pin {
+  font-size: 1.5em !important;
+  letter-spacing: 0.5em;
+  text-align: center;
+}
+
+.bloqueo-pin .salida-pin {
+  margin-top: 1em;
+}
+
+.formulario-pin {
+  max-width: 320px;
+}
+
+.botones-seguridad {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  margin-top: 1em;
+}
