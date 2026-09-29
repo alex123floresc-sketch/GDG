@@ -2,7 +2,7 @@
 --  GESTOR DE GASTOS — BASE DE DATOS COMPLETA (Supabase / PostgreSQL)
 -- =============================================================================
 --
---  Esquema al día con la app v0.20.0.
+--  Esquema al día con la app v0.21.0.
 --
 --  CÓMO USARLO
 --  -----------
@@ -34,6 +34,7 @@
 --  v0.18  tabla cuotas (compras en cuotas)
 --  v0.19  tabla deseos (lista de deseos)
 --  v0.20  cuentas.icono y cuentas.color (ícono o logo de cada cuenta)
+--  v0.21  transacciones.ubicacion (dónde fue el gasto)
 -- =============================================================================
 
 
@@ -141,7 +142,9 @@ ALTER TABLE public.transacciones
   ADD COLUMN IF NOT EXISTS transferencia_id    uuid,
   ADD COLUMN IF NOT EXISTS recurrente_id       uuid,
   ADD COLUMN IF NOT EXISTS etiquetas           text[] NOT NULL DEFAULT '{}',
-  ADD COLUMN IF NOT EXISTS fecha_actualizacion timestamptz NOT NULL DEFAULT now();
+  ADD COLUMN IF NOT EXISTS fecha_actualizacion timestamptz NOT NULL DEFAULT now(),
+  -- { lat, lng, lugar } o NULL
+  ADD COLUMN IF NOT EXISTS ubicacion           jsonb;
 
 -- Las transferencias no tienen categoría; las descargadas antiguas, cuenta.
 ALTER TABLE public.transacciones ALTER COLUMN categoria_id DROP NOT NULL;

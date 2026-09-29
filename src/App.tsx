@@ -25,6 +25,7 @@ const FUNCIONES_POR_MIGRACION: Record<string, string> = {
   'v0.18.sql': 'compras en cuotas',
   'v0.19.sql': 'lista de deseos',
   'v0.20.sql': 'íconos y logos de las cuentas',
+  'v0.21.sql': 'ubicación de los gastos',
 }
 
 function App() {

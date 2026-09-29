@@ -28,6 +28,7 @@ import type {
   TipoReto,
   TipoTransaccion,
   Transaccion,
+  Ubicacion,
 } from '../types'
 import { registrarBorrado } from './sincronizable'
 import { supabase } from './supabaseClient'
@@ -197,6 +198,11 @@ const MIGRACIONES: { archivo: string; comprobar: () => PromiseLike<{ error: unkn
     archivo: 'v0.20.sql',
     comprobar: () => [supabase!.from('cuentas').select('icono, color').limit(0)],
   },
+  {
+    // Ubicación de los movimientos.
+    archivo: 'v0.21.sql',
+    comprobar: () => [supabase!.from('transacciones').select('ubicacion').limit(0)],
+  },
 ]
 
 /** Migraciones ya confirmadas en esta sesión (no se vuelven a consultar). */
@@ -219,6 +225,36 @@ async function migracionesPendientes(): Promise<string[]> {
     else pendientes.push(m.archivo)
   }
   return pendientes
+}
+
+/**
+ * Lo editado mientras faltaba una migración subió sin sus columnas nuevas
+ * (y quedó marcado como sincronizado). La primera vez que se confirma la
+ * migración en este dispositivo, esas filas se vuelven a marcar como
+ * pendientes para que suban completas.
+ */
+async function subirLoQueFaltaba(usuarioId: string): Promise<void> {
+  const tareas: [string, () => Promise<unknown>][] = [
+    ['v0.16.sql', () => db.categorias.where('usuarioId').equals(usuarioId).filter((c) => c.sincronizado === true && !!c.padreId).modify({ sincronizado: false })],
+    ['v0.17.sql', () => db.categorias.where('usuarioId').equals(usuarioId).filter((c) => c.sincronizado === true && !!c.clase).modify({ sincronizado: false })],
+    ['v0.20.sql', () => db.cuentas.where('usuarioId').equals(usuarioId).filter((c) => c.sincronizado === true && !!(c.icono || c.color)).modify({ sincronizado: false })],
+    ['v0.21.sql', () => db.transacciones.where('usuarioId').equals(usuarioId).filter((t) => t.sincronizado && !!t.ubicacion).modify({ sincronizado: false })],
+  ]
+  for (const [archivo, tarea] of tareas) {
+    if (!esquemaListo(archivo)) continue
+    const clave = `gg:resubido:${archivo}:${usuarioId}`
+    try {
+      if (localStorage.getItem(clave)) continue
+    } catch {
+      // Sin localStorage se repite cada vez (inofensivo: solo re-sube).
+    }
+    await tarea()
+    try {
+      localStorage.setItem(clave, '1')
+    } catch {
+      // Ídem.
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -310,9 +346,30 @@ function aFilaTransaccion(t: Transaccion, userId: string): FilaRemota {
   if (t.recurrenteId) fila.recurrente_id = t.recurrenteId
   // [] explícito = se quitaron las etiquetas (hay que limpiarlas remoto).
   if (t.etiquetas !== undefined) fila.etiquetas = t.etiquetas
+  // Columnas posteriores: solo si Supabase ya las tiene (si no, la fila
+  // fallaría); mientras tanto se quedan en el dispositivo.
+  if (esquemaListo('v0.21.sql')) fila.ubicacion = t.ubicacion ?? null
 
   return fila
 }
+
+function aUbicacion(valor: unknown): Ubicacion | undefined {
+  if (!valor || typeof valor !== 'object') return undefined
+  const u = valor as Record<string, unknown>
+  const lat = Number(u.lat)
+  const lng = Number(u.lng)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined
+  return { lat, lng, lugar: typeof u.lugar === 'string' && u.lugar ? u.lugar : undefined }
+}
+
+/**
+ * Campos de transacciones agregados en migraciones posteriores: si la fila
+ * remota no trae la columna (falta el SQL), la descarga conserva el valor
+ * local en vez de borrarlo.
+ */
+const COLUMNAS_TRANSACCION_POSTERIORES: { columna: string; campo: 'ubicacion' }[] = [
+  { columna: 'ubicacion', campo: 'ubicacion' },
+]
 
 function aOrigen(valor: unknown): OrigenTransaccion {
   return valor === 'yape' || valor === 'transferencia' || valor === 'recurrente'
@@ -340,6 +397,7 @@ function aTransaccionLocal(fila: Record<string, unknown>): Transaccion {
     recurrenteId: (fila.recurrente_id as string | null) ?? undefined,
     etiquetas:
       Array.isArray(fila.etiquetas) && fila.etiquetas.length > 0 ? (fila.etiquetas as string[]) : undefined,
+    ubicacion: aUbicacion(fila.ubicacion),
     sincronizado: true,
     fechaActualizacion: new Date(fila.fecha_actualizacion as string),
   }
@@ -1411,9 +1469,20 @@ export async function descargarTransaccionesRecientes(
     ).map(String),
   )
 
-  const transacciones = (data as Record<string, unknown>[])
-    .map(aTransaccionLocal)
-    .filter((t) => !borrados.has(t.id) && !pendientes.has(t.id))
+  const filas = (data as Record<string, unknown>[]).filter(
+    (f) => !borrados.has(f.id as string) && !pendientes.has(f.id as string),
+  )
+  const transacciones = filas.map(aTransaccionLocal)
+
+  // Columnas que Supabase aún no tiene: se conserva lo local.
+  const faltantes = COLUMNAS_TRANSACCION_POSTERIORES.filter((c) => filas.length > 0 && !(c.columna in filas[0]))
+  if (faltantes.length > 0) {
+    const locales = await db.transacciones.bulkGet(transacciones.map((t) => t.id))
+    transacciones.forEach((t, i) => {
+      const local = locales[i]
+      if (local) for (const { campo } of faltantes) if (local[campo] !== undefined) t[campo] = local[campo]
+    })
+  }
 
   await db.transacciones.bulkPut(transacciones)
 
@@ -1490,6 +1559,8 @@ export async function sincronizar(usuarioId: string): Promise<ResultadoSincroniz
   const borrados = await idsBorradosPendientes(usuarioId)
   const errores: string[] = []
   const agregar = (e: string | null) => e && errores.push(e)
+
+  await subirLoQueFaltaba(usuarioId)
 
   // Antes de descargar: si otro dispositivo ya unió los repetidos, aquí se
   // unen igual (misma elección) antes de que la descarga los quite.

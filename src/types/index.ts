@@ -90,8 +90,17 @@ export interface Transaccion {
   recurrenteId?: string
   /** Etiquetas libres, en minúsculas y sin '#' (p. ej. 'viaje-cusco'). */
   etiquetas?: string[]
+  /** Dónde fue el gasto (se toma del GPS al registrar, si el usuario quiere). */
+  ubicacion?: Ubicacion
   sincronizado: boolean
   fechaActualizacion: Date
+}
+
+export interface Ubicacion {
+  lat: number
+  lng: number
+  /** Nombre del lugar escrito por el usuario (p. ej. "Plaza Vea Salaverry"). */
+  lugar?: string
 }
 
 export interface Presupuesto extends ControlSync {

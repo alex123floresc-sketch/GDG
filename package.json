@@ -1,7 +1,7 @@
 {
   "name": "gestor-gastos",
   "private": true,
-  "version": "0.20.0",
+  "version": "0.21.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,11 +14,14 @@
     "dexie": "^4.4.6",
     "dexie-react-hooks": "^4.4.0",
     "fomantic-ui-css": "^2.9.4",
+    "leaflet": "^1.9.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "tesseract.js": "^7.0.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.22",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",

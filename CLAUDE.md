@@ -387,6 +387,22 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   dibujan con `IconoCuenta` (no usar `ICONO_CUENTA` directo). Remoto
   `cuentas.icono/color` (migración `v0.20.sql`).
 
+## Captura rápida (v0.21)
+
+- Formulario (solo al crear): **Dictar** (`useDictado`, Web Speech API
+  es-PE) e interpretación con `utils/dictado.ts` (`interpretarTexto`:
+  monto en cifras o palabras, tipo, fecha "ayer", cuenta nombrada,
+  categoría por regla/nombre/pistas; también entiende notificaciones de
+  Yape). **Leer boleta**: `ocrService.leerBoleta` carga tesseract.js bajo
+  demanda (modelo `spa` desde CDN la primera vez) y `utils/boleta.ts`
+  saca total/fecha/comercio. Props `textoInicial`/`imagenInicial` para
+  lo compartido (pendiente: Web Share Target).
+- **Ubicación**: `Transaccion.ubicacion` {lat, lng, lugar} con el GPS al
+  tocar el botón; remoto `transacciones.ubicacion` (migración
+  `v0.21.sql`, solo se envía si está confirmada; la descarga conserva la
+  local). `subirLoQueFaltaba` re-marca como pendiente lo editado antes de
+  cada migración para que suba completo. Pendiente: vista de mapa.
+
 ## Reporte mensual (v0.12)
 
 - `PanelReporte` genera el reporte de un mes; "Descargar PDF" llama a
@@ -523,6 +539,7 @@ la migración).
 - `v0.18.sql`: tabla `cuotas`.
 - `v0.19.sql`: tabla `deseos`.
 - `v0.20.sql`: `cuentas.icono`, `cuentas.color`.
+- `v0.21.sql`: `transacciones.ubicacion`.
   `esquemaListo(archivo)` dice si ya está confirmada (las columnas nuevas
   de tablas existentes solo se envían entonces). El aviso de App.tsx
   usa `FUNCIONES_POR_MIGRACION`.

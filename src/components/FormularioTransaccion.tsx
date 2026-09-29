@@ -9,7 +9,10 @@ import {
   eliminarTransaccion,
   restaurarTransacciones,
 } from '../services/transaccionService'
-import type { Categoria, Cuenta, Moneda, Plantilla, Regla, Transaccion, TipoTransaccion } from '../types'
+import type { Categoria, Cuenta, Moneda, Plantilla, Regla, Transaccion, TipoTransaccion, Ubicacion } from '../types'
+import { useDictado } from '../hooks/useDictado'
+import { leerBoleta } from '../services/ocrService'
+import { interpretarTexto, type Interpretacion } from '../utils/dictado'
 import { NOMBRE_POR_COBRAR } from '../services/cuentaService'
 import { crearPlantilla } from '../services/plantillaService'
 import { crearRegla } from '../services/reglaService'
@@ -59,6 +62,10 @@ interface FormularioTransaccionProps {
   plantillaInicial?: Plantilla
   /** Soles por hora de trabajo: muestra cada gasto en horas. */
   valorHora?: number
+  /** Texto compartido a la app o dictado: se interpreta al abrir. */
+  textoInicial?: string
+  /** Foto de una boleta compartida a la app: se lee con OCR al abrir. */
+  imagenInicial?: Blob
 }
 
 /** Pantalla táctil sin teclado físico: se usa el teclado numérico propio. */
@@ -87,6 +94,8 @@ function FormularioTransaccion({
   plantillas = [],
   plantillaInicial,
   valorHora,
+  textoInicial,
+  imagenInicial,
 }: FormularioTransaccionProps) {
   const { avisar } = useAvisos()
   const editando = Boolean(transaccion)
@@ -136,6 +145,13 @@ function FormularioTransaccion({
   const [etiquetas, setEtiquetas] = useState<string[]>(transaccion?.etiquetas ?? pl?.etiquetas ?? [])
   const [division, setDivision] = useState<EstadoDivision>(DIVISION_INICIAL)
   const [usarTeclado] = useState(esTactil)
+  const [ubicacion, setUbicacion] = useState<Ubicacion | undefined>(transaccion?.ubicacion)
+  const [buscandoUbicacion, setBuscandoUbicacion] = useState(false)
+  /** Progreso del OCR (0–1) mientras se lee una boleta. */
+  const [leyendoBoleta, setLeyendoBoleta] = useState<number | null>(null)
+  /** Qué se entendió del dictado o de la boleta (para que el usuario revise). */
+  const [notaCaptura, setNotaCaptura] = useState<string | null>(null)
+  const archivoBoletaRef = useRef<HTMLInputElement>(null)
   const [cambioDia, setCambioDia] = useState<TipoCambioDia | null>(null)
   const [consultandoCambio, setConsultandoCambio] = useState(false)
   /** El usuario escribió su propio tipo de cambio: no se pisa con el del día. */
@@ -287,6 +303,93 @@ function FormularioTransaccion({
   const montoEnSoles =
     moneda === 'USD' ? Math.round(montoNumerico * cambioNumerico * 100) / 100 : montoNumerico
 
+  /** Rellena el formulario con lo entendido de una frase (voz o texto compartido). */
+  function aplicarInterpretacion(r: Interpretacion, frase: string) {
+    if (r.tipo) setTipo(r.tipo)
+    if (r.monto) setMonto(String(r.monto))
+    if (r.moneda) setMoneda(r.moneda)
+    if (r.concepto) setConcepto(r.concepto)
+    if (r.categoriaId) {
+      setCategoriaId(r.categoriaId)
+      setCategoriaElegida(true)
+    }
+    if (r.cuentaId) setCuentaId(r.cuentaId)
+    if (r.fecha) setFecha(fechaParaInput(r.fecha))
+    const partes = [
+      r.tipo === 'ingreso' ? 'ingreso' : 'gasto',
+      r.monto ? (r.moneda === 'USD' ? formatearDolares(r.monto) : formatearMoneda(r.monto)) : 'sin monto',
+      r.concepto,
+      categorias.find((c) => c.id === r.categoriaId)?.nombre,
+      cuentas.find((c) => c.id === r.cuentaId)?.nombre,
+    ].filter(Boolean)
+    setNotaCaptura(`«${frase}» → ${partes.join(' · ')}. Revisa antes de guardar.`)
+  }
+
+  const dictado = useDictado((texto) =>
+    aplicarInterpretacion(interpretarTexto(texto, { categorias, cuentas: cuentasElegibles, reglas }), texto),
+  )
+
+  async function procesarBoleta(archivo: Blob) {
+    setError(null)
+    setNotaCaptura(null)
+    setLeyendoBoleta(0)
+    try {
+      const r = await leerBoleta(archivo, setLeyendoBoleta)
+      if (r.total) {
+        setMoneda('PEN')
+        setMonto(String(r.total))
+      }
+      if (r.fecha) setFecha(fechaParaInput(r.fecha))
+      if (r.comercio && !concepto.trim()) setConcepto(r.comercio)
+      setTipo('gasto')
+      setNotaCaptura(
+        r.total
+          ? `Leído de la boleta: ${formatearMoneda(r.total)}${r.fecha ? ` · ${r.fecha.toLocaleDateString('es-PE')}` : ''}${r.comercio ? ` · ${r.comercio}` : ''}. Revisa antes de guardar.`
+          : 'No encontramos el total en la foto. Escríbelo tú (una foto más nítida y de frente ayuda).',
+      )
+    } catch {
+      setError('No se pudo leer la boleta. La primera vez se necesita conexión para descargar el lector.')
+    } finally {
+      setLeyendoBoleta(null)
+    }
+  }
+
+  function tomarUbicacion() {
+    if (!navigator.geolocation) {
+      setError('Este dispositivo no permite obtener la ubicación.')
+      return
+    }
+    setBuscandoUbicacion(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUbicacion({
+          lat: Math.round(pos.coords.latitude * 1e6) / 1e6,
+          lng: Math.round(pos.coords.longitude * 1e6) / 1e6,
+          lugar: ubicacion?.lugar,
+        })
+        setBuscandoUbicacion(false)
+      },
+      (err) => {
+        setBuscandoUbicacion(false)
+        setError(err.code === err.PERMISSION_DENIED ? 'Permite el acceso a tu ubicación para guardarla.' : 'No se pudo obtener tu ubicación.')
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
+    )
+  }
+
+  // Lo compartido a la app (texto o foto) se procesa una sola vez al abrir.
+  const capturaInicial = useRef(false)
+  useEffect(() => {
+    if (capturaInicial.current || editando) return
+    capturaInicial.current = true
+    if (imagenInicial) void procesarBoleta(imagenInicial)
+    else if (textoInicial) {
+      const texto = textoInicial
+      queueMicrotask(() => aplicarInterpretacion(interpretarTexto(texto, { categorias, cuentas: cuentasElegibles, reglas }), texto))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   function limpiar() {
     setMonto('')
     setConcepto('')
@@ -295,6 +398,8 @@ function FormularioTransaccion({
     setFecha(fechaParaInput())
     setRecordarRegla(false)
     setComoPlantilla(false)
+    setUbicacion(undefined)
+    setNotaCaptura(null)
     if (!usarTeclado) montoRef.current?.focus()
   }
 
@@ -381,6 +486,7 @@ function FormularioTransaccion({
           montoOriginal: moneda === 'USD' ? montoNumerico : undefined,
           tipoCambio: moneda === 'USD' ? cambioNumerico : undefined,
           etiquetas: etiquetasFinal,
+          ubicacion: ubicacion ? { ...ubicacion, lugar: ubicacion.lugar?.trim() || undefined } : undefined,
         }
         if (transaccion) {
           await actualizarTransaccion(transaccion.id, datos)
@@ -477,6 +583,55 @@ function FormularioTransaccion({
               {p.nombre}
             </button>
           ))}
+        </div>
+      )}
+
+      {!editando && (
+        <div className="barra-captura">
+          {dictado.disponible && (
+            <button
+              type="button"
+              className={`ui mini ${dictado.escuchando ? 'red' : 'basic'} button`}
+              onClick={dictado.escuchando ? dictado.detener : dictado.escuchar}
+              title='Di algo como "gasté 25 soles en almuerzo con Yape"'
+            >
+              <i className={`microphone ${dictado.escuchando ? '' : 'alternate'} icon`} />
+              {dictado.escuchando ? 'Escuchando… (toca para parar)' : 'Dictar'}
+            </button>
+          )}
+          <button
+            type="button"
+            className={`ui mini basic button ${leyendoBoleta !== null ? 'loading' : ''}`}
+            disabled={leyendoBoleta !== null}
+            onClick={() => archivoBoletaRef.current?.click()}
+            title="Toma o elige una foto de la boleta y leemos el total"
+          >
+            <i className="camera icon" />
+            Leer boleta
+          </button>
+          <input
+            ref={archivoBoletaRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => {
+              const archivo = e.target.files?.[0]
+              e.target.value = ''
+              if (archivo) void procesarBoleta(archivo)
+            }}
+          />
+          {leyendoBoleta !== null && (
+            <span className="texto-suave progreso-ocr">Leyendo la boleta… {Math.round(leyendoBoleta * 100)} %</span>
+          )}
+        </div>
+      )}
+      {(notaCaptura || dictado.error) && (
+        <div className="nota-captura">
+          <i className={`${dictado.error ? 'microphone slash' : 'magic'} icon`} />
+          <span>{dictado.error ?? notaCaptura}</span>
+          <button type="button" className="cerrar" aria-label="Cerrar" onClick={() => setNotaCaptura(null)}>
+            <i className="close icon" />
+          </button>
         </div>
       )}
 
@@ -720,6 +875,44 @@ function FormularioTransaccion({
           ))}
         </datalist>
       </div>
+
+      {!esTransferencia && (
+        <div className="field campo-ubicacion">
+          <label>
+            <i className="map marker alternate icon" />
+            Ubicación (opcional)
+          </label>
+          {ubicacion ? (
+            <div className="fila-ubicacion">
+              <span className="texto-suave coordenadas">
+                <i className="check circle icon texto-ingreso" />
+                Guardada
+              </span>
+              <input
+                type="text"
+                aria-label="Nombre del lugar"
+                value={ubicacion.lugar ?? ''}
+                maxLength={80}
+                placeholder="Nombre del lugar (ej. Mercado de Surquillo)"
+                onChange={(e) => setUbicacion({ ...ubicacion, lugar: e.target.value })}
+              />
+              <button type="button" className="ui mini basic button" onClick={() => setUbicacion(undefined)}>
+                Quitar
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className={`ui mini basic button ${buscandoUbicacion ? 'loading' : ''}`}
+              disabled={buscandoUbicacion}
+              onClick={tomarUbicacion}
+            >
+              <i className="location arrow icon" />
+              Usar mi ubicación actual
+            </button>
+          )}
+        </div>
+      )}
 
       {tipo === 'gasto' && !editando && (
         <DividirGasto
