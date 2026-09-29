@@ -6,7 +6,7 @@ import {
   guardarAjustes,
   REPARTO_POR_DEFECTO,
 } from '../../services/ajustesService'
-import type { Ajustes, Categoria, Chanchito, ClaseGasto, Cuenta, Deuda, Meta, OrigenFondo, Presupuesto, Recurrente, Transaccion } from '../../types'
+import type { Ajustes, Categoria, Chanchito, ClaseGasto, CompraCuotas, Cuenta, Deuda, Meta, OrigenFondo, Presupuesto, Recurrente, Transaccion } from '../../types'
 import { ordenJerarquico } from '../../utils/categorias'
 import { formatearFecha, formatearMoneda, formatearPorcentaje } from '../../utils/formato'
 import {
@@ -33,6 +33,7 @@ interface PanelSaludProps {
   chanchitos: Chanchito[]
   deudas: Deuda[]
   recurrentes: Recurrente[]
+  cuotas: CompraCuotas[]
 }
 
 type PeriodoReparto = 'actual' | 'pasado' | 'tres'
@@ -80,8 +81,18 @@ function PanelSalud(props: PanelSaludProps) {
   )
 
   const proyeccion = useMemo(
-    () => proyectarSaldo({ cuentas, transacciones, recurrentes: props.recurrentes, deudas: props.deudas, dias, conVariables, hoy }),
-    [cuentas, transacciones, props.recurrentes, props.deudas, dias, conVariables, hoy],
+    () =>
+      proyectarSaldo({
+        cuentas,
+        transacciones,
+        recurrentes: props.recurrentes,
+        deudas: props.deudas,
+        cuotas: props.cuotas,
+        dias,
+        conVariables,
+        hoy,
+      }),
+    [cuentas, transacciones, props.recurrentes, props.deudas, props.cuotas, dias, conVariables, hoy],
   )
 
   const porId = useMemo(() => new Map(categorias.map((c) => [c.id, c])), [categorias])
@@ -347,7 +358,7 @@ function PanelSalud(props: PanelSaludProps) {
             <div className="sub header">Para imprevistos: pérdida de trabajo, salud, reparaciones</div>
           </div>
         </h3>
-        <div className="rejilla-kpi">
+        <div className="rejilla-kpi tres">
           <div className="kpi plano">
             <span className="etiqueta">Tienes</span>
             <strong>{formatearMoneda(fondo.disponible)}</strong>
@@ -453,7 +464,7 @@ function PanelSalud(props: PanelSaludProps) {
             ))}
           </div>
         </div>
-        <div className="rejilla-kpi">
+        <div className="rejilla-kpi tres">
           <div className="kpi plano">
             <span className="etiqueta">Hoy</span>
             <strong>{formatearMoneda(proyeccion.puntos[0].saldo)}</strong>

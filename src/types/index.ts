@@ -245,6 +245,36 @@ export interface Plantilla extends ControlSync {
   orden?: number
 }
 
+/**
+ * Compra en cuotas (normalmente con tarjeta de crédito).
+ * - `total`: se registró un gasto por el monto total el día de la compra
+ *   (`transaccionId`); las cuotas solo se siguen.
+ * - `por_cuota`: cada cuota se registra como gasto en su fecha
+ *   (origen 'recurrente', `recurrenteId` = id de la compra).
+ */
+export type ModoCuotas = 'total' | 'por_cuota'
+
+export interface CompraCuotas extends ControlSync {
+  id: string
+  usuarioId: string
+  descripcion: string
+  cuentaId: string
+  categoriaId: string
+  /** Precio de la compra (en soles). */
+  montoTotal: number
+  numeroCuotas: number
+  /** Lo que se paga cada mes (incluye intereses). */
+  montoCuota: number
+  fechaCompra: Date
+  /** Fecha de la primera cuota; las demás, el mismo día de los meses siguientes. */
+  primeraCuota: Date
+  modo: ModoCuotas
+  /** Gasto por el total (modo `total`). */
+  transaccionId?: string
+  /** Modo `por_cuota`: cuántas cuotas ya se registraron como gasto. */
+  cuotasGeneradas?: number
+}
+
 /** De dónde sale el fondo de emergencia. */
 export type OrigenFondo = 'liquido' | 'cuenta' | 'meta' | 'chanchito'
 
@@ -265,6 +295,8 @@ export interface Ajustes extends ControlSync {
   /** Para expresar gastos en horas de trabajo. */
   ingresoMensual?: number
   horasSemana?: number
+  /** Suscripciones detectadas que el usuario descartó (clave normalizada). */
+  suscripcionesIgnoradas?: string[]
 }
 
 export type TablaSincronizable =
@@ -279,6 +311,7 @@ export type TablaSincronizable =
   | 'reglas'
   | 'plantillas'
   | 'ajustes'
+  | 'cuotas'
 
 /**
  * Registro local de un borrado que falta replicar en Supabase (se procesa
@@ -299,6 +332,7 @@ export type NuevoPresupuesto = Omit<Presupuesto, SinControl>
 export type NuevaMeta = Omit<Meta, SinControl | 'aportes'>
 export type NuevaDeuda = Omit<Deuda, SinControl | 'abonos'>
 export type NuevoRecurrente = Omit<Recurrente, SinControl>
+export type NuevaCompraCuotas = Omit<CompraCuotas, SinControl | 'transaccionId' | 'cuotasGeneradas'>
 export type NuevaRegla = Omit<Regla, SinControl>
 export type NuevaPlantilla = Omit<Plantilla, SinControl>
 export type NuevoChanchito = Pick<Chanchito, 'nombre' | 'icono' | 'color' | 'tipo' | 'reto'>

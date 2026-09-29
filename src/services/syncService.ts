@@ -5,6 +5,7 @@ import type {
   Aporte,
   Categoria,
   Chanchito,
+  CompraCuotas,
   ControlSync,
   Cuenta,
   Deuda,
@@ -179,6 +180,11 @@ const MIGRACIONES: { archivo: string; comprobar: () => PromiseLike<{ error: unkn
       supabase!.from('categorias').select('clase').limit(0),
       supabase!.from('ajustes').select('id').limit(0),
     ],
+  },
+  {
+    // Compras en cuotas.
+    archivo: 'v0.18.sql',
+    comprobar: () => [supabase!.from('cuotas').select('id').limit(0)],
   },
 ]
 
@@ -628,7 +634,15 @@ const PLANTILLAS: Entidad<Plantilla> = {
 }
 
 /** Campos de `Ajustes` que viajan dentro de la columna jsonb `datos`. */
-const CAMPOS_AJUSTES = ['fondoMeses', 'fondoOrigen', 'fondoId', 'reparto', 'ingresoMensual', 'horasSemana'] as const
+const CAMPOS_AJUSTES = [
+  'fondoMeses',
+  'fondoOrigen',
+  'fondoId',
+  'reparto',
+  'ingresoMensual',
+  'horasSemana',
+  'suscripcionesIgnoradas',
+] as const
 
 const AJUSTES: Entidad<Ajustes> = {
   tabla: 'ajustes',
@@ -646,6 +660,45 @@ const AJUSTES: Entidad<Ajustes> = {
     const limpio = Object.fromEntries(CAMPOS_AJUSTES.filter((c) => datos[c] !== undefined).map((c) => [c, datos[c]]))
     return { ...limpio, id: f.id as string, usuarioId: f.user_id as string, ...marcaDeTiempo(f) }
   },
+}
+
+const CUOTAS: Entidad<CompraCuotas> = {
+  tabla: 'cuotas',
+  local: db.cuotas,
+  etiqueta: 'la compra en cuotas',
+  nombre: (c) => `"${c.descripcion}"`,
+  aFila: (c, userId) => ({
+    id: c.id,
+    user_id: userId,
+    descripcion: c.descripcion,
+    cuenta_id: c.cuentaId,
+    categoria_id: c.categoriaId,
+    monto_total: c.montoTotal,
+    numero_cuotas: c.numeroCuotas,
+    monto_cuota: c.montoCuota,
+    fecha_compra: aFechaSql(c.fechaCompra),
+    primera_cuota: aFechaSql(c.primeraCuota),
+    modo: c.modo,
+    transaccion_id: c.transaccionId ?? null,
+    cuotas_generadas: c.cuotasGeneradas ?? 0,
+    fecha_actualizacion: fechaRemota(c),
+  }),
+  aLocal: (f) => ({
+    id: f.id as string,
+    usuarioId: f.user_id as string,
+    descripcion: f.descripcion as string,
+    cuentaId: f.cuenta_id as string,
+    categoriaId: f.categoria_id as string,
+    montoTotal: aNumero(f.monto_total),
+    numeroCuotas: aNumero(f.numero_cuotas),
+    montoCuota: aNumero(f.monto_cuota),
+    fechaCompra: deFechaSql(f.fecha_compra as string),
+    primeraCuota: deFechaSql(f.primera_cuota as string),
+    modo: f.modo === 'por_cuota' ? 'por_cuota' : 'total',
+    transaccionId: (f.transaccion_id as string | null) ?? undefined,
+    cuotasGeneradas: f.modo === 'por_cuota' ? aNumero(f.cuotas_generadas) : undefined,
+    ...marcaDeTiempo(f),
+  }),
 }
 
 const RECURRENTES: Entidad<Recurrente> = {
@@ -857,6 +910,7 @@ async function reapuntarReferencias(
   }
   await db.recurrentes.where('usuarioId').equals(usuarioId).filter((r) => viejos.has(r[campo])).modify(cambio)
   await db.plantillas.where('usuarioId').equals(usuarioId).filter((p) => viejos.has(p[campo])).modify(cambio)
+  await db.cuotas.where('usuarioId').equals(usuarioId).filter((c) => viejos.has(c[campo])).modify(cambio)
   await db.reglas
     .where('usuarioId')
     .equals(usuarioId)
@@ -888,7 +942,9 @@ async function fusionarCatalogo<T extends Categoria | Cuenta>(
 
   const clave = (r: T) => `${normalizar(r.nombre)}|${r.tipo}`
   // Set: `tabla` puede ser la misma db.categorias.
-  const tablas = [...new Set([tabla, db.categorias, db.transacciones, db.presupuestos, db.recurrentes, db.reglas, db.plantillas])]
+  const tablas = [
+    ...new Set([tabla, db.categorias, db.transacciones, db.presupuestos, db.recurrentes, db.reglas, db.plantillas, db.cuotas]),
+  ]
 
   await db.transaction('rw', tablas, async () => {
     const locales = await tabla.where('usuarioId').equals(usuarioId).toArray()
@@ -954,6 +1010,7 @@ async function deduplicarCatalogo<T extends Categoria | Cuenta>(
     db.recurrentes,
     db.reglas,
     db.plantillas,
+    db.cuotas,
     db.eliminacionesPendientes,
   ])
   let unidas = 0
@@ -1125,6 +1182,7 @@ async function repararReferenciasHuerfanas(usuarioId: string): Promise<void> {
 
 /** Orden de borrado: primero lo que referencia a categorías/cuentas. */
 const ORDEN_BORRADO: TablaSincronizable[] = [
+  'cuotas',
   'transacciones',
   'presupuestos',
   'recurrentes',
@@ -1429,6 +1487,7 @@ export async function sincronizar(usuarioId: string): Promise<ResultadoSincroniz
       agregar(await sincronizarEntidad(PLANTILLAS, usuarioId, userId, borrados))
     }
     if (esquemaListo('v0.17.sql')) agregar(await sincronizarEntidad(AJUSTES, usuarioId, userId, borrados))
+    if (esquemaListo('v0.18.sql')) agregar(await sincronizarEntidad(CUOTAS, usuarioId, userId, borrados))
   }
 
   let descargadas = 0

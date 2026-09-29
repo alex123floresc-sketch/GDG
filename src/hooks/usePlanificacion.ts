@@ -1,9 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo } from 'react'
 import { db } from '../db/database'
+import { generarCuotasPendientes } from '../services/cuotaService'
 import { generarRecurrentesPendientes } from '../services/recurrenteService'
-import type { Ajustes, Chanchito, Deuda, Meta, Plantilla, Presupuesto, Recurrente, Regla } from '../types'
+import type { Ajustes, Chanchito, CompraCuotas, Deuda, Meta, Plantilla, Presupuesto, Recurrente, Regla } from '../types'
 import { ajustesVacios } from '../services/ajustesService'
+import { fechaCuota } from '../utils/cuotas'
 
 export function usePresupuestos(usuarioId: string): Presupuesto[] {
   return useLiveQuery(() => db.presupuestos.where('usuarioId').equals(usuarioId).toArray(), [usuarioId]) ?? []
@@ -35,6 +37,22 @@ export function useRecurrentes(usuarioId: string): Recurrente[] {
   }, [hayVencidos, usuarioId])
 
   return recurrentes
+}
+
+/**
+ * Compras en cuotas. Como los recurrentes, al abrir la app registra las
+ * cuotas vencidas de las compras en modo "por cuota".
+ */
+export function useCuotas(usuarioId: string): CompraCuotas[] {
+  const cuotas = useLiveQuery(() => db.cuotas.where('usuarioId').equals(usuarioId).toArray(), [usuarioId]) ?? []
+  const hoy = new Date()
+  const hayVencidas = cuotas.some(
+    (c) => c.modo === 'por_cuota' && (c.cuotasGeneradas ?? 0) < c.numeroCuotas && fechaCuota(c, c.cuotasGeneradas ?? 0) <= hoy,
+  )
+  useEffect(() => {
+    if (hayVencidas) void generarCuotasPendientes(usuarioId)
+  }, [hayVencidas, usuarioId])
+  return cuotas
 }
 
 export function useReglas(usuarioId: string): Regla[] {

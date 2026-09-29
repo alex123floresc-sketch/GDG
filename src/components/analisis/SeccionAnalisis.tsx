@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { Ajustes, Categoria, Chanchito, Cuenta, Deuda, Meta, Presupuesto, Recurrente, Transaccion } from '../../types'
+import type { Ajustes, Categoria, Chanchito, CompraCuotas, Cuenta, Deuda, Meta, Presupuesto, Recurrente, Transaccion } from '../../types'
 import Analisis from '../Analisis'
 import PanelComparar from './PanelComparar'
 import PanelPatrimonio from './PanelPatrimonio'
@@ -21,6 +21,7 @@ interface SeccionAnalisisProps {
   ajustes: Ajustes
   chanchitos: Chanchito[]
   recurrentes: Recurrente[]
+  cuotas: CompraCuotas[]
   pestana: PestanaAnalisis
   onCambiarPestana: (p: PestanaAnalisis) => void
   email: string
@@ -75,6 +76,7 @@ function SeccionAnalisis(props: SeccionAnalisisProps) {
             chanchitos={props.chanchitos}
             deudas={props.deudas}
             recurrentes={props.recurrentes}
+            cuotas={props.cuotas}
           />
         )}
         {pestana === 'comparar' && <PanelComparar transacciones={transacciones} categorias={categorias} />}

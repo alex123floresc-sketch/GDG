@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { useAvisos } from '../../hooks/useAvisos'
 import {
   actualizarRecurrente,
@@ -6,7 +6,9 @@ import {
   crearRecurrente,
   eliminarRecurrente,
 } from '../../services/recurrenteService'
-import type { Categoria, Cuenta, Frecuencia, Moneda, Recurrente, TipoTransaccion } from '../../types'
+import { guardarAjustes } from '../../services/ajustesService'
+import type { Ajustes, Categoria, Cuenta, Frecuencia, Moneda, Recurrente, TipoTransaccion, Transaccion } from '../../types'
+import { detectarSuscripciones, type Suscripcion } from '../../utils/pagos'
 import { fechaDesdeInput, fechaParaInput, formatearDolares, formatearFecha, formatearMoneda } from '../../utils/formato'
 import { leerTipoCambio } from '../../utils/preferencias'
 import Modal from '../Modal'
@@ -17,6 +19,8 @@ interface PanelRecurrentesProps {
   recurrentes: Recurrente[]
   categorias: Categoria[]
   cuentas: Cuenta[]
+  transacciones: Transaccion[]
+  ajustes: Ajustes
 }
 
 const FRECUENCIAS: { id: Frecuencia; etiqueta: string; porMes: number }[] = [
@@ -38,8 +42,38 @@ interface Borrador {
   proximaFecha: string
 }
 
-function PanelRecurrentes({ usuarioId, recurrentes, categorias, cuentas }: PanelRecurrentesProps) {
+function PanelRecurrentes({ usuarioId, recurrentes, categorias, cuentas, transacciones, ajustes }: PanelRecurrentesProps) {
   const { avisar } = useAvisos()
+  const suscripciones = useMemo(
+    () => detectarSuscripciones(transacciones, recurrentes, ajustes.suscripcionesIgnoradas),
+    [transacciones, recurrentes, ajustes.suscripcionesIgnoradas],
+  )
+
+  async function convertir(s: Suscripcion) {
+    try {
+      await crearRecurrente(
+        {
+          tipo: 'gasto',
+          concepto: s.concepto,
+          monto: s.montoPromedio,
+          categoriaId: s.categoriaId,
+          cuentaId: cuentas.some((c) => c.id === s.cuentaId) ? s.cuentaId : (cuentas[0]?.id ?? ''),
+          frecuencia: 'mensual',
+          proximaFecha: s.proxima,
+          activa: true,
+        },
+        usuarioId,
+      )
+      avisar(`"${s.concepto}" ahora se registra solo cada mes`)
+    } catch (err) {
+      avisar(err instanceof Error ? err.message : 'No se pudo crear', 'error')
+    }
+  }
+
+  function ignorar(s: Suscripcion) {
+    void guardarAjustes(usuarioId, { suscripcionesIgnoradas: [...(ajustes.suscripcionesIgnoradas ?? []), s.clave] })
+    avisar('Listo, no volveremos a sugerirla', 'info')
+  }
   const [borrador, setBorrador] = useState<Borrador | null>(null)
   const [eliminando, setEliminando] = useState<Recurrente | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -141,6 +175,49 @@ function PanelRecurrentes({ usuarioId, recurrentes, categorias, cuentas }: Panel
           </span>
         </div>
       </div>
+
+      {suscripciones.length > 0 && (
+        <div className="ui segment suscripciones-detectadas">
+          <h4 className="ui header">
+            <i className="search dollar icon" />
+            <div className="content">
+              {suscripciones.length === 1
+                ? 'Detectamos un pago que se repite cada mes'
+                : `Detectamos ${suscripciones.length} pagos que se repiten cada mes`}
+              <div className="sub header">
+                ¿Suscripciones o pagos fijos? Suman {formatearMoneda(suscripciones.reduce((s, x) => s + x.montoPromedio, 0))} al mes
+                ({formatearMoneda(suscripciones.reduce((s, x) => s + x.montoPromedio, 0) * 12)} al año)
+              </div>
+            </div>
+          </h4>
+          <div className="lista-transacciones ui divided list">
+            {suscripciones.map((s) => (
+              <div key={s.clave} className="item">
+                <span className="icono-circulo" style={{ background: categoriasPorId.get(s.categoriaId)?.color ?? '#898781' }}>
+                  <i className={`${categoriasPorId.get(s.categoriaId)?.icono ?? 'tag'} icon`} />
+                </span>
+                <div className="detalle">
+                  <div className="header">{s.concepto}</div>
+                  <div className="description">
+                    {s.veces} pagos · el último el {formatearFecha(s.ultima)} · próximo ~{formatearFecha(s.proxima)}
+                  </div>
+                </div>
+                <div className="monto">
+                  <strong className="texto-gasto">{formatearMoneda(s.montoPromedio)}</strong>
+                  <div className="acciones-suscripcion">
+                    <button type="button" className="ui mini primary button" onClick={() => void convertir(s)}>
+                      Hacer recurrente
+                    </button>
+                    <button type="button" className="ui mini basic button" onClick={() => ignorar(s)}>
+                      No es
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="barra-filtros">
         <p className="texto-suave sin-margen">

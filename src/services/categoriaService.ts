@@ -197,6 +197,7 @@ export async function eliminarCategoria(
     db.recurrentes,
     db.reglas,
     db.plantillas,
+    db.cuotas,
     db.eliminacionesPendientes,
   ]
   await db.transaction('rw', tablas, async () => {
@@ -205,14 +206,16 @@ export async function eliminarCategoria(
 
     const usos = db.transacciones.where('categoriaId').equals(id)
     const recurrentes = db.recurrentes.filter((r) => r.categoriaId === id)
+    const cuotas = db.cuotas.filter((c) => c.categoriaId === id)
     const cambio = { categoriaId: reasignarA, sincronizado: false, fechaActualizacion: new Date() }
 
-    if ((await usos.count()) + (await recurrentes.count()) > 0) {
+    if ((await usos.count()) + (await recurrentes.count()) + (await cuotas.count()) > 0) {
       if (!reasignarA || reasignarA === id) {
         throw new Error('Elige a qué categoría pasan sus transacciones.')
       }
       await usos.modify(cambio)
       await recurrentes.modify(cambio)
+      await cuotas.modify(cambio)
     }
 
     const destino = reasignarA && reasignarA !== id ? reasignarA : undefined

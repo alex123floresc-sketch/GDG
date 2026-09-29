@@ -5,6 +5,7 @@ import type {
   Categoria,
   Chanchito,
   ClaseGasto,
+  CompraCuotas,
   Cuenta,
   Deuda,
   Meta,
@@ -14,6 +15,7 @@ import type {
 } from '../types'
 import { esMovimientoReal } from './analisis'
 import { saldoChanchito } from './chanchitos'
+import { fechaCuota, pagoTarjetaEstimado } from './cuotas'
 import { estadoTarjeta, saldosPorCuenta } from './cuentas'
 import { estadoDeuda, estadoMeta, estadoPresupuestos } from './planificacion'
 import { leerTipoCambio } from './preferencias'
@@ -195,7 +197,7 @@ export interface EventoFuturo {
   concepto: string
   /** + entra, − sale (en soles). */
   monto: number
-  tipo: 'recurrente' | 'tarjeta' | 'deuda'
+  tipo: 'recurrente' | 'tarjeta' | 'deuda' | 'cuota'
 }
 
 const enSoles = (r: Recurrente) => (r.moneda === 'USD' ? r.monto * leerTipoCambio() : r.monto)
@@ -336,6 +338,7 @@ interface DatosProyeccion {
   transacciones: Transaccion[]
   recurrentes: Recurrente[]
   deudas: Deuda[]
+  cuotas?: CompraCuotas[]
   dias: number
   /** Incluir el promedio de ingresos/gastos variables (no recurrentes). */
   conVariables: boolean
@@ -348,7 +351,7 @@ interface DatosProyeccion {
  * deudas que debes pagar y, opcionalmente, el promedio de lo variable de
  * los últimos 90 días.
  */
-export function proyectarSaldo({ cuentas, transacciones, recurrentes, deudas, dias, conVariables, hoy = new Date() }: DatosProyeccion): Proyeccion {
+export function proyectarSaldo({ cuentas, transacciones, recurrentes, deudas, cuotas = [], dias, conVariables, hoy = new Date() }: DatosProyeccion): Proyeccion {
   const hoy0 = inicioDelDia(hoy)
   const manana = new Date(hoy0.getTime() + DIA)
   const fin = new Date(hoy0.getTime() + dias * DIA)
@@ -360,10 +363,29 @@ export function proyectarSaldo({ cuentas, transacciones, recurrentes, deudas, di
     fin,
   )
 
+  // Tarjetas: el próximo pago (sin la parte de compras en cuotas que aún
+  // no se factura); esas cuotas se cuentan aparte, en su fecha.
+  const proximoPago = new Map<string, Date | undefined>()
   for (const tarjeta of cuentas.filter((c) => c.tipo === 'tarjeta_credito')) {
-    const e = estadoTarjeta(tarjeta, transacciones, hoy)
-    if (e.deuda > 0 && e.proximoPago && e.proximoPago >= hoy0 && e.proximoPago <= fin) {
-      eventos.push({ fecha: e.proximoPago, concepto: `Pago de ${tarjeta.nombre}`, monto: -e.deuda, tipo: 'tarjeta' })
+    const pago = pagoTarjetaEstimado(tarjeta, transacciones, cuotas, hoy)
+    proximoPago.set(tarjeta.id, pago.fecha)
+    if (pago.monto > 0 && pago.fecha && pago.fecha >= hoy0 && pago.fecha <= fin) {
+      eventos.push({ fecha: pago.fecha, concepto: `Pago de ${tarjeta.nombre}`, monto: -pago.monto, tipo: 'tarjeta' })
+    }
+  }
+
+  const esTarjeta = new Set(cuentas.filter((c) => c.tipo === 'tarjeta_credito').map((c) => c.id))
+  for (const c of cuotas) {
+    // Modo total en una cuenta que no es tarjeta: el dinero ya salió.
+    if (c.modo === 'total' && !esTarjeta.has(c.cuentaId)) continue
+    const pagoTarjeta = c.modo === 'total' ? proximoPago.get(c.cuentaId) : undefined
+    // Lo que vence hasta el día del próximo pago ya va en ese pago.
+    const desde = pagoTarjeta ? new Date(pagoTarjeta.getTime() + DIA - 1) : hoy0
+    for (let k = 0; k < c.numeroCuotas; k++) {
+      const f = fechaCuota(c, k)
+      if (f > desde && f > hoy0 && f <= fin) {
+        eventos.push({ fecha: f, concepto: `${c.descripcion} (cuota ${k + 1}/${c.numeroCuotas})`, monto: -c.montoCuota, tipo: 'cuota' })
+      }
     }
   }
 

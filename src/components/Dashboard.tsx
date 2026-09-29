@@ -5,6 +5,7 @@ import { useAvisos } from '../hooks/useAvisos'
 import {
   useAjustes,
   useChanchitos,
+  useCuotas,
   useDeudas,
   useMetas,
   usePlantillas,
@@ -103,6 +104,8 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   const reglas = useReglas(usuarioId)
   const plantillas = usePlantillas(usuarioId)
   const ajustes = useAjustes(usuarioId)
+  // Además de listarlas, registra las cuotas vencidas (modo "mes a mes").
+  const cuotas = useCuotas(usuarioId)
   const { avisar } = useAvisos()
 
   const [desdeUrl] = useState(accionDeUrl)
@@ -128,10 +131,22 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   )
 
   const insights = useMemo(
-    () => generarInsights({ transacciones, categorias, cuentas, presupuestos, metas, deudas, recurrentes, chanchitos }),
+    () =>
+      generarInsights({
+        transacciones,
+        categorias,
+        cuentas,
+        presupuestos,
+        metas,
+        deudas,
+        recurrentes,
+        chanchitos,
+        cuotas,
+        suscripcionesIgnoradas: ajustes.suscripcionesIgnoradas,
+      }),
     // `ocultos`: los textos llevan montos formateados.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [transacciones, categorias, cuentas, presupuestos, metas, deudas, recurrentes, chanchitos, ocultos],
+    [transacciones, categorias, cuentas, presupuestos, metas, deudas, recurrentes, chanchitos, cuotas, ajustes, ocultos],
   )
 
   const personasPrevias = useMemo(() => [...new Set(deudas.map((d) => d.persona))], [deudas])
@@ -281,6 +296,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
             ajustes={ajustes}
             chanchitos={chanchitos}
             recurrentes={recurrentes}
+            cuotas={cuotas}
             pestana={pestanaAnalisis}
             onCambiarPestana={setPestanaAnalisis}
             email={email}
@@ -308,6 +324,8 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
             chanchitos={chanchitos}
             deudas={deudas}
             recurrentes={recurrentes}
+            cuotas={cuotas}
+            ajustes={ajustes}
           />
         )}
 

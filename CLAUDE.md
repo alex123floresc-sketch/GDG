@@ -46,8 +46,8 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `categoriaService.COLORES_CATEGORIA` (8 tonos validados para daltonismo
   + gris; mantener ese orden).
 - Navegación principal en `Dashboard.tsx`: 5 secciones (Inicio,
-  Movimientos, Análisis, Planificar → Presupuestos/Metas/Deudas/
-  Recurrentes, Más → Cuentas/Categorías/Automatizar/Importar Yape/
+  Movimientos, Análisis, Planificar → Presupuestos/Metas/Chanchitos/
+  Deudas/Recurrentes/Cuotas/Calendario, Más → Cuentas/Categorías/Automatizar/Importar Yape/
   Seguridad); en móvil (<768px)
   la barra pasa al pie de pantalla. Registrar es el botón flotante "+"
   (abre `FormularioTransaccion` en un `Modal`).
@@ -82,10 +82,10 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `Modal` (modal de Fomantic sin jQuery, vía portal), `Avisos` (toasts;
   se usan con `useAvisos().avisar(...)`), `graficos/`, `YapeImporter`
   (cargado con `React.lazy`, ver Rendimiento)
-- `src/db/database.ts` — esquema Dexie v11 (`GestorGastosDB`, tablas
+- `src/db/database.ts` — esquema Dexie v12 (`GestorGastosDB`, tablas
   `transacciones`, `categorias`, `cuentas`, `presupuestos`, `metas`,
   `deudas`, `recurrentes`, `chanchitos`, `reglas`, `plantillas`,
-  `ajustes`, `eliminacionesPendientes`). `TABLAS_SINCRONIZABLES` es la lista única
+  `ajustes`, `cuotas`, `eliminacionesPendientes`). `TABLAS_SINCRONIZABLES` es la lista única
   de tablas del usuario (la usan `useSync` para contar pendientes,
   `respaldoService` y `limpiarDatosLocales`): una tabla nueva se agrega
   ahí.
@@ -320,6 +320,29 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   del reparto y (v0.19) horas de trabajo. `useAjustes` /
   `guardarAjustes`. Remoto `categorias.clase` (migración `v0.17.sql`).
 
+## Cuotas, calendario de pagos y suscripciones (v0.18)
+
+- **Cuotas** (`CompraCuotas`, tabla `cuotas`, Planificar → Cuotas): modo
+  `total` (un gasto por el precio el día de la compra, `transaccionId`) o
+  `por_cuota` (`useCuotas` → `generarCuotasPendientes` registra cada cuota
+  vencida como gasto con origen 'recurrente' y `recurrenteId` = id de la
+  compra; ids deterministas; `cuotasGeneradas` evita regenerar una que el
+  usuario borró). Una cuota cuenta como pagada al llegar su fecha
+  (`estadoCuotas`); `teaAproximada` estima la TEA desde la cuota.
+- Tarjetas: `pagoTarjetaEstimado` = deuda − `capitalNoFacturado` (parte
+  del precio de compras en modo total cuyas cuotas vencen después del
+  pago). Lo usan la proyección de saldo, el calendario y el insight de
+  pago de tarjeta.
+- **Calendario** (Planificar → Calendario, `eventosDelMes`): recurrentes
+  (futuros por la regla; pasados según lo registrado), cuotas, fecha de
+  pago de tarjetas (con monto solo el próximo pago), deudas y metas con
+  fecha límite.
+- **Suscripciones detectadas** (`detectarSuscripciones`): gastos no
+  recurrentes con el mismo concepto, uno por mes (~25–35 días), monto
+  ±20 %, el último hace ≤ 45 días; ≥ 3 veces (≥ 2 si es un servicio
+  conocido). Se ofrecen en Recurrentes ("Hacer recurrente" / "No es",
+  guardado en `Ajustes.suscripcionesIgnoradas`) y como insight.
+
 ## Reporte mensual (v0.12)
 
 - `PanelReporte` genera el reporte de un mes; "Descargar PDF" llama a
@@ -453,6 +476,7 @@ la migración).
 - `v0.14.sql`: tabla `chanchitos`.
 - `v0.16.sql`: `categorias.padre_id`, tablas `reglas` y `plantillas`.
 - `v0.17.sql`: `categorias.clase`, tabla `ajustes`.
+- `v0.18.sql`: tabla `cuotas`.
   `esquemaListo(archivo)` dice si ya está confirmada (las columnas nuevas
   de tablas existentes solo se envían entonces). El aviso de App.tsx
   usa `FUNCIONES_POR_MIGRACION`.

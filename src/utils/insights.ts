@@ -1,6 +1,8 @@
-import type { Categoria, Chanchito, Cuenta, Deuda, Meta, Presupuesto, Recurrente, Transaccion } from '../types'
+import type { Categoria, Chanchito, CompraCuotas, Cuenta, Deuda, Meta, Presupuesto, Recurrente, Transaccion } from '../types'
 import { esMovimientoReal } from './analisis'
 import { estadoTarjeta } from './cuentas'
+import { pagoTarjetaEstimado } from './cuotas'
+import { detectarSuscripciones } from './pagos'
 import { formatearDolares, formatearFecha, formatearMoneda, formatearPorcentaje } from './formato'
 import { leerTipoCambio } from './preferencias'
 import { estadoDeuda, estadoMeta, estadoPresupuestos } from './planificacion'
@@ -22,6 +24,8 @@ export interface Insight {
     | 'planificar:metas'
     | 'planificar:chanchitos'
     | 'planificar:recurrentes'
+    | 'planificar:cuotas'
+    | 'planificar:calendario'
     | 'mas:cuentas'
     | 'mas:categorias'
     | 'mas:automatizar'
@@ -40,6 +44,8 @@ interface DatosInsights {
   deudas: Deuda[]
   recurrentes: Recurrente[]
   chanchitos?: Chanchito[]
+  cuotas?: CompraCuotas[]
+  suscripcionesIgnoradas?: string[]
   hoy?: Date
 }
 
@@ -59,6 +65,8 @@ export function generarInsights({
   deudas,
   recurrentes,
   chanchitos = [],
+  cuotas = [],
+  suscripcionesIgnoradas = [],
   hoy = new Date(),
 }: DatosInsights): Insight[] {
   const insights: Insight[] = []
@@ -208,12 +216,14 @@ export function generarInsights({
   // 6. Tarjetas con pago cercano.
   for (const cuenta of cuentas.filter((c) => c.tipo === 'tarjeta_credito')) {
     const e = estadoTarjeta(cuenta, transacciones, hoy)
-    if (e.deuda > 0 && e.diasParaPago !== undefined && e.diasParaPago <= 5) {
+    // Sin la parte de compras en cuotas que aún no se factura.
+    const aPagar = pagoTarjetaEstimado(cuenta, transacciones, cuotas, hoy).monto
+    if (aPagar > 0 && e.diasParaPago !== undefined && e.diasParaPago <= 5) {
       insights.push({
         id: `tarjeta-${cuenta.id}`,
         icono: 'credit card',
         tono: e.diasParaPago <= 1 ? 'negativo' : 'alerta',
-        texto: `Paga tu ${cuenta.nombre}: debes ${formatearMoneda(e.deuda)} y ${e.diasParaPago === 0 ? 'vence hoy' : e.diasParaPago === 1 ? 'vence mañana' : `vence en ${e.diasParaPago} días`}.`,
+        texto: `Paga tu ${cuenta.nombre}: ${formatearMoneda(aPagar)} y ${e.diasParaPago === 0 ? 'vence hoy' : e.diasParaPago === 1 ? 'vence mañana' : `vence en ${e.diasParaPago} días`}.`,
         prioridad: 95 - (e.diasParaPago ?? 0),
         destino: 'mas:cuentas',
       })
@@ -309,6 +319,23 @@ export function generarInsights({
         (atrasados > 0 ? ` (y tienes ${atrasados} pendiente${atrasados === 1 ? '' : 's'}).` : '.'),
       prioridad: 24,
       destino: 'planificar:chanchitos',
+    })
+  }
+
+  // 9c. Suscripciones que parecen repetirse cada mes y no son recurrentes.
+  const suscripciones = detectarSuscripciones(transacciones, recurrentes, suscripcionesIgnoradas, hoy)
+  if (suscripciones.length > 0) {
+    const total = suscripciones.reduce((s, x) => s + x.montoPromedio, 0)
+    insights.push({
+      id: 'suscripciones',
+      icono: 'search dollar',
+      tono: 'info',
+      texto:
+        suscripciones.length === 1
+          ? `Pagas "${suscripciones[0].concepto}" cada mes (${formatearMoneda(total)}). ¿La conviertes en pago fijo o ya no la usas?`
+          : `Encontramos ${suscripciones.length} pagos que se repiten cada mes (${formatearMoneda(total)} al mes, ${formatearMoneda(total * 12)} al año). Revísalos.`,
+      prioridad: 28,
+      destino: 'planificar:recurrentes',
     })
   }
 

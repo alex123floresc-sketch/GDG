@@ -23,6 +23,7 @@ const NOMBRES: Record<TablaSincronizable, string> = {
   reglas: 'reglas automáticas',
   plantillas: 'plantillas',
   ajustes: 'ajustes',
+  cuotas: 'compras en cuotas',
 }
 
 interface RespaldoProps {

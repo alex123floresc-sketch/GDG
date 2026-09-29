@@ -103,7 +103,7 @@ export async function actualizarCuenta(
  * otra (`reasignarA`). No se puede eliminar la única cuenta.
  */
 export async function eliminarCuenta(id: string, reasignarA?: string): Promise<void> {
-  const tablas = [db.cuentas, db.transacciones, db.recurrentes, db.plantillas, db.reglas, db.eliminacionesPendientes]
+  const tablas = [db.cuentas, db.transacciones, db.recurrentes, db.plantillas, db.reglas, db.cuotas, db.eliminacionesPendientes]
   await db.transaction('rw', tablas, async () => {
     const cuenta = await db.cuentas.get(id)
     if (!cuenta) return
@@ -113,14 +113,16 @@ export async function eliminarCuenta(id: string, reasignarA?: string): Promise<v
 
     const usos = db.transacciones.where('cuentaId').equals(id)
     const recurrentes = db.recurrentes.filter((r) => r.cuentaId === id)
+    const cuotas = db.cuotas.filter((c) => c.cuentaId === id)
 
-    if ((await usos.count()) + (await recurrentes.count()) > 0) {
+    if ((await usos.count()) + (await recurrentes.count()) + (await cuotas.count()) > 0) {
       if (!reasignarA || reasignarA === id) {
         throw new Error('Elige a qué cuenta pasan sus movimientos.')
       }
       const cambio = { cuentaId: reasignarA, sincronizado: false, fechaActualizacion: new Date() }
       await usos.modify(cambio)
       await recurrentes.modify(cambio)
+      await cuotas.modify(cambio)
     }
 
     // Plantillas: pasan a la otra cuenta (o se eliminan). Reglas: dejan de

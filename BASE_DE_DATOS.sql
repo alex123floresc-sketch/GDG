@@ -2,7 +2,7 @@
 --  GESTOR DE GASTOS — BASE DE DATOS COMPLETA (Supabase / PostgreSQL)
 -- =============================================================================
 --
---  Esquema al día con la app v0.17.0.
+--  Esquema al día con la app v0.18.0.
 --
 --  CÓMO USARLO
 --  -----------
@@ -31,6 +31,7 @@
 --  v0.14  tabla chanchitos; tipo de cuenta 'chanchito'
 --  v0.16  categorias.padre_id (subcategorías); tablas reglas y plantillas
 --  v0.17  categorias.clase (regla 50/30/20); tabla ajustes
+--  v0.18  tabla cuotas (compras en cuotas)
 -- =============================================================================
 
 
@@ -291,6 +292,29 @@ CREATE TABLE IF NOT EXISTS public.plantillas (
 );
 
 -- -----------------------------------------------------------------------------
+-- 1.12 Compras en cuotas
+-- -----------------------------------------------------------------------------
+-- modo 'total': se registró un gasto por el precio (transaccion_id).
+-- modo 'por_cuota': cada cuota se registra como gasto al llegar su fecha
+--   (cuotas_generadas = cuántas ya se registraron).
+CREATE TABLE IF NOT EXISTS public.cuotas (
+  id                  uuid PRIMARY KEY,
+  user_id             uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users (id) ON DELETE CASCADE,
+  descripcion         text NOT NULL,
+  cuenta_id           uuid NOT NULL REFERENCES public.cuentas (id) ON DELETE CASCADE,
+  categoria_id        uuid NOT NULL REFERENCES public.categorias (id) ON DELETE CASCADE,
+  monto_total         numeric(12, 2) NOT NULL CHECK (monto_total > 0),
+  numero_cuotas       smallint NOT NULL CHECK (numero_cuotas BETWEEN 2 AND 72),
+  monto_cuota         numeric(12, 2) NOT NULL CHECK (monto_cuota > 0),
+  fecha_compra        date NOT NULL,
+  primera_cuota       date NOT NULL,
+  modo                text NOT NULL DEFAULT 'total' CHECK (modo IN ('total', 'por_cuota')),
+  transaccion_id      uuid,
+  cuotas_generadas    smallint NOT NULL DEFAULT 0,
+  fecha_actualizacion timestamptz NOT NULL DEFAULT now()
+);
+
+-- -----------------------------------------------------------------------------
 -- 1.11 Ajustes del usuario (una fila por usuario: id = user_id)
 -- -----------------------------------------------------------------------------
 -- datos: { fondoMeses, fondoOrigen, fondoId, reparto: {necesidades, deseos,
@@ -326,6 +350,7 @@ CREATE INDEX IF NOT EXISTS chanchitos_user_idx    ON public.chanchitos (user_id)
 CREATE INDEX IF NOT EXISTS reglas_user_idx        ON public.reglas (user_id);
 CREATE INDEX IF NOT EXISTS plantillas_user_idx    ON public.plantillas (user_id);
 CREATE INDEX IF NOT EXISTS ajustes_user_idx       ON public.ajustes (user_id);
+CREATE INDEX IF NOT EXISTS cuotas_user_idx        ON public.cuotas (user_id);
 
 -- Anti-duplicados del importador de Yape: un nro_operacion por usuario.
 -- (Los NULL no chocan entre sí.) Solo se crea si la base no tiene ya un
@@ -354,7 +379,7 @@ BEGIN
   FOREACH tabla IN ARRAY ARRAY[
     'categorias', 'cuentas', 'transacciones', 'presupuestos',
     'metas', 'deudas', 'recurrentes', 'chanchitos', 'reglas', 'plantillas',
-    'ajustes'
+    'ajustes', 'cuotas'
   ] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tabla);
     EXECUTE format('DROP POLICY IF EXISTS "Acceso personal" ON public.%I', tabla);
@@ -375,7 +400,7 @@ END $$;
 NOTIFY pgrst, 'reload schema';
 
 -- -----------------------------------------------------------------------------
--- 2.4 Comprobación: debe mostrar 11 filas, todas con rls = true
+-- 2.4 Comprobación: debe mostrar 12 filas, todas con rls = true
 -- -----------------------------------------------------------------------------
 SELECT c.relname                                   AS tabla,
        c.relrowsecurity                            AS rls,
@@ -386,7 +411,7 @@ JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public'
   AND c.relname IN ('categorias', 'cuentas', 'transacciones', 'presupuestos',
                     'metas', 'deudas', 'recurrentes', 'chanchitos',
-                    'reglas', 'plantillas', 'ajustes')
+                    'reglas', 'plantillas', 'ajustes', 'cuotas')
 ORDER BY 1;
 
 
@@ -406,6 +431,7 @@ ORDER BY 1;
 /*
 -- ---------- 3A. VACIAR: borra TODOS los datos, conserva tablas y usuarios --
 TRUNCATE TABLE
+  public.cuotas,
   public.transacciones,
   public.presupuestos,
   public.recurrentes,
@@ -423,6 +449,7 @@ RESTART IDENTITY CASCADE;
 /*
 -- ---------- 3B. ELIMINAR TODO: tablas, datos y (opcional) usuarios --------
 -- Primero lo que apunta a otras tablas, al final categorias/cuentas.
+DROP TABLE IF EXISTS public.cuotas        CASCADE;
 DROP TABLE IF EXISTS public.transacciones CASCADE;
 DROP TABLE IF EXISTS public.presupuestos  CASCADE;
 DROP TABLE IF EXISTS public.recurrentes   CASCADE;
