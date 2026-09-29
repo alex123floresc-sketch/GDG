@@ -100,7 +100,7 @@ export async function leerRespaldo(archivo: File, usuarioId: string): Promise<{ 
 }
 
 /** Campos que apuntan a otra fila (se re-mapean al cambiar de usuario). */
-const REFERENCIAS = ['cuentaId', 'categoriaId', 'recurrenteId', 'padreId', 'fondoId', 'transaccionId'] as const
+const REFERENCIAS = ['cuentaId', 'categoriaId', 'recurrenteId', 'padreId', 'fondoId', 'transaccionId', 'metaId'] as const
 
 /**
  * Restaura un respaldo en este dispositivo (luego se sube a Supabase):

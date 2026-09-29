@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNumeroAnimado } from '../hooks/useNumeroAnimado'
 import type { Ajustes, Categoria, Chanchito, Cuenta, Deuda, Meta, Plantilla, Presupuesto, Recurrente, Transaccion } from '../types'
+import type { Racha } from '../utils/logros'
 import { cuantoPuedoGastar, puntajeSalud } from '../utils/salud'
 import TarjetaHoy from './TarjetaHoy'
 import { clavePeriodo, esMovimientoReal, resumenPorCategoria, resumenUltimosMeses } from '../utils/analisis'
@@ -29,6 +30,7 @@ interface InicioProps {
   recurrentes: Recurrente[]
   chanchitos: Chanchito[]
   ajustes: Ajustes
+  racha: Racha
   insights: Insight[]
   plantillas: Plantilla[]
   onUsarPlantilla: (p: Plantilla) => void
@@ -57,6 +59,7 @@ function Inicio({
   recurrentes,
   chanchitos,
   ajustes,
+  racha,
   insights,
   plantillas,
   onUsarPlantilla,
@@ -121,7 +124,20 @@ function Inicio({
             {saludo(hoy.getHours())}
             {nombre ? `, ${nombre}` : ''}
           </span>
-          <span className="fecha">{fechaLarga.charAt(0).toUpperCase() + fechaLarga.slice(1)}</span>
+          <span className="fecha">
+            {racha.actual > 1 && (
+              <button
+                type="button"
+                className="chip-racha"
+                onClick={() => onNavegar('mas:logros')}
+                title={racha.hoy ? 'Racha de días registrando' : 'Registra algo hoy para no perder tu racha'}
+              >
+                <i className="fire icon" />
+                {racha.actual} días
+              </button>
+            )}
+            {fechaLarga.charAt(0).toUpperCase() + fechaLarga.slice(1)}
+          </span>
         </div>
         <div className="saldo-total">
           <span className="etiqueta">Saldo total</span>

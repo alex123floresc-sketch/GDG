@@ -15,6 +15,7 @@ import { crearPlantilla } from '../services/plantillaService'
 import { crearRegla } from '../services/reglaService'
 import { normalizarEtiquetas } from '../utils/etiquetas'
 import { normalizarTexto, patronSugerido, reglaPara } from '../utils/reglas'
+import { textoHoras } from '../utils/horas'
 import { ICONO_CUENTA } from '../utils/cuentas'
 import { calcularParticipantes, DIVISION_INICIAL, type EstadoDivision } from '../utils/division'
 import { etiquetasUsadas } from '../utils/etiquetas'
@@ -56,6 +57,8 @@ interface FormularioTransaccionProps {
   plantillas?: Plantilla[]
   /** Rellena el formulario con esta plantilla al abrirlo. */
   plantillaInicial?: Plantilla
+  /** Soles por hora de trabajo: muestra cada gasto en horas. */
+  valorHora?: number
 }
 
 /** Pantalla táctil sin teclado físico: se usa el teclado numérico propio. */
@@ -83,6 +86,7 @@ function FormularioTransaccion({
   reglas = [],
   plantillas = [],
   plantillaInicial,
+  valorHora,
 }: FormularioTransaccionProps) {
   const { avisar } = useAvisos()
   const editando = Boolean(transaccion)
@@ -531,6 +535,11 @@ function FormularioTransaccion({
           )}
           {esTransferencia && <span className="ui basic label">S/</span>}
         </div>
+        {valorHora && tipo === 'gasto' && Number.isFinite(montoEnSoles) && montoEnSoles > 0 && (
+          <div className="horas-trabajo">
+            <i className="clock outline icon" />≈ {textoHoras(montoEnSoles, valorHora)} de tu trabajo
+          </div>
+        )}
         {tieneOperacion(monto) && (
           <div className="resultado-expresion">
             = {Number.isFinite(montoNumerico) ? (moneda === 'USD' ? formatearDolares(montoNumerico) : formatearMoneda(montoNumerico)) : '…'}

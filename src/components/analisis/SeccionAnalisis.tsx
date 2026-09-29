@@ -1,16 +1,18 @@
 import type { ReactNode } from 'react'
-import type { Ajustes, Categoria, Chanchito, CompraCuotas, Cuenta, Deuda, Meta, Presupuesto, Recurrente, Transaccion } from '../../types'
+import type { Ajustes, Categoria, Chanchito, CompraCuotas, Deseo, Cuenta, Deuda, Meta, Presupuesto, Recurrente, Transaccion } from '../../types'
 import Analisis from '../Analisis'
+import PanelAnual from './PanelAnual'
 import PanelComparar from './PanelComparar'
 import PanelPatrimonio from './PanelPatrimonio'
 import PanelReporte from './PanelReporte'
 import PanelSalud from './PanelSalud'
 
-export type PestanaAnalisis = 'resumen' | 'salud' | 'comparar' | 'patrimonio' | 'reporte'
+export type PestanaAnalisis = 'resumen' | 'salud' | 'anual' | 'comparar' | 'patrimonio' | 'reporte'
 
 const PESTANAS: { id: PestanaAnalisis; etiqueta: string; icono: string }[] = [
   { id: 'resumen', etiqueta: 'Resumen', icono: 'chart bar' },
   { id: 'salud', etiqueta: 'Salud financiera', icono: 'heartbeat' },
+  { id: 'anual', etiqueta: 'Tu año', icono: 'star' },
   { id: 'comparar', etiqueta: 'Comparar', icono: 'exchange' },
   { id: 'patrimonio', etiqueta: 'Patrimonio', icono: 'balance scale' },
   { id: 'reporte', etiqueta: 'Reporte mensual', icono: 'file alternate outline' },
@@ -22,6 +24,7 @@ interface SeccionAnalisisProps {
   chanchitos: Chanchito[]
   recurrentes: Recurrente[]
   cuotas: CompraCuotas[]
+  deseos: Deseo[]
   pestana: PestanaAnalisis
   onCambiarPestana: (p: PestanaAnalisis) => void
   email: string
@@ -77,6 +80,15 @@ function SeccionAnalisis(props: SeccionAnalisisProps) {
             deudas={props.deudas}
             recurrentes={props.recurrentes}
             cuotas={props.cuotas}
+          />
+        )}
+        {pestana === 'anual' && (
+          <PanelAnual
+            transacciones={transacciones}
+            categorias={categorias}
+            metas={props.metas}
+            deseos={props.deseos}
+            ajustes={props.ajustes}
           />
         )}
         {pestana === 'comparar' && <PanelComparar transacciones={transacciones} categorias={categorias} />}

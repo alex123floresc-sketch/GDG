@@ -6,6 +6,7 @@ import {
   useAjustes,
   useChanchitos,
   useCuotas,
+  useDeseos,
   useDeudas,
   useMetas,
   usePlantillas,
@@ -18,6 +19,9 @@ import { registrarDesdePlantilla } from '../services/plantillaService'
 import { eliminarTransaccion } from '../services/transaccionService'
 import type { Plantilla, Transaccion } from '../types'
 import Automatizar from './automatizar/Automatizar'
+import Logros from './Logros'
+import { calcularLogros, calcularRacha } from '../utils/logros'
+import { valorHora } from '../utils/horas'
 import { generarInsights, type Insight } from '../utils/insights'
 import SeccionAnalisis, { type PestanaAnalisis } from './analisis/SeccionAnalisis'
 import FormularioTransaccion, { type TipoFormulario } from './FormularioTransaccion'
@@ -44,7 +48,7 @@ interface DashboardProps {
 }
 
 type Seccion = 'inicio' | 'movimientos' | 'analisis' | 'planificar' | 'mas'
-type SubseccionMas = 'cuentas' | 'categorias' | 'automatizar' | 'importar' | 'seguridad'
+type SubseccionMas = 'cuentas' | 'categorias' | 'automatizar' | 'logros' | 'importar' | 'seguridad'
 type Destino = NonNullable<Insight['destino']> | 'movimientos'
 
 const SECCIONES: { id: Seccion; etiqueta: string; icono: string }[] = [
@@ -59,6 +63,7 @@ const SUBSECCIONES_MAS: { id: SubseccionMas; etiqueta: string; icono: string }[]
   { id: 'cuentas', etiqueta: 'Cuentas', icono: 'wallet' },
   { id: 'categorias', etiqueta: 'Categorías', icono: 'tags' },
   { id: 'automatizar', etiqueta: 'Automatizar', icono: 'magic' },
+  { id: 'logros', etiqueta: 'Logros', icono: 'trophy' },
   { id: 'importar', etiqueta: 'Importar Yape', icono: 'file excel outline' },
   { id: 'seguridad', etiqueta: 'Seguridad y respaldo', icono: 'lock' },
 ]
@@ -106,6 +111,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   const ajustes = useAjustes(usuarioId)
   // Además de listarlas, registra las cuotas vencidas (modo "mes a mes").
   const cuotas = useCuotas(usuarioId)
+  const deseos = useDeseos(usuarioId)
   const { avisar } = useAvisos()
 
   const [desdeUrl] = useState(accionDeUrl)
@@ -150,6 +156,41 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   )
 
   const personasPrevias = useMemo(() => [...new Set(deudas.map((d) => d.persona))], [deudas])
+
+  const racha = useMemo(() => calcularRacha(transacciones), [transacciones])
+  const logros = useMemo(
+    () =>
+      calcularLogros({ transacciones, categorias, cuentas, presupuestos, metas, deudas, chanchitos, reglas, plantillas, deseos, ajustes }),
+    [transacciones, categorias, cuentas, presupuestos, metas, deudas, chanchitos, reglas, plantillas, deseos, ajustes],
+  )
+  const hora = useMemo(() => valorHora(ajustes, transacciones), [ajustes, transacciones])
+
+  // Avisa los logros nuevos. La primera vez en el dispositivo solo los
+  // guarda como vistos (no llena de avisos a quien ya usaba la app).
+  // Se espera a que carguen todas las tablas (useLiveQuery empieza vacío).
+  const [datosListos, setDatosListos] = useState(false)
+  useEffect(() => {
+    const t = window.setTimeout(() => setDatosListos(true), 3000)
+    return () => window.clearTimeout(t)
+  }, [])
+  useEffect(() => {
+    if (!datosListos || transacciones.length === 0) return
+    const clave = `gg:logrosVistos:${usuarioId}`
+    const logrados = logros.filter((l) => l.logrado).map((l) => l.id)
+    let vistos: string[] | null = null
+    try {
+      vistos = JSON.parse(localStorage.getItem(clave) ?? 'null')
+    } catch {
+      vistos = null
+    }
+    const nuevos = vistos ? logros.filter((l) => l.logrado && !vistos!.includes(l.id)) : []
+    for (const l of nuevos.slice(0, 2)) avisar(`¡Logro desbloqueado: ${l.nombre}!`, 'exito')
+    try {
+      localStorage.setItem(clave, JSON.stringify(logrados))
+    } catch {
+      // Sin almacenamiento: se volverá a revisar la próxima vez.
+    }
+  }, [datosListos, logros, transacciones.length, usuarioId, avisar])
 
   const cerrarEdicion = useCallback(() => setEditando(null), [])
   const cerrarRegistroRapido = useCallback(() => {
@@ -272,6 +313,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
             recurrentes={recurrentes}
             chanchitos={chanchitos}
             ajustes={ajustes}
+            racha={racha}
             insights={insights}
             plantillas={plantillas}
             onUsarPlantilla={usarPlantilla}
@@ -297,6 +339,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
             chanchitos={chanchitos}
             recurrentes={recurrentes}
             cuotas={cuotas}
+            deseos={deseos}
             pestana={pestanaAnalisis}
             onCambiarPestana={setPestanaAnalisis}
             email={email}
@@ -325,6 +368,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
             deudas={deudas}
             recurrentes={recurrentes}
             cuotas={cuotas}
+            deseos={deseos}
             ajustes={ajustes}
           />
         )}
@@ -369,6 +413,8 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
                   transacciones={transacciones}
                 />
               )}
+
+              {subseccionMas === 'logros' && <Logros logros={logros} racha={racha} />}
 
               {subseccionMas === 'seguridad' && (
                 <>
@@ -437,6 +483,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
             reglas={reglas}
             plantillas={plantillas}
             plantillaInicial={plantillaRegistro}
+            valorHora={hora?.valor}
             onListo={cerrarRegistroRapido}
             onGestionarCategorias={() => {
               cerrarRegistroRapido()

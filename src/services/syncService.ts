@@ -8,6 +8,7 @@ import type {
   CompraCuotas,
   ControlSync,
   Cuenta,
+  Deseo,
   Deuda,
   Frecuencia,
   Meta,
@@ -185,6 +186,11 @@ const MIGRACIONES: { archivo: string; comprobar: () => PromiseLike<{ error: unkn
     // Compras en cuotas.
     archivo: 'v0.18.sql',
     comprobar: () => [supabase!.from('cuotas').select('id').limit(0)],
+  },
+  {
+    // Lista de deseos.
+    archivo: 'v0.19.sql',
+    comprobar: () => [supabase!.from('deseos').select('id').limit(0)],
   },
 ]
 
@@ -701,6 +707,43 @@ const CUOTAS: Entidad<CompraCuotas> = {
   }),
 }
 
+const DESEOS: Entidad<Deseo> = {
+  tabla: 'deseos',
+  local: db.deseos,
+  etiqueta: 'el deseo',
+  nombre: (d) => `"${d.nombre}"`,
+  aFila: (d, userId) => ({
+    id: d.id,
+    user_id: userId,
+    nombre: d.nombre,
+    precio: d.precio,
+    prioridad: d.prioridad,
+    enlace: d.enlace ?? null,
+    nota: d.nota ?? null,
+    fecha_creacion: d.fechaCreacion.toISOString(),
+    esperar_hasta: d.esperarHasta ? aFechaSql(d.esperarHasta) : null,
+    estado: d.estado,
+    fecha_estado: d.fechaEstado ? d.fechaEstado.toISOString() : null,
+    meta_id: d.metaId ?? null,
+    fecha_actualizacion: fechaRemota(d),
+  }),
+  aLocal: (f) => ({
+    id: f.id as string,
+    usuarioId: f.user_id as string,
+    nombre: f.nombre as string,
+    precio: aNumero(f.precio),
+    prioridad: ([1, 2, 3].includes(Number(f.prioridad)) ? Number(f.prioridad) : 2) as 1 | 2 | 3,
+    enlace: (f.enlace as string | null) ?? undefined,
+    nota: (f.nota as string | null) ?? undefined,
+    fechaCreacion: new Date(f.fecha_creacion as string),
+    esperarHasta: f.esperar_hasta ? deFechaSql(f.esperar_hasta as string) : undefined,
+    estado: f.estado === 'comprado' || f.estado === 'descartado' ? f.estado : 'pendiente',
+    fechaEstado: f.fecha_estado ? new Date(f.fecha_estado as string) : undefined,
+    metaId: (f.meta_id as string | null) ?? undefined,
+    ...marcaDeTiempo(f),
+  }),
+}
+
 const RECURRENTES: Entidad<Recurrente> = {
   tabla: 'recurrentes',
   local: db.recurrentes,
@@ -1183,6 +1226,7 @@ async function repararReferenciasHuerfanas(usuarioId: string): Promise<void> {
 /** Orden de borrado: primero lo que referencia a categorías/cuentas. */
 const ORDEN_BORRADO: TablaSincronizable[] = [
   'cuotas',
+  'deseos',
   'transacciones',
   'presupuestos',
   'recurrentes',
@@ -1488,6 +1532,7 @@ export async function sincronizar(usuarioId: string): Promise<ResultadoSincroniz
     }
     if (esquemaListo('v0.17.sql')) agregar(await sincronizarEntidad(AJUSTES, usuarioId, userId, borrados))
     if (esquemaListo('v0.18.sql')) agregar(await sincronizarEntidad(CUOTAS, usuarioId, userId, borrados))
+    if (esquemaListo('v0.19.sql')) agregar(await sincronizarEntidad(DESEOS, usuarioId, userId, borrados))
   }
 
   let descargadas = 0

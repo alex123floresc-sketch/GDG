@@ -5,6 +5,7 @@ import type {
   Chanchito,
   CompraCuotas,
   Cuenta,
+  Deseo,
   Deuda,
   EliminacionPendiente,
   Meta,
@@ -59,6 +60,7 @@ export class GestorGastosDB extends Dexie {
   plantillas!: Table<Plantilla, string>
   ajustes!: Table<Ajustes, string>
   cuotas!: Table<CompraCuotas, string>
+  deseos!: Table<Deseo, string>
 
   constructor() {
     super('GestorGastosDB')
@@ -170,6 +172,11 @@ export class GestorGastosDB extends Dexie {
     this.version(12).stores({
       cuotas: 'id, usuarioId',
     })
+
+    // v13: lista de deseos.
+    this.version(13).stores({
+      deseos: 'id, usuarioId',
+    })
   }
 }
 
@@ -193,4 +200,5 @@ export const TABLAS_SINCRONIZABLES: TablaSincronizable[] = [
   'plantillas',
   'ajustes',
   'cuotas',
+  'deseos',
 ]

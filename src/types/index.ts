@@ -275,6 +275,29 @@ export interface CompraCuotas extends ControlSync {
   cuotasGeneradas?: number
 }
 
+export type EstadoDeseo = 'pendiente' | 'comprado' | 'descartado'
+
+/** Algo que quieres comprar (lista de deseos). */
+export interface Deseo extends ControlSync {
+  id: string
+  usuarioId: string
+  nombre: string
+  /** Precio estimado en soles. */
+  precio: number
+  /** 1 = lo quiero mucho … 3 = puede esperar. */
+  prioridad: 1 | 2 | 3
+  enlace?: string
+  nota?: string
+  fechaCreacion: Date
+  /** Regla de los 30 días: no comprarlo antes de esta fecha. */
+  esperarHasta?: Date
+  estado: EstadoDeseo
+  /** Cuándo se compró o descartó. */
+  fechaEstado?: Date
+  /** Meta de ahorro creada a partir del deseo. */
+  metaId?: string
+}
+
 /** De dónde sale el fondo de emergencia. */
 export type OrigenFondo = 'liquido' | 'cuenta' | 'meta' | 'chanchito'
 
@@ -312,6 +335,7 @@ export type TablaSincronizable =
   | 'plantillas'
   | 'ajustes'
   | 'cuotas'
+  | 'deseos'
 
 /**
  * Registro local de un borrado que falta replicar en Supabase (se procesa
@@ -333,6 +357,7 @@ export type NuevaMeta = Omit<Meta, SinControl | 'aportes'>
 export type NuevaDeuda = Omit<Deuda, SinControl | 'abonos'>
 export type NuevoRecurrente = Omit<Recurrente, SinControl>
 export type NuevaCompraCuotas = Omit<CompraCuotas, SinControl | 'transaccionId' | 'cuotasGeneradas'>
+export type NuevoDeseo = Omit<Deseo, SinControl | 'estado' | 'fechaEstado' | 'metaId' | 'fechaCreacion'>
 export type NuevaRegla = Omit<Regla, SinControl>
 export type NuevaPlantilla = Omit<Plantilla, SinControl>
 export type NuevoChanchito = Pick<Chanchito, 'nombre' | 'icono' | 'color' | 'tipo' | 'reto'>

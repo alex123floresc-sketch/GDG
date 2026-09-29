@@ -3600,3 +3600,246 @@ i.icon.rotado {
     font-size: 0.62em;
   }
 }
+
+/* ---------- Deseos, logros y tu año (v0.19) ---------- */
+
+.horas-trabajo {
+  margin-top: 0.35em;
+  color: var(--color-texto-suave);
+  font-size: 0.9em;
+}
+
+.tarjeta-deseo.ui.segment {
+  border-left: 4px solid var(--color-borde);
+}
+
+.tarjeta-deseo.prioridad-1 {
+  border-left-color: var(--color-gasto) !important;
+}
+
+.tarjeta-deseo.prioridad-2 {
+  border-left-color: var(--color-alerta) !important;
+}
+
+.tarjeta-deseo.prioridad-3 {
+  border-left-color: var(--serie-balance) !important;
+}
+
+.tarjeta-deseo.cerrado {
+  opacity: 0.75;
+}
+
+.tarjeta-deseo .cabecera {
+  display: flex;
+  justify-content: space-between;
+  gap: 1em;
+}
+
+.tarjeta-deseo .cabecera .detalle {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tarjeta-deseo .precio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tarjeta-deseo .precio strong {
+  font-size: 1.15em;
+}
+
+.nota-deseo {
+  margin: 0.5em 0 0;
+}
+
+.espera-deseo {
+  margin: 0.6em 0 0;
+  padding: 0.4em 0.7em;
+  border-radius: 8px;
+  background: var(--color-marca-suave);
+  font-size: 0.92em;
+}
+
+.meta-deseo {
+  margin-top: 0.6em;
+}
+
+.acciones-deseo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4em;
+  margin-top: 0.75em;
+}
+
+.acciones-deseo .ui.button,
+.acciones-deseo .ui.buttons {
+  margin: 0;
+}
+
+.acciones-deseo .ui.buttons {
+  margin-left: auto;
+}
+
+.tarjeta-racha.ui.segment {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+}
+
+.llama {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-fondo);
+  color: var(--color-texto-suave);
+  font-size: 1.8em;
+}
+
+.llama i.icon {
+  margin: 0;
+}
+
+.llama.activa {
+  background: color-mix(in srgb, var(--serie-gasto) 18%, var(--color-superficie));
+  color: var(--color-gasto);
+}
+
+.datos-racha {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+}
+
+.datos-racha strong {
+  font-size: 1.4em;
+}
+
+.rejilla-logros {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 0.75em;
+}
+
+.medalla {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3em;
+  padding: 1em 0.75em;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+  text-align: center;
+  font-size: 0.92em;
+}
+
+.icono-medalla {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--color-fondo);
+  color: var(--color-texto-suave);
+  font-size: 1.4em;
+}
+
+.icono-medalla i.icon {
+  margin: 0;
+}
+
+.medalla.lograda {
+  border-color: var(--color-marca);
+}
+
+.medalla.lograda .icono-medalla {
+  background: var(--color-marca-suave);
+  color: var(--color-marca);
+}
+
+.estado-medalla {
+  margin-top: auto;
+  font-weight: 700;
+  font-size: 0.85em;
+}
+
+.medalla.lograda .estado-medalla {
+  color: var(--color-ingreso);
+}
+
+.rejilla-anual {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1em;
+}
+
+.tarjeta-anual {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  padding: 1.2em;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+  box-shadow: var(--sombra);
+}
+
+.tarjeta-anual .etiqueta {
+  color: var(--color-texto-suave);
+  font-size: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tarjeta-anual strong {
+  font-size: 1.5em;
+  line-height: 1.2;
+}
+
+.tarjeta-anual.destacada {
+  border: none;
+  background: linear-gradient(135deg, var(--color-header-2), var(--color-boton));
+  color: #fff;
+}
+
+.tarjeta-anual.destacada .etiqueta {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.tarjeta-anual.destacada strong {
+  font-size: 2.2em;
+  color: #fff;
+}
+
+.top-anual {
+  margin: 0.4em 0 0;
+  padding-left: 1.3em;
+  font-size: 0.92em;
+}
+
+.chip-racha {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.6em;
+  padding: 0.1em 0.6em;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chip-racha i.icon {
+  margin: 0 0.2em 0 0;
+}

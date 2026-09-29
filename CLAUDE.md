@@ -47,7 +47,7 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   + gris; mantener ese orden).
 - Navegación principal en `Dashboard.tsx`: 5 secciones (Inicio,
   Movimientos, Análisis, Planificar → Presupuestos/Metas/Chanchitos/
-  Deudas/Recurrentes/Cuotas/Calendario, Más → Cuentas/Categorías/Automatizar/Importar Yape/
+  Deudas/Recurrentes/Cuotas/Calendario/Deseos, Más → Cuentas/Categorías/Automatizar/Logros/Importar Yape/
   Seguridad); en móvil (<768px)
   la barra pasa al pie de pantalla. Registrar es el botón flotante "+"
   (abre `FormularioTransaccion` en un `Modal`).
@@ -82,10 +82,10 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `Modal` (modal de Fomantic sin jQuery, vía portal), `Avisos` (toasts;
   se usan con `useAvisos().avisar(...)`), `graficos/`, `YapeImporter`
   (cargado con `React.lazy`, ver Rendimiento)
-- `src/db/database.ts` — esquema Dexie v12 (`GestorGastosDB`, tablas
+- `src/db/database.ts` — esquema Dexie v13 (`GestorGastosDB`, tablas
   `transacciones`, `categorias`, `cuentas`, `presupuestos`, `metas`,
   `deudas`, `recurrentes`, `chanchitos`, `reglas`, `plantillas`,
-  `ajustes`, `cuotas`, `eliminacionesPendientes`). `TABLAS_SINCRONIZABLES` es la lista única
+  `ajustes`, `cuotas`, `deseos`, `eliminacionesPendientes`). `TABLAS_SINCRONIZABLES` es la lista única
   de tablas del usuario (la usan `useSync` para contar pendientes,
   `respaldoService` y `limpiarDatosLocales`): una tabla nueva se agrega
   ahí.
@@ -343,6 +343,27 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   conocido). Se ofrecen en Recurrentes ("Hacer recurrente" / "No es",
   guardado en `Ajustes.suscripcionesIgnoradas`) y como insight.
 
+## Deseos, logros, horas de trabajo y tu año (v0.19)
+
+- **Lista de deseos** (`Deseo`, tabla `deseos`, Planificar → Deseos):
+  prioridad, enlace, regla de los 30 días (`esperarHasta`), "Lo compré"
+  (registra el gasto), "Ya no lo quiero" (suma a "te resististe"),
+  "Ahorrar para esto" (crea una meta y guarda `metaId`).
+- **Horas de trabajo** (`utils/horas.ts`): `valorHora` = ingreso mensual
+  (`Ajustes.ingresoMensual`, o el promedio de 3 meses) ÷ horas al mes
+  (`Ajustes.horasSemana`, 48 por defecto). Se muestra al registrar un
+  gasto, en deseos y en "Tu año". Se configura en Planificar → Deseos.
+- **Logros y racha** (`utils/logros.ts`, Más → Logros): racha = días
+  seguidos con algún movimiento propio (sin transferencias ni generados
+  solos); 19 logros calculados de los datos (nada se guarda). Dashboard
+  avisa los nuevos comparando con `localStorage gg:logrosVistos:<id>`
+  (espera 3 s a que carguen las tablas; la primera vez solo guarda).
+  Chip de racha en Inicio (≥ 2 días).
+- **Tu año** (`utils/anual.ts`, Análisis → Tu año): totales, categoría
+  y mes top, gasto más repetido, día de la semana, mayor gasto, racha;
+  "Compartir" usa Web Share o copia el texto. Insight del 15 de
+  diciembre a fin de enero.
+
 ## Reporte mensual (v0.12)
 
 - `PanelReporte` genera el reporte de un mes; "Descargar PDF" llama a
@@ -477,6 +498,7 @@ la migración).
 - `v0.16.sql`: `categorias.padre_id`, tablas `reglas` y `plantillas`.
 - `v0.17.sql`: `categorias.clase`, tabla `ajustes`.
 - `v0.18.sql`: tabla `cuotas`.
+- `v0.19.sql`: tabla `deseos`.
   `esquemaListo(archivo)` dice si ya está confirmada (las columnas nuevas
   de tablas existentes solo se envían entonces). El aviso de App.tsx
   usa `FUNCIONES_POR_MIGRACION`.

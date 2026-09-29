@@ -1,8 +1,9 @@
-import type { Ajustes, Categoria, Chanchito, CompraCuotas, Cuenta, Deuda, Meta, Presupuesto, Recurrente, Transaccion } from '../../types'
+import type { Ajustes, Categoria, Chanchito, CompraCuotas, Cuenta, Deseo, Deuda, Meta, Presupuesto, Recurrente, Transaccion } from '../../types'
 import { cuentasOperativas } from '../../utils/cuentas'
 import PanelCalendarioPagos from './PanelCalendarioPagos'
 import PanelChanchitos from './PanelChanchitos'
 import PanelCuotas from './PanelCuotas'
+import PanelDeseos from './PanelDeseos'
 import PanelDeudas from './PanelDeudas'
 import PanelMetas from './PanelMetas'
 import PanelPresupuestos from './PanelPresupuestos'
@@ -16,6 +17,7 @@ export type PestanaPlanificar =
   | 'recurrentes'
   | 'cuotas'
   | 'calendario'
+  | 'deseos'
 
 const PESTANAS: { id: PestanaPlanificar; etiqueta: string; icono: string }[] = [
   { id: 'presupuestos', etiqueta: 'Presupuestos', icono: 'chart pie' },
@@ -25,6 +27,7 @@ const PESTANAS: { id: PestanaPlanificar; etiqueta: string; icono: string }[] = [
   { id: 'recurrentes', etiqueta: 'Recurrentes', icono: 'redo alternate' },
   { id: 'cuotas', etiqueta: 'Cuotas', icono: 'credit card outline' },
   { id: 'calendario', etiqueta: 'Calendario', icono: 'calendar alternate outline' },
+  { id: 'deseos', etiqueta: 'Deseos', icono: 'gift' },
 ]
 
 interface PlanificarProps {
@@ -40,6 +43,7 @@ interface PlanificarProps {
   deudas: Deuda[]
   recurrentes: Recurrente[]
   cuotas: CompraCuotas[]
+  deseos: Deseo[]
   ajustes: Ajustes
 }
 
@@ -109,6 +113,17 @@ function Planificar(props: PlanificarProps) {
           <PanelCuotas
             usuarioId={usuarioId}
             cuotas={props.cuotas}
+            cuentas={cuentasOperativas(cuentas)}
+            categorias={categorias}
+            transacciones={transacciones}
+          />
+        )}
+        {pestana === 'deseos' && (
+          <PanelDeseos
+            usuarioId={usuarioId}
+            deseos={props.deseos}
+            metas={props.metas}
+            ajustes={props.ajustes}
             cuentas={cuentasOperativas(cuentas)}
             categorias={categorias}
             transacciones={transacciones}

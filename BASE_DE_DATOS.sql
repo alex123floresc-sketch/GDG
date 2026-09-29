@@ -2,7 +2,7 @@
 --  GESTOR DE GASTOS — BASE DE DATOS COMPLETA (Supabase / PostgreSQL)
 -- =============================================================================
 --
---  Esquema al día con la app v0.18.0.
+--  Esquema al día con la app v0.19.0.
 --
 --  CÓMO USARLO
 --  -----------
@@ -32,6 +32,7 @@
 --  v0.16  categorias.padre_id (subcategorías); tablas reglas y plantillas
 --  v0.17  categorias.clase (regla 50/30/20); tabla ajustes
 --  v0.18  tabla cuotas (compras en cuotas)
+--  v0.19  tabla deseos (lista de deseos)
 -- =============================================================================
 
 
@@ -315,6 +316,26 @@ CREATE TABLE IF NOT EXISTS public.cuotas (
 );
 
 -- -----------------------------------------------------------------------------
+-- 1.13 Lista de deseos
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.deseos (
+  id                  uuid PRIMARY KEY,
+  user_id             uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users (id) ON DELETE CASCADE,
+  nombre              text NOT NULL,
+  precio              numeric(12, 2) NOT NULL CHECK (precio > 0),
+  prioridad           smallint NOT NULL DEFAULT 2 CHECK (prioridad BETWEEN 1 AND 3),
+  enlace              text,
+  nota                text,
+  fecha_creacion      timestamptz NOT NULL DEFAULT now(),
+  -- Regla de los 30 días: no comprarlo antes de esta fecha
+  esperar_hasta       date,
+  estado              text NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'comprado', 'descartado')),
+  fecha_estado        timestamptz,
+  meta_id             uuid,
+  fecha_actualizacion timestamptz NOT NULL DEFAULT now()
+);
+
+-- -----------------------------------------------------------------------------
 -- 1.11 Ajustes del usuario (una fila por usuario: id = user_id)
 -- -----------------------------------------------------------------------------
 -- datos: { fondoMeses, fondoOrigen, fondoId, reparto: {necesidades, deseos,
@@ -351,6 +372,7 @@ CREATE INDEX IF NOT EXISTS reglas_user_idx        ON public.reglas (user_id);
 CREATE INDEX IF NOT EXISTS plantillas_user_idx    ON public.plantillas (user_id);
 CREATE INDEX IF NOT EXISTS ajustes_user_idx       ON public.ajustes (user_id);
 CREATE INDEX IF NOT EXISTS cuotas_user_idx        ON public.cuotas (user_id);
+CREATE INDEX IF NOT EXISTS deseos_user_idx        ON public.deseos (user_id);
 
 -- Anti-duplicados del importador de Yape: un nro_operacion por usuario.
 -- (Los NULL no chocan entre sí.) Solo se crea si la base no tiene ya un
@@ -379,7 +401,7 @@ BEGIN
   FOREACH tabla IN ARRAY ARRAY[
     'categorias', 'cuentas', 'transacciones', 'presupuestos',
     'metas', 'deudas', 'recurrentes', 'chanchitos', 'reglas', 'plantillas',
-    'ajustes', 'cuotas'
+    'ajustes', 'cuotas', 'deseos'
   ] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tabla);
     EXECUTE format('DROP POLICY IF EXISTS "Acceso personal" ON public.%I', tabla);
@@ -400,7 +422,7 @@ END $$;
 NOTIFY pgrst, 'reload schema';
 
 -- -----------------------------------------------------------------------------
--- 2.4 Comprobación: debe mostrar 12 filas, todas con rls = true
+-- 2.4 Comprobación: debe mostrar 13 filas, todas con rls = true
 -- -----------------------------------------------------------------------------
 SELECT c.relname                                   AS tabla,
        c.relrowsecurity                            AS rls,
@@ -411,7 +433,7 @@ JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public'
   AND c.relname IN ('categorias', 'cuentas', 'transacciones', 'presupuestos',
                     'metas', 'deudas', 'recurrentes', 'chanchitos',
-                    'reglas', 'plantillas', 'ajustes', 'cuotas')
+                    'reglas', 'plantillas', 'ajustes', 'cuotas', 'deseos')
 ORDER BY 1;
 
 
@@ -432,6 +454,7 @@ ORDER BY 1;
 -- ---------- 3A. VACIAR: borra TODOS los datos, conserva tablas y usuarios --
 TRUNCATE TABLE
   public.cuotas,
+  public.deseos,
   public.transacciones,
   public.presupuestos,
   public.recurrentes,
@@ -450,6 +473,7 @@ RESTART IDENTITY CASCADE;
 -- ---------- 3B. ELIMINAR TODO: tablas, datos y (opcional) usuarios --------
 -- Primero lo que apunta a otras tablas, al final categorias/cuentas.
 DROP TABLE IF EXISTS public.cuotas        CASCADE;
+DROP TABLE IF EXISTS public.deseos        CASCADE;
 DROP TABLE IF EXISTS public.transacciones CASCADE;
 DROP TABLE IF EXISTS public.presupuestos  CASCADE;
 DROP TABLE IF EXISTS public.recurrentes   CASCADE;

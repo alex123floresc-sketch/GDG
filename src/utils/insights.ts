@@ -29,6 +29,9 @@ export interface Insight {
     | 'mas:cuentas'
     | 'mas:categorias'
     | 'mas:automatizar'
+    | 'mas:logros'
+    | 'analisis:anual'
+    | 'planificar:deseos'
     | 'analisis'
     | 'analisis:reporte'
     | 'analisis:comparar'
@@ -337,6 +340,21 @@ export function generarInsights({
       prioridad: 28,
       destino: 'planificar:recurrentes',
     })
+  }
+
+  // 9d. Diciembre y enero: el resumen del año está listo.
+  if ((mes === 11 && dia >= 15) || mes === 0) {
+    const anioResumen = mes === 0 ? anio - 1 : anio
+    if (reales.some((t) => t.fecha.getFullYear() === anioResumen)) {
+      insights.push({
+        id: 'resumen-anual',
+        icono: 'star',
+        tono: 'positivo',
+        texto: `Tu ${anioResumen} en números está listo: cuánto ahorraste, dónde más gastaste y más.`,
+        prioridad: 40,
+        destino: 'analisis:anual',
+      })
+    }
   }
 
   // 10. Primera semana del mes: el reporte del mes anterior está listo.

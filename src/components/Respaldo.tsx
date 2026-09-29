@@ -24,6 +24,7 @@ const NOMBRES: Record<TablaSincronizable, string> = {
   plantillas: 'plantillas',
   ajustes: 'ajustes',
   cuotas: 'compras en cuotas',
+  deseos: 'deseos',
 }
 
 interface RespaldoProps {

@@ -3,7 +3,7 @@ import { useEffect, useMemo } from 'react'
 import { db } from '../db/database'
 import { generarCuotasPendientes } from '../services/cuotaService'
 import { generarRecurrentesPendientes } from '../services/recurrenteService'
-import type { Ajustes, Chanchito, CompraCuotas, Deuda, Meta, Plantilla, Presupuesto, Recurrente, Regla } from '../types'
+import type { Ajustes, Chanchito, CompraCuotas, Deseo, Deuda, Meta, Plantilla, Presupuesto, Recurrente, Regla } from '../types'
 import { ajustesVacios } from '../services/ajustesService'
 import { fechaCuota } from '../utils/cuotas'
 
@@ -53,6 +53,10 @@ export function useCuotas(usuarioId: string): CompraCuotas[] {
     if (hayVencidas) void generarCuotasPendientes(usuarioId)
   }, [hayVencidas, usuarioId])
   return cuotas
+}
+
+export function useDeseos(usuarioId: string): Deseo[] {
+  return useLiveQuery(() => db.deseos.where('usuarioId').equals(usuarioId).toArray(), [usuarioId]) ?? []
 }
 
 export function useReglas(usuarioId: string): Regla[] {
