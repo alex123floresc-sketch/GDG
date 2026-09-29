@@ -2,11 +2,13 @@ import * as XLSX from 'xlsx'
 import { db } from '../db/database'
 import type {
   FilaYapeParseada,
+  Regla,
   ResultadoImportacionYape,
   ResultadoParseoYape,
   Transaccion,
   TipoTransaccion,
 } from '../types'
+import { reglaPara } from '../utils/reglas'
 
 const RE_FECHA = /fecha/i
 const RE_MONTO = /monto|importe/i
@@ -182,12 +184,15 @@ export async function leerArchivoExcelYape(
  * Inserta en Dexie las filas ya parseadas, aplicando la validación
  * anti-duplicados: si ya existe una transacción con el mismo nroOperacion
  * para este usuario (o se repite dentro del propio archivo), se ignora.
+ * Si el concepto coincide con una regla automática, se usa su categoría
+ * (y etiquetas) en vez de `categoriaId`.
  */
 export async function importarFilasYape(
   filas: FilaYapeParseada[],
   usuarioId: string,
   cuentaId: string,
   categoriaId: string,
+  reglas: Regla[] = [],
 ): Promise<ResultadoImportacionYape> {
   const nuevas: Transaccion[] = []
   const nrosEnEsteLote = new Set<string>()
@@ -210,12 +215,14 @@ export async function importarFilasYape(
     }
 
     nrosEnEsteLote.add(fila.nroOperacion)
+    const regla = reglaPara(fila.concepto, fila.tipo, reglas)
 
     nuevas.push({
       id: crypto.randomUUID(),
       usuarioId,
       cuentaId,
-      categoriaId,
+      categoriaId: regla?.categoriaId ?? categoriaId,
+      etiquetas: regla?.etiquetas,
       monto: fila.monto,
       tipo: fila.tipo,
       fecha: fila.fecha,

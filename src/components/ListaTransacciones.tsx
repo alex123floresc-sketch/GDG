@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from 'react'
 import type { Categoria, Cuenta, Transaccion } from '../types'
 import { esMovimientoReal } from '../utils/analisis'
+import { nombreCompleto } from '../utils/categorias'
 import { formatearDolares, formatearMoneda } from '../utils/formato'
 import Ilustracion, { type NombreIlustracion } from './Ilustracion'
 
@@ -121,8 +122,9 @@ function ListaTransacciones({
       tituloFila = t.concepto || 'Transferencia'
       detalle = desde && hacia ? `${desde} → ${hacia}` : desde ? `Desde ${desde}` : `Hacia ${hacia ?? '—'}`
     } else {
-      tituloFila = t.concepto || categoria?.nombre || 'Sin categoría'
-      detalle = [t.concepto && categoria ? categoria.nombre : null, nombreCuenta]
+      const nombreCategoria = categoria ? nombreCompleto(categoria, categoriasPorId) : undefined
+      tituloFila = t.concepto || nombreCategoria || 'Sin categoría'
+      detalle = [t.concepto && categoria ? nombreCategoria : null, nombreCuenta]
         .filter(Boolean)
         .join(' · ')
     }

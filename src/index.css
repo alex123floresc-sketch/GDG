@@ -3013,3 +3013,190 @@ body.con-modal {
     animation: none;
   }
 }
+
+/* ---------- Automatizar: plantillas, reglas y subcategorías (v0.16) ---------- */
+
+.tarjeta-categoria.subcategoria {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--color-marca-suave) 50%, transparent);
+}
+
+i.icon.rotado {
+  transform: rotate(90deg);
+}
+
+.selector-subcategoria {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35em;
+  margin-top: 0.6em;
+}
+
+.selector-subcategoria .ui.button {
+  margin: 0;
+}
+
+.nota-regla {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+  margin-bottom: 0.5em;
+  padding: 0.2em 0.6em;
+  border-radius: 999px;
+  background: var(--color-marca-suave);
+  color: var(--color-marca);
+  font-size: 0.85em;
+}
+
+.plantillas-formulario {
+  display: flex;
+  gap: 0.35em;
+  margin-bottom: 1em;
+  padding-bottom: 0.2em;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.plantillas-formulario .ui.button {
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.opciones-extra {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  margin: 0.5em 0 1em;
+  font-size: 0.92em;
+  color: var(--color-texto-suave);
+}
+
+.opciones-extra i.icon {
+  color: var(--color-marca);
+  margin: 0;
+}
+
+.carrusel-plantillas {
+  display: flex;
+  gap: 0.5em;
+  margin-bottom: 1em;
+  padding-bottom: 0.3em;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.carrusel-plantillas::-webkit-scrollbar {
+  height: 0;
+}
+
+.chip-plantilla {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  flex-shrink: 0;
+  padding: 0.45em 0.8em 0.45em 0.45em;
+  border: 1px solid var(--color-borde);
+  border-radius: 999px;
+  background: var(--color-superficie);
+  color: var(--color-texto);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.chip-plantilla:hover,
+.chip-plantilla:focus-visible {
+  border-color: var(--color-marca);
+}
+
+.chip-plantilla:active {
+  transform: scale(0.97);
+}
+
+.chip-plantilla .datos {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.chip-plantilla .nombre {
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+.chip-plantilla small {
+  font-size: 0.78em;
+}
+
+.chip-plantilla.agregar {
+  padding-left: 0.8em;
+  border-style: dashed;
+  color: var(--color-texto-suave);
+}
+
+.sugerencias-reglas {
+  margin-bottom: 1em;
+  padding: 0.75em;
+  border-radius: 10px;
+  background: var(--color-marca-suave);
+}
+
+.sugerencias-reglas p {
+  margin: 0 0 0.5em;
+}
+
+.chips-sugerencia {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+}
+
+.chip-sugerencia {
+  padding: 0.35em 0.75em;
+  border: 1px solid var(--color-borde);
+  border-radius: 999px;
+  background: var(--color-superficie);
+  color: var(--color-texto);
+  font: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.chip-sugerencia:hover,
+.chip-sugerencia:focus-visible {
+  border-color: var(--color-marca);
+}
+
+.chip-sugerencia small {
+  color: var(--color-texto-suave);
+}
+
+.lista-aplicar {
+  max-height: 45vh;
+  overflow-y: auto;
+  margin-bottom: 1em;
+  border: 1px solid var(--color-borde);
+  border-radius: 10px;
+}
+
+.fila-aplicar {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.5em 0.75em;
+  cursor: pointer;
+}
+
+.fila-aplicar + .fila-aplicar {
+  border-top: 1px solid var(--color-borde);
+}
+
+.fila-aplicar .texto {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

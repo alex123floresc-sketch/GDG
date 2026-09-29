@@ -6,8 +6,11 @@ import type {
   Deuda,
   EliminacionPendiente,
   Meta,
+  Plantilla,
   Presupuesto,
   Recurrente,
+  Regla,
+  TablaSincronizable,
   Transaccion,
 } from '../types'
 
@@ -50,6 +53,8 @@ export class GestorGastosDB extends Dexie {
   deudas!: Table<Deuda, string>
   recurrentes!: Table<Recurrente, string>
   chanchitos!: Table<Chanchito, string>
+  reglas!: Table<Regla, string>
+  plantillas!: Table<Plantilla, string>
 
   constructor() {
     super('GestorGastosDB')
@@ -143,7 +148,32 @@ export class GestorGastosDB extends Dexie {
     this.version(9).stores({
       chanchitos: 'id, usuarioId',
     })
+
+    // v10: reglas de categorización automática y plantillas de registro
+    // rápido. (Las subcategorías usan `Categoria.padreId`, sin índice.)
+    this.version(10).stores({
+      reglas: 'id, usuarioId',
+      plantillas: 'id, usuarioId',
+    })
   }
 }
 
 export const db = new GestorGastosDB()
+
+/**
+ * Tablas con datos del usuario que se sincronizan con Supabase (las que
+ * cuentan como "pendientes", se respaldan y se borran al cerrar sesión).
+ * Catálogos primero: los demás los referencian.
+ */
+export const TABLAS_SINCRONIZABLES: TablaSincronizable[] = [
+  'categorias',
+  'cuentas',
+  'transacciones',
+  'presupuestos',
+  'metas',
+  'deudas',
+  'recurrentes',
+  'chanchitos',
+  'reglas',
+  'plantillas',
+]

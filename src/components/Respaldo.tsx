@@ -20,6 +20,8 @@ const NOMBRES: Record<TablaSincronizable, string> = {
   deudas: 'deudas',
   recurrentes: 'recurrentes',
   chanchitos: 'chanchitos',
+  reglas: 'reglas automáticas',
+  plantillas: 'plantillas',
 }
 
 interface RespaldoProps {

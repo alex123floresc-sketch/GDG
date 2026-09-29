@@ -1,4 +1,4 @@
-import { db } from '../db/database'
+import { db, TABLAS_SINCRONIZABLES } from '../db/database'
 import type { NuevaTransaccion, Transaccion } from '../types'
 
 export async function crearTransaccion(
@@ -152,17 +152,7 @@ export async function actualizarTransferencia(
  * sesión no vea datos financieros de la sesión anterior.
  */
 export async function limpiarDatosLocales(): Promise<void> {
-  const tablas = [
-    db.transacciones,
-    db.categorias,
-    db.cuentas,
-    db.presupuestos,
-    db.eliminacionesPendientes,
-    db.metas,
-    db.deudas,
-    db.recurrentes,
-    db.chanchitos,
-  ]
+  const tablas = [...TABLAS_SINCRONIZABLES.map((t) => db[t]), db.eliminacionesPendientes]
   await db.transaction('rw', tablas, async () => {
     await Promise.all(tablas.map((t) => t.clear()))
   })

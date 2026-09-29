@@ -37,6 +37,8 @@ export interface Categoria extends ControlSync {
   tipo: TipoCategoria
   icono?: string
   color?: string
+  /** Subcategoría: id de la categoría "madre" (un solo nivel). */
+  padreId?: string
 }
 
 export interface Cuenta extends ControlSync {
@@ -203,6 +205,42 @@ export interface Recurrente extends ControlSync {
   activa: boolean
 }
 
+/**
+ * Regla de categorización automática: si el concepto de un movimiento
+ * contiene `patron` (sin distinguir mayúsculas ni tildes), se le asigna
+ * `categoriaId` (y, si se indica, la cuenta y las etiquetas).
+ */
+export interface Regla extends ControlSync {
+  id: string
+  usuarioId: string
+  patron: string
+  categoriaId: string
+  /** Solo aplica a gastos o a ingresos; sin valor = a ambos. */
+  tipo?: TipoTransaccion
+  cuentaId?: string
+  etiquetas?: string[]
+}
+
+/**
+ * Plantilla de registro rápido ("Café", "Pasaje"…): rellena el formulario o
+ * registra el movimiento de un toque.
+ */
+export interface Plantilla extends ControlSync {
+  id: string
+  usuarioId: string
+  nombre: string
+  tipo: TipoTransaccion
+  /** Sin monto = se pregunta cada vez. */
+  monto?: number
+  moneda?: Moneda
+  categoriaId: string
+  cuentaId: string
+  concepto?: string
+  etiquetas?: string[]
+  /** Orden en la lista (menor primero). */
+  orden?: number
+}
+
 export type TablaSincronizable =
   | 'transacciones'
   | 'categorias'
@@ -212,6 +250,8 @@ export type TablaSincronizable =
   | 'deudas'
   | 'recurrentes'
   | 'chanchitos'
+  | 'reglas'
+  | 'plantillas'
 
 /**
  * Registro local de un borrado que falta replicar en Supabase (se procesa
@@ -232,6 +272,8 @@ export type NuevoPresupuesto = Omit<Presupuesto, SinControl>
 export type NuevaMeta = Omit<Meta, SinControl | 'aportes'>
 export type NuevaDeuda = Omit<Deuda, SinControl | 'abonos'>
 export type NuevoRecurrente = Omit<Recurrente, SinControl>
+export type NuevaRegla = Omit<Regla, SinControl>
+export type NuevaPlantilla = Omit<Plantilla, SinControl>
 export type NuevoChanchito = Pick<Chanchito, 'nombre' | 'icono' | 'color' | 'tipo' | 'reto'>
 
 export type NuevaTransaccion = Omit<

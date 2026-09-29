@@ -1,9 +1,21 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useCategorias } from '../hooks/useCategorias'
 import { useCuentas } from '../hooks/useCuentas'
-import { useChanchitos, useDeudas, useMetas, usePresupuestos, useRecurrentes } from '../hooks/usePlanificacion'
+import { useAvisos } from '../hooks/useAvisos'
+import {
+  useChanchitos,
+  useDeudas,
+  useMetas,
+  usePlantillas,
+  usePresupuestos,
+  useRecurrentes,
+  useReglas,
+} from '../hooks/usePlanificacion'
 import { useTransacciones } from '../hooks/useTransacciones'
-import type { Transaccion } from '../types'
+import { registrarDesdePlantilla } from '../services/plantillaService'
+import { eliminarTransaccion } from '../services/transaccionService'
+import type { Plantilla, Transaccion } from '../types'
+import Automatizar from './automatizar/Automatizar'
 import { generarInsights, type Insight } from '../utils/insights'
 import SeccionAnalisis, { type PestanaAnalisis } from './analisis/SeccionAnalisis'
 import FormularioTransaccion, { type TipoFormulario } from './FormularioTransaccion'
@@ -30,7 +42,7 @@ interface DashboardProps {
 }
 
 type Seccion = 'inicio' | 'movimientos' | 'analisis' | 'planificar' | 'mas'
-type SubseccionMas = 'cuentas' | 'categorias' | 'importar' | 'seguridad'
+type SubseccionMas = 'cuentas' | 'categorias' | 'automatizar' | 'importar' | 'seguridad'
 type Destino = NonNullable<Insight['destino']> | 'movimientos'
 
 const SECCIONES: { id: Seccion; etiqueta: string; icono: string }[] = [
@@ -44,11 +56,26 @@ const SECCIONES: { id: Seccion; etiqueta: string; icono: string }[] = [
 const SUBSECCIONES_MAS: { id: SubseccionMas; etiqueta: string; icono: string }[] = [
   { id: 'cuentas', etiqueta: 'Cuentas', icono: 'wallet' },
   { id: 'categorias', etiqueta: 'Categorías', icono: 'tags' },
+  { id: 'automatizar', etiqueta: 'Automatizar', icono: 'magic' },
   { id: 'importar', etiqueta: 'Importar Yape', icono: 'file excel outline' },
   { id: 'seguridad', etiqueta: 'Seguridad y respaldo', icono: 'lock' },
 ]
 
 const FILTRO_TODAS = 'todas'
+
+/**
+ * Acción pedida por URL: los atajos del ícono de la app (manifest
+ * `shortcuts`) abren `/?accion=gasto`, `/?seccion=movimientos`, etc.
+ */
+function accionDeUrl(): { accion?: TipoFormulario; seccion?: Seccion } {
+  const params = new URLSearchParams(window.location.search)
+  const accion = params.get('accion')
+  const seccion = params.get('seccion')
+  return {
+    accion: accion === 'gasto' || accion === 'ingreso' || accion === 'transferencia' ? accion : undefined,
+    seccion: SECCIONES.some((s) => s.id === seccion) ? (seccion as Seccion) : undefined,
+  }
+}
 
 /** ¿El foco está en un campo de texto? (para no robar atajos de teclado). */
 function escribiendo(): boolean {
@@ -72,15 +99,21 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   const deudas = useDeudas(usuarioId)
   // Además de listarlos, genera las transacciones recurrentes vencidas.
   const recurrentes = useRecurrentes(usuarioId)
+  const reglas = useReglas(usuarioId)
+  const plantillas = usePlantillas(usuarioId)
+  const { avisar } = useAvisos()
 
-  const [seccion, setSeccion] = useState<Seccion>('inicio')
+  const [desdeUrl] = useState(accionDeUrl)
+  const [seccion, setSeccion] = useState<Seccion>(desdeUrl.seccion ?? 'inicio')
   const [subseccionMas, setSubseccionMas] = useState<SubseccionMas>('cuentas')
   const [pestanaPlanificar, setPestanaPlanificar] = useState<PestanaPlanificar>('presupuestos')
   const [pestanaAnalisis, setPestanaAnalisis] = useState<PestanaAnalisis>('resumen')
   /** Movimiento abierto en el modal de edición. */
   const [editando, setEditando] = useState<Transaccion | null>(null)
   /** Registro rápido en modal (botón "+", accesos de Inicio, Cuentas…). */
-  const [registroRapido, setRegistroRapido] = useState<TipoFormulario | null>(null)
+  const [registroRapido, setRegistroRapido] = useState<TipoFormulario | null>(desdeUrl.accion ?? null)
+  /** Plantilla sin monto fijo con la que se abrió el registro. */
+  const [plantillaRegistro, setPlantillaRegistro] = useState<Plantilla | undefined>()
   /** Filtro de cuenta de Análisis. */
   const [cuentaFiltro, setCuentaFiltro] = useState<string>(FILTRO_TODAS)
 
@@ -102,7 +135,36 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   const personasPrevias = useMemo(() => [...new Set(deudas.map((d) => d.persona))], [deudas])
 
   const cerrarEdicion = useCallback(() => setEditando(null), [])
-  const cerrarRegistroRapido = useCallback(() => setRegistroRapido(null), [])
+  const cerrarRegistroRapido = useCallback(() => {
+    setRegistroRapido(null)
+    setPlantillaRegistro(undefined)
+  }, [])
+
+  // Quita ?accion=… de la barra de direcciones (ya se usó al abrir).
+  useEffect(() => {
+    if (window.location.search) window.history.replaceState(null, '', window.location.pathname)
+  }, [])
+
+  /** Plantilla con monto fijo: se registra ya (con deshacer); sin monto, abre el formulario lleno. */
+  const usarPlantilla = useCallback(
+    async (p: Plantilla) => {
+      if (p.monto === undefined) {
+        setPlantillaRegistro(p)
+        setRegistroRapido(p.tipo)
+        return
+      }
+      try {
+        const t = await registrarDesdePlantilla(p, usuarioId)
+        avisar(`${p.nombre} registrado`, 'exito', {
+          texto: 'Deshacer',
+          onClick: () => void eliminarTransaccion(t.id),
+        })
+      } catch (err) {
+        avisar(err instanceof Error ? err.message : 'No se pudo registrar', 'error')
+      }
+    },
+    [usuarioId, avisar],
+  )
 
   // Atajo de teclado: "N" abre el registro rápido (fuera de campos de texto).
   useEffect(() => {
@@ -190,6 +252,8 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
             presupuestos={presupuestos}
             metas={metas}
             insights={insights}
+            plantillas={plantillas}
+            onUsarPlantilla={usarPlantilla}
             onRegistrar={setRegistroRapido}
             onNavegar={navegarA}
             onSeleccionar={setEditando}
@@ -267,6 +331,17 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
                 <GestionCategorias usuarioId={usuarioId} categorias={categorias} transacciones={transacciones} />
               )}
 
+              {subseccionMas === 'automatizar' && (
+                <Automatizar
+                  usuarioId={usuarioId}
+                  plantillas={plantillas}
+                  reglas={reglas}
+                  categorias={categorias}
+                  cuentas={cuentasOperativas(cuentas)}
+                  transacciones={transacciones}
+                />
+              )}
+
               {subseccionMas === 'seguridad' && (
                 <>
                   <Seguridad />
@@ -286,6 +361,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
                     usuarioId={usuarioId}
                     cuentas={cuentasOperativas(cuentas)}
                     categorias={categorias}
+                    reglas={reglas}
                     sincronizarAhora={sincronizarAhora}
                     onImportado={() => irA('movimientos')}
                   />
@@ -330,6 +406,9 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
             tipoInicial={registroRapido}
             permitirContinuar
             personasPrevias={personasPrevias}
+            reglas={reglas}
+            plantillas={plantillas}
+            plantillaInicial={plantillaRegistro}
             onListo={cerrarRegistroRapido}
             onGestionarCategorias={() => {
               cerrarRegistroRapido()

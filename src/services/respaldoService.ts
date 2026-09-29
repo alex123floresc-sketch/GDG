@@ -1,5 +1,5 @@
 import type { Table } from 'dexie'
-import { db } from '../db/database'
+import { db, TABLAS_SINCRONIZABLES } from '../db/database'
 import type { TablaSincronizable } from '../types'
 
 /*
@@ -11,16 +11,7 @@ import type { TablaSincronizable } from '../types'
 const FORMATO = 'gestor-gastos-respaldo'
 const VERSION = 1
 
-const TABLAS: TablaSincronizable[] = [
-  'categorias',
-  'cuentas',
-  'transacciones',
-  'presupuestos',
-  'metas',
-  'deudas',
-  'recurrentes',
-  'chanchitos',
-]
+const TABLAS = TABLAS_SINCRONIZABLES
 
 type Fila = Record<string, unknown> & { id: string; usuarioId: string }
 
@@ -109,7 +100,7 @@ export async function leerRespaldo(archivo: File, usuarioId: string): Promise<{ 
 }
 
 /** Campos que apuntan a otra fila (se re-mapean al cambiar de usuario). */
-const REFERENCIAS = ['cuentaId', 'categoriaId', 'recurrenteId'] as const
+const REFERENCIAS = ['cuentaId', 'categoriaId', 'recurrenteId', 'padreId'] as const
 
 /**
  * Restaura un respaldo en este dispositivo (luego se sube a Supabase):

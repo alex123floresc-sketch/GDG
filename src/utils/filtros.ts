@@ -82,6 +82,7 @@ export function aplicarFiltros(
   const rango = sinFechas ? null : rangoDelPeriodo(f, hoy)
   const texto = normalizar(f.texto.trim())
   const nombres = new Map(categorias.map((c) => [c.id, normalizar(c.nombre)]))
+  const padres = new Map(categorias.map((c) => [c.id, c.padreId]))
   const min = f.montoMin === '' ? null : Number(f.montoMin)
   const max = f.montoMax === '' ? null : Number(f.montoMax)
 
@@ -90,7 +91,8 @@ export function aplicarFiltros(
     if (f.tipo === 'transferencia' ? t.origen !== 'transferencia' : f.tipo !== 'todos' && (t.tipo !== f.tipo || t.origen === 'transferencia')) {
       return false
     }
-    if (f.categoriaId && t.categoriaId !== f.categoriaId) return false
+    // Filtrar por una categoría incluye sus subcategorías.
+    if (f.categoriaId && t.categoriaId !== f.categoriaId && padres.get(t.categoriaId) !== f.categoriaId) return false
     if (f.cuentaId && t.cuentaId !== f.cuentaId) return false
     if (f.origen && t.origen !== f.origen) return false
     if (f.etiqueta && !(t.etiquetas ?? []).includes(f.etiqueta)) return false

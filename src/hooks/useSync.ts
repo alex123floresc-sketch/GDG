@@ -1,7 +1,7 @@
 import type { Table } from 'dexie'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { db } from '../db/database'
+import { db, TABLAS_SINCRONIZABLES } from '../db/database'
 import { sincronizar } from '../services/syncService'
 import type { EstadoSincronizacion } from '../types'
 
@@ -39,16 +39,10 @@ export function useSync(usuarioId: string | null): EstadoSincronizacion & {
   const pendientes =
     useLiveQuery(async () => {
       if (!usuarioId) return 0
-      const tablas = [
-        db.transacciones,
-        db.categorias,
-        db.cuentas,
-        db.presupuestos,
-        db.metas,
-        db.deudas,
-        db.recurrentes,
-        db.chanchitos,
-      ] as unknown as Table<{ usuarioId: string; sincronizado?: boolean }, string>[]
+      const tablas = TABLAS_SINCRONIZABLES.map((t) => db[t]) as unknown as Table<
+        { usuarioId: string; sincronizado?: boolean },
+        string
+      >[]
       const conteos = await Promise.all([
         ...tablas.map((t) =>
           t

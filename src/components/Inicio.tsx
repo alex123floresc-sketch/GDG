@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useNumeroAnimado } from '../hooks/useNumeroAnimado'
-import type { Categoria, Cuenta, Meta, Presupuesto, Transaccion } from '../types'
+import type { Categoria, Cuenta, Meta, Plantilla, Presupuesto, Transaccion } from '../types'
 import { clavePeriodo, esMovimientoReal, resumenPorCategoria, resumenUltimosMeses } from '../utils/analisis'
 import { ICONO_CUENTA, saldosPorCuenta } from '../utils/cuentas'
 import { formatearMoneda, formatearPorcentaje } from '../utils/formato'
 import type { Insight } from '../utils/insights'
+import { montoPlantilla } from '../utils/plantillas'
 import { estadoMeta, estadoPresupuestos } from '../utils/planificacion'
 import BarraProgreso from './BarraProgreso'
 import type { TipoFormulario } from './FormularioTransaccion'
@@ -23,6 +24,8 @@ interface InicioProps {
   presupuestos: Presupuesto[]
   metas: Meta[]
   insights: Insight[]
+  plantillas: Plantilla[]
+  onUsarPlantilla: (p: Plantilla) => void
   onRegistrar: (tipo: TipoFormulario) => void
   onNavegar: (destino: Destino) => void
   onSeleccionar: (t: Transaccion) => void
@@ -45,10 +48,13 @@ function Inicio({
   presupuestos,
   metas,
   insights,
+  plantillas,
+  onUsarPlantilla,
   onRegistrar,
   onNavegar,
   onSeleccionar,
 }: InicioProps) {
+  const categoriasPorId = useMemo(() => new Map(categorias.map((c) => [c.id, c])), [categorias])
   const [hoy] = useState(() => new Date())
 
   const saldos = useMemo(() => saldosPorCuenta(cuentas, transacciones), [cuentas, transacciones])
@@ -136,6 +142,35 @@ function Inicio({
           </button>
         </div>
       </section>
+
+      {plantillas.length > 0 && (
+        <section className="carrusel-plantillas" aria-label="Plantillas rápidas">
+          {plantillas.map((p) => {
+            const categoria = categoriasPorId.get(p.categoriaId)
+            return (
+              <button
+                key={p.id}
+                type="button"
+                className="chip-plantilla"
+                onClick={() => onUsarPlantilla(p)}
+                title={p.monto === undefined ? 'Abrir el registro con esta plantilla' : 'Registrar ahora (hoy)'}
+              >
+                <span className="icono-circulo mini" style={{ background: categoria?.color ?? '#898781' }}>
+                  <i className={`${categoria?.icono ?? 'bolt'} icon`} />
+                </span>
+                <span className="datos">
+                  <span className="nombre">{p.nombre}</span>
+                  <small className={p.tipo === 'ingreso' ? 'texto-ingreso' : 'texto-suave'}>{montoPlantilla(p)}</small>
+                </span>
+              </button>
+            )
+          })}
+          <button type="button" className="chip-plantilla agregar" onClick={() => onNavegar('mas:automatizar')}>
+            <i className="plus icon" />
+            <span className="nombre">Plantilla</span>
+          </button>
+        </section>
+      )}
 
       <section className="carrusel-cuentas" aria-label="Tus cuentas">
         {cuentas.filter((c) => c.tipo !== 'chanchito').map((c) => {

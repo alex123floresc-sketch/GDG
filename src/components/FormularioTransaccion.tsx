@@ -9,8 +9,12 @@ import {
   eliminarTransaccion,
   restaurarTransacciones,
 } from '../services/transaccionService'
-import type { Categoria, Cuenta, Moneda, Transaccion, TipoTransaccion } from '../types'
+import type { Categoria, Cuenta, Moneda, Plantilla, Regla, Transaccion, TipoTransaccion } from '../types'
 import { NOMBRE_POR_COBRAR } from '../services/cuentaService'
+import { crearPlantilla } from '../services/plantillaService'
+import { crearRegla } from '../services/reglaService'
+import { normalizarEtiquetas } from '../utils/etiquetas'
+import { normalizarTexto, patronSugerido, reglaPara } from '../utils/reglas'
 import { ICONO_CUENTA } from '../utils/cuentas'
 import { calcularParticipantes, DIVISION_INICIAL, type EstadoDivision } from '../utils/division'
 import { etiquetasUsadas } from '../utils/etiquetas'
@@ -46,6 +50,12 @@ interface FormularioTransaccionProps {
   permitirContinuar?: boolean
   /** Personas con deudas previas (autocompletado al dividir un gasto). */
   personasPrevias?: string[]
+  /** Reglas de categorización automática (solo al crear). */
+  reglas?: Regla[]
+  /** Plantillas de registro rápido (atajos arriba del formulario). */
+  plantillas?: Plantilla[]
+  /** Rellena el formulario con esta plantilla al abrirlo. */
+  plantillaInicial?: Plantilla
 }
 
 /** Pantalla táctil sin teclado físico: se usa el teclado numérico propio. */
@@ -70,9 +80,13 @@ function FormularioTransaccion({
   onGestionarCategorias,
   permitirContinuar = false,
   personasPrevias = [],
+  reglas = [],
+  plantillas = [],
+  plantillaInicial,
 }: FormularioTransaccionProps) {
   const { avisar } = useAvisos()
   const editando = Boolean(transaccion)
+  const pl = transaccion ? undefined : plantillaInicial
 
   // Si se edita una transferencia, se recuperan sus dos patas.
   const patas = useMemo(() => {
@@ -85,29 +99,37 @@ function FormularioTransaccion({
   }, [transaccion, transacciones])
 
   const [tipo, setTipo] = useState<TipoFormulario>(
-    transaccion ? (transaccion.transferenciaId ? 'transferencia' : transaccion.tipo) : tipoInicial,
+    transaccion ? (transaccion.transferenciaId ? 'transferencia' : transaccion.tipo) : (pl?.tipo ?? tipoInicial),
   )
-  const [moneda, setMoneda] = useState<Moneda>(transaccion?.moneda ?? 'PEN')
+  const [moneda, setMoneda] = useState<Moneda>(transaccion?.moneda ?? pl?.moneda ?? 'PEN')
   const [monto, setMonto] = useState(() =>
-    transaccion ? String(transaccion.montoOriginal ?? transaccion.monto) : '',
+    transaccion
+      ? String(transaccion.montoOriginal ?? transaccion.monto)
+      : pl?.monto !== undefined
+        ? String(pl.monto)
+        : '',
   )
   const [tipoCambio, setTipoCambio] = useState(() =>
     String(transaccion?.tipoCambio ?? leerTipoCambio()),
   )
   const [cuentaId, setCuentaId] = useState(
-    patas?.salida?.cuentaId ?? transaccion?.cuentaId ?? '',
+    patas?.salida?.cuentaId ?? transaccion?.cuentaId ?? pl?.cuentaId ?? '',
   )
   const [cuentaDestinoId, setCuentaDestinoId] = useState(patas?.entrada?.cuentaId ?? '')
-  const [categoriaId, setCategoriaId] = useState(transaccion?.categoriaId ?? '')
+  const [categoriaId, setCategoriaId] = useState(transaccion?.categoriaId ?? pl?.categoriaId ?? '')
   const [fecha, setFecha] = useState(() => fechaParaInput(transaccion?.fecha))
-  const [concepto, setConcepto] = useState(transaccion?.concepto ?? '')
+  const [concepto, setConcepto] = useState(transaccion?.concepto ?? pl?.concepto ?? pl?.nombre ?? '')
+  /** El usuario eligió la categoría a mano: una regla ya no la cambia. */
+  const [categoriaElegida, setCategoriaElegida] = useState(Boolean(transaccion || pl))
+  const [recordarRegla, setRecordarRegla] = useState(false)
+  const [comoPlantilla, setComoPlantilla] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const montoRef = useRef<HTMLInputElement>(null)
 
   const [continuar, setContinuar] = useState(false)
-  const [etiquetas, setEtiquetas] = useState<string[]>(transaccion?.etiquetas ?? [])
+  const [etiquetas, setEtiquetas] = useState<string[]>(transaccion?.etiquetas ?? pl?.etiquetas ?? [])
   const [division, setDivision] = useState<EstadoDivision>(DIVISION_INICIAL)
   const [usarTeclado] = useState(esTactil)
   const [cambioDia, setCambioDia] = useState<TipoCambioDia | null>(null)
@@ -143,20 +165,48 @@ function FormularioTransaccion({
       (esTransferencia || c.nombre !== NOMBRE_POR_COBRAR || c.id === transaccion?.cuentaId),
   )
 
+  // Regla automática que corresponde al concepto (solo al crear).
+  const reglaActiva = !editando && tipo !== 'transferencia' ? reglaPara(concepto, tipo, reglas) : undefined
+
   // Selecciones efectivas (caen a un valor válido si la elegida ya no aplica).
-  const cuentaSeleccionada = cuentasElegibles.some((c) => c.id === cuentaId)
-    ? cuentaId
+  const cuentaPreferida = cuentaId || reglaActiva?.cuentaId || ''
+  const cuentaSeleccionada = cuentasElegibles.some((c) => c.id === cuentaPreferida)
+    ? cuentaPreferida
     : (cuentasElegibles[0]?.id ?? '')
   const destinoSeleccionado =
     cuentas.some((c) => c.id === cuentaDestinoId) && cuentaDestinoId !== cuentaSeleccionada
       ? cuentaDestinoId
       : (cuentas.find((c) => c.id !== cuentaSeleccionada)?.id ?? '')
+  const categoriaPorRegla =
+    !categoriaElegida && reglaActiva && categoriasDisponibles.some((c) => c.id === reglaActiva.categoriaId)
+      ? reglaActiva.categoriaId
+      : ''
   const categoriaSeleccionada = categoriasDisponibles.some((c) => c.id === categoriaId)
     ? categoriaId
-    : ''
+    : categoriaPorRegla
+
+  // Subcategorías: se muestran las principales; si la elegida tiene
+  // subcategorías, aparecen debajo para afinar.
+  const idsDisponibles = new Set(categoriasDisponibles.map((c) => c.id))
+  const raicesDisponibles = categoriasDisponibles.filter((c) => !c.padreId || !idsDisponibles.has(c.padreId))
+  const padreSeleccionada = categorias.find((c) => c.id === categoriaSeleccionada)?.padreId
+  const raizActiva = padreSeleccionada && idsDisponibles.has(padreSeleccionada) ? padreSeleccionada : categoriaSeleccionada
+  const hijasActivas = categoriasDisponibles
+    .filter((c) => c.padreId === raizActiva)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+
+  // ¿Ofrecer "recordar" este concepto como regla? Solo si ninguna regla ya
+  // lo lleva a la categoría elegida.
+  const conceptoLimpio = concepto.trim()
+  const puedeRecordar =
+    !editando &&
+    tipo !== 'transferencia' &&
+    normalizarTexto(conceptoLimpio).length >= 2 &&
+    Boolean(categoriaSeleccionada) &&
+    reglaActiva?.categoriaId !== categoriaSeleccionada
 
   // Montos que más se repiten en la categoría elegida (atajos de un toque).
-  const montosFrecuentes = useMemo(() => {
+  const montosFrecuentes = (() => {
     if (!categoriaSeleccionada || editando) return []
     const conteo = new Map<number, number>()
     for (const t of transacciones) {
@@ -170,7 +220,7 @@ function FormularioTransaccion({
       .slice(0, 4)
       .map(([valor]) => valor)
       .sort((a, b) => a - b)
-  }, [transacciones, categoriaSeleccionada, editando])
+  })()
 
   // Conceptos ya usados (autocompletado nativo con <datalist>).
   const conceptosPrevios = useMemo(() => {
@@ -183,6 +233,23 @@ function FormularioTransaccion({
   }, [transacciones, tipo, esTransferencia])
 
   const sugerenciasEtiquetas = useMemo(() => etiquetasUsadas(transacciones), [transacciones])
+
+  function elegirCategoria(id: string) {
+    setCategoriaId(id)
+    setCategoriaElegida(true)
+  }
+
+  function usarPlantilla(p: Plantilla) {
+    setTipo(p.tipo)
+    setMoneda(p.moneda ?? 'PEN')
+    setMonto(p.monto !== undefined ? String(p.monto) : '')
+    setCategoriaId(p.categoriaId)
+    setCategoriaElegida(true)
+    setCuentaId(p.cuentaId)
+    setConcepto(p.concepto ?? p.nombre)
+    setEtiquetas(p.etiquetas ?? [])
+    if (p.monto === undefined && !usarTeclado) montoRef.current?.focus()
+  }
 
   // Al elegir dólares se trae el tipo de cambio del día (si hay red).
   useEffect(() => {
@@ -222,6 +289,8 @@ function FormularioTransaccion({
     setEtiquetas([])
     setDivision(DIVISION_INICIAL)
     setFecha(fechaParaInput())
+    setRecordarRegla(false)
+    setComoPlantilla(false)
     if (!usarTeclado) montoRef.current?.focus()
   }
 
@@ -254,8 +323,12 @@ function FormularioTransaccion({
     // Al editar se conserva la hora original si no cambió el día.
     const fechaFinal = fechaDesdeInput(fecha, transaccion?.fecha)
     const conceptoFinal = concepto.trim() || undefined
+    // Las de la regla automática se suman a las escritas (solo al crear).
+    const etiquetasConRegla = reglaActiva?.etiquetas?.length
+      ? normalizarEtiquetas([...etiquetas, ...reglaActiva.etiquetas])
+      : etiquetas
     // [] explícito al editar si se quitaron todas (para limpiarlas en Supabase).
-    const etiquetasFinal = etiquetas.length > 0 || transaccion?.etiquetas ? etiquetas : undefined
+    const etiquetasFinal = etiquetasConRegla.length > 0 || transaccion?.etiquetas ? etiquetasConRegla : undefined
 
     try {
       if (dividiendo) {
@@ -314,6 +387,37 @@ function FormularioTransaccion({
         }
       }
 
+      // Extras al crear: recordar la categoría como regla y/o guardar como
+      // plantilla. Si fallan (p. ej. regla repetida) el movimiento ya quedó.
+      if (!editando && !esTransferencia) {
+        if (recordarRegla && puedeRecordar && conceptoFinal) {
+          await crearRegla(
+            { patron: patronSugerido(conceptoFinal), categoriaId: categoriaSeleccionada, tipo: tipo as TipoTransaccion },
+            usuarioId,
+          )
+            .then((r) => avisar(`Listo: «${r.patron}» se categorizará solo`, 'info'))
+            .catch((err: Error) => avisar(err.message, 'error'))
+        }
+        if (comoPlantilla) {
+          const nombreCategoria = categorias.find((c) => c.id === categoriaSeleccionada)?.nombre ?? 'Plantilla'
+          await crearPlantilla(
+            {
+              nombre: (conceptoFinal ?? nombreCategoria).slice(0, 30),
+              tipo: tipo as TipoTransaccion,
+              monto: montoNumerico,
+              moneda,
+              categoriaId: categoriaSeleccionada,
+              cuentaId: cuentaSeleccionada,
+              concepto: conceptoFinal,
+              etiquetas: etiquetasFinal,
+            },
+            usuarioId,
+          )
+            .then(() => avisar('Plantilla guardada: úsala desde Inicio', 'info'))
+            .catch((err: Error) => avisar(err.message, 'error'))
+        }
+      }
+
       if (!editando) limpiar()
       if (!(permitirContinuar && continuar)) onListo?.()
     } catch (err) {
@@ -361,6 +465,17 @@ function FormularioTransaccion({
 
   return (
     <form onSubmit={manejarEnvio} className={`ui form formulario-movimiento ${error ? 'error' : ''}`}>
+      {!editando && plantillas.length > 0 && (
+        <div className="plantillas-formulario" aria-label="Plantillas">
+          {plantillas.map((p) => (
+            <button key={p.id} type="button" className="ui mini basic button" onClick={() => usarPlantilla(p)}>
+              <i className="bolt icon" />
+              {p.nombre}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="selector-tipo ui fluid three buttons field">
         {TIPOS.map((t) => {
           // Una transacción normal no se convierte en transferencia (ni al revés).
@@ -506,16 +621,22 @@ function FormularioTransaccion({
               </button>
             )}
           </label>
+          {categoriaPorRegla && categoriaSeleccionada === categoriaPorRegla && (
+            <div className="nota-regla">
+              <i className="magic icon" />
+              Elegida por tu regla «{reglaActiva?.patron}»
+            </div>
+          )}
           <div className="selector-categoria" role="radiogroup" aria-label="Categoría">
-            {categoriasDisponibles.map((c) => {
-              const activa = categoriaSeleccionada === c.id
+            {raicesDisponibles.map((c) => {
+              const activa = raizActiva === c.id
               return (
                 <button
                   key={c.id}
                   type="button"
                   role="radio"
                   aria-checked={activa}
-                  onClick={() => setCategoriaId(c.id)}
+                  onClick={() => elegirCategoria(c.id)}
                   className={`opcion-categoria ${activa ? 'activa' : ''}`}
                   style={activa ? { borderColor: c.color, background: `${c.color}1a` } : undefined}
                 >
@@ -527,6 +648,33 @@ function FormularioTransaccion({
               )
             })}
           </div>
+          {hijasActivas.length > 0 && (
+            <div className="selector-subcategoria" role="radiogroup" aria-label="Subcategoría">
+              <span className="texto-suave">Subcategoría:</span>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={categoriaSeleccionada === raizActiva}
+                className={`ui mini button ${categoriaSeleccionada === raizActiva ? 'primary' : 'basic'}`}
+                onClick={() => elegirCategoria(raizActiva)}
+              >
+                Ninguna
+              </button>
+              {hijasActivas.map((h) => (
+                <button
+                  key={h.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={categoriaSeleccionada === h.id}
+                  className={`ui mini button ${categoriaSeleccionada === h.id ? 'primary' : 'basic'}`}
+                  onClick={() => elegirCategoria(h.id)}
+                >
+                  <i className={`${h.icono ?? 'tag'} icon`} />
+                  {h.nombre}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -580,6 +728,25 @@ function FormularioTransaccion({
         </div>
       )}
 
+      {!editando && !esTransferencia && (
+        <div className="opciones-extra">
+          {puedeRecordar && (
+            <label className="casilla">
+              <input type="checkbox" checked={recordarRegla} onChange={(e) => setRecordarRegla(e.target.checked)} />
+              <i className="magic icon" />
+              Recordar: «{patronSugerido(conceptoLimpio)}» siempre en{' '}
+              {categorias.find((c) => c.id === categoriaSeleccionada)?.nombre}
+            </label>
+          )}
+          {!dividiendo && (
+            <label className="casilla">
+              <input type="checkbox" checked={comoPlantilla} onChange={(e) => setComoPlantilla(e.target.checked)} />
+              <i className="bolt icon" />
+              Guardar también como plantilla rápida
+            </label>
+          )}
+        </div>
+      )}
       {confirmandoBorrado ? (
         <div className="ui warning message confirmar-borrado">
           <p>

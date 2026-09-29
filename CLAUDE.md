@@ -47,7 +47,8 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   + gris; mantener ese orden).
 - Navegación principal en `Dashboard.tsx`: 5 secciones (Inicio,
   Movimientos, Análisis, Planificar → Presupuestos/Metas/Deudas/
-  Recurrentes, Más → Cuentas/Categorías/Importar Yape); en móvil (<768px)
+  Recurrentes, Más → Cuentas/Categorías/Automatizar/Importar Yape/
+  Seguridad); en móvil (<768px)
   la barra pasa al pie de pantalla. Registrar es el botón flotante "+"
   (abre `FormularioTransaccion` en un `Modal`).
 - Gráficos: SVG propio en `src/components/graficos/` (sin librería de
@@ -81,14 +82,19 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `Modal` (modal de Fomantic sin jQuery, vía portal), `Avisos` (toasts;
   se usan con `useAvisos().avisar(...)`), `graficos/`, `YapeImporter`
   (cargado con `React.lazy`, ver Rendimiento)
-- `src/db/database.ts` — esquema Dexie v9 (`GestorGastosDB`, tablas
+- `src/db/database.ts` — esquema Dexie v10 (`GestorGastosDB`, tablas
   `transacciones`, `categorias`, `cuentas`, `presupuestos`, `metas`,
-  `deudas`, `recurrentes`, `chanchitos`, `eliminacionesPendientes`)
+  `deudas`, `recurrentes`, `chanchitos`, `reglas`, `plantillas`,
+  `eliminacionesPendientes`). `TABLAS_SINCRONIZABLES` es la lista única
+  de tablas del usuario (la usan `useSync` para contar pendientes,
+  `respaldoService` y `limpiarDatosLocales`): una tabla nueva se agrega
+  ahí.
 - `src/services` — lógica sin React: `supabaseClient.ts`, `syncService.ts`,
   `transaccionService.ts` (+ transferencias, eliminar/restaurar),
   `categoriaService.ts`, `cuentaService.ts`, `presupuestoService.ts`,
   `metaService.ts`, `deudaService.ts`, `recurrenteService.ts`,
-  `divisionService.ts` (gastos divididos),
+  `divisionService.ts` (gastos divididos), `reglaService.ts`,
+  `plantillaService.ts`,
   `sincronizable.ts` (`marcaCambio`, `registrarBorrado`,
   `uuidDeterminista`), `yapeImporter.ts`, `exportService.ts`
 - `src/hooks` — `useSync`, `useTransacciones`, `useCategorias`,
@@ -114,6 +120,9 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   suman porque ya están en la cuenta "Por cobrar"), `comparacion.ts`
   (`compararPeriodos`; "este mes vs. anterior" corta el anterior en el
   mismo día para que sea justo)
+- `src/utils/categorias.ts` (subcategorías: `idRaiz`, `nombreCompleto`,
+  `ordenJerarquico`), `reglas.ts` (`reglaPara`, `afectadasPorRegla`),
+  `plantillas.ts`
 - `src/utils/etiquetas.ts`, `expresion.ts` (sumas/restas del teclado, sin
   `eval`), `division.ts`, `tipoCambio.ts` (dólar del día desde
   open.er-api.com, caché 6 h en localStorage; es tipo de mercado, se
@@ -262,6 +271,35 @@ Repo: https://github.com/alex123floresc-sketch/GDG
 - "Marcar como pagada" (deudas normales) salda sin mover cuentas y se
   puede deshacer.
 
+## Automatizar: reglas, subcategorías, plantillas y atajos (v0.16)
+
+- **Subcategorías**: `Categoria.padreId` (un solo nivel; la madre debe ser
+  de primer nivel y de tipo compatible). `resumenPorCategoria` suma cada
+  subcategoría a su madre (parámetro `agruparSubcategorias`) y
+  `estadoPresupuestos` cuenta lo de las hijas en el presupuesto de la
+  madre. El filtro de categoría en Movimientos incluye las hijas. En el
+  formulario se eligen las principales y, si tienen hijas, aparece una
+  fila para afinar. Remoto `categorias.padre_id` (sin llave foránea);
+  solo viaja si la migración v0.16 está confirmada, y
+  `Entidad.conservar` evita que una descarga sin esa columna borre el
+  valor local.
+- **Reglas** (`Regla`): si el concepto contiene `patron` (sin tildes ni
+  mayúsculas; gana el patrón más largo) → categoría (+ cuenta y
+  etiquetas opcionales). Se aplican al crear un movimiento (solo si no
+  se eligió categoría a mano), al importar Yape, y "a lo ya registrado"
+  con vista previa. El formulario ofrece "Recordar «X» siempre en …" y
+  Más → Automatizar sugiere reglas a partir de conceptos repetidos.
+- **Plantillas** (`Plantilla`): con monto fijo se registran de un toque
+  desde Inicio (aviso con deshacer); sin monto abren el formulario
+  lleno (`plantillaInicial`). También aparecen arriba del formulario y
+  se pueden crear con "Guardar también como plantilla".
+- Al eliminar una categoría/cuenta, sus reglas y plantillas pasan a la
+  de reasignación (o se eliminan); `reapuntarReferencias` (syncService)
+  las re-apunta al fusionar/deduplicar catálogos.
+- **Atajos del ícono** (manifest `shortcuts`, íconos en
+  `public/atajos/`): `/?accion=gasto|ingreso|transferencia` y
+  `/?seccion=movimientos`; los interpreta `accionDeUrl` en Dashboard.
+
 ## Reporte mensual (v0.12)
 
 - `PanelReporte` genera el reporte de un mes; "Descargar PDF" llama a
@@ -392,6 +430,11 @@ la migración).
 
 - `v0.11.sql`: `transacciones.etiquetas text[]` y `deudas.gasto_dividido`.
 - `v0.13.sql`: `recurrentes.dia_mes`.
+- `v0.14.sql`: tabla `chanchitos`.
+- `v0.16.sql`: `categorias.padre_id`, tablas `reglas` y `plantillas`.
+  `esquemaListo(archivo)` dice si ya está confirmada (las columnas nuevas
+  de tablas existentes solo se envían entonces). El aviso de App.tsx
+  usa `FUNCIONES_POR_MIGRACION`.
 
 ### Migración v0.7 (`supabase/migraciones/v0.7.sql`)
 

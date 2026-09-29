@@ -33,6 +33,7 @@ export default defineConfig({
         background_color: '#f4f5fb',
         display: 'standalone',
         start_url: '/',
+        id: '/',
         // Generados desde public/favicon.svg con pwa-assets.config.ts
         // (`npx pwa-assets-generator`).
         icons: [
@@ -44,6 +45,34 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
+          },
+        ],
+        // Atajos al mantener presionado el ícono de la app instalada. Los
+        // abre Dashboard.tsx (`accionDeUrl`). Íconos en public/atajos/.
+        shortcuts: [
+          {
+            name: 'Registrar gasto',
+            short_name: 'Gasto',
+            url: '/?accion=gasto',
+            icons: [{ src: 'atajos/gasto.png', sizes: '96x96', type: 'image/png' }],
+          },
+          {
+            name: 'Registrar ingreso',
+            short_name: 'Ingreso',
+            url: '/?accion=ingreso',
+            icons: [{ src: 'atajos/ingreso.png', sizes: '96x96', type: 'image/png' }],
+          },
+          {
+            name: 'Transferir entre cuentas',
+            short_name: 'Transferir',
+            url: '/?accion=transferencia',
+            icons: [{ src: 'atajos/transferir.png', sizes: '96x96', type: 'image/png' }],
+          },
+          {
+            name: 'Ver movimientos',
+            short_name: 'Movimientos',
+            url: '/?seccion=movimientos',
+            icons: [{ src: 'atajos/movimientos.png', sizes: '96x96', type: 'image/png' }],
           },
         ],
       },

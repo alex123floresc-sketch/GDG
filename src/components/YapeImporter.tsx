@@ -9,15 +9,18 @@ import { importarFilasYape, leerArchivoExcelYape } from '../services/yapeImporte
 import type {
   Categoria,
   Cuenta,
+  Regla,
   ResultadoImportacionYape,
   ResultadoParseoYape,
 } from '../types'
 import { formatearFecha, formatearMoneda } from '../utils/formato'
+import { reglaPara } from '../utils/reglas'
 
 interface YapeImporterProps {
   usuarioId: string
   cuentas: Cuenta[]
   categorias: Categoria[]
+  reglas: Regla[]
   sincronizarAhora: () => Promise<void>
   onImportado?: () => void
 }
@@ -28,6 +31,7 @@ function YapeImporter({
   usuarioId,
   cuentas,
   categorias,
+  reglas,
   sincronizarAhora,
   onImportado,
 }: YapeImporterProps) {
@@ -73,8 +77,9 @@ function YapeImporter({
       gastos: gastos.length,
       totalIngresos: ingresos.reduce((s, f) => s + f.monto, 0),
       totalGastos: gastos.reduce((s, f) => s + f.monto, 0),
+      porRegla: resultadoParseo.filas.filter((f) => reglaPara(f.concepto, f.tipo, reglas)).length,
     }
-  }, [resultadoParseo])
+  }, [resultadoParseo, reglas])
 
   async function procesarArchivo(archivo: File) {
     setError(null)
@@ -129,6 +134,7 @@ function YapeImporter({
         usuarioId,
         cuentaSeleccionada,
         categoriaSeleccionada,
+        reglas,
       )
 
       setResultadoImportacion(resultado)
@@ -304,7 +310,9 @@ function YapeImporter({
               </div>
 
               <div className="field">
-                <label htmlFor="yape-categoria">Categoría</label>
+                <label htmlFor="yape-categoria">
+                  Categoría{resumen.porRegla > 0 ? ' (para las demás)' : ''}
+                </label>
                 <select
                   id="yape-categoria"
                   value={categoriaSeleccionada}
@@ -320,6 +328,13 @@ function YapeImporter({
               </div>
             </div>
 
+            {resumen.porRegla > 0 && (
+              <p className="texto-suave">
+                <i className="magic icon" />
+                {resumen.porRegla} movimiento{resumen.porRegla === 1 ? '' : 's'} se categorizará
+                {resumen.porRegla === 1 ? '' : 'n'} con tus reglas automáticas.
+              </p>
+            )}
             <button
               type="button"
               onClick={confirmarImportacion}

@@ -23,6 +23,8 @@ export interface Insight {
     | 'planificar:chanchitos'
     | 'planificar:recurrentes'
     | 'mas:cuentas'
+    | 'mas:categorias'
+    | 'mas:automatizar'
     | 'analisis'
     | 'analisis:reporte'
     | 'analisis:comparar'

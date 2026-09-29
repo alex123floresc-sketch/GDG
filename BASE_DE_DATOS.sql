@@ -2,7 +2,7 @@
 --  GESTOR DE GASTOS — BASE DE DATOS COMPLETA (Supabase / PostgreSQL)
 -- =============================================================================
 --
---  Esquema al día con la app v0.14.0.
+--  Esquema al día con la app v0.16.0.
 --
 --  CÓMO USARLO
 --  -----------
@@ -29,6 +29,7 @@
 --  v0.13  recurrentes.dia_mes (recurrentes del 29, 30 o 31)
 --  v0.13.1 script único; índices por usuario; permisos explícitos
 --  v0.14  tabla chanchitos; tipo de cuenta 'chanchito'
+--  v0.16  categorias.padre_id (subcategorías); tablas reglas y plantillas
 -- =============================================================================
 
 
@@ -55,7 +56,10 @@ CREATE TABLE IF NOT EXISTS public.categorias (
 ALTER TABLE public.categorias
   ADD COLUMN IF NOT EXISTS icono               text,
   ADD COLUMN IF NOT EXISTS color               text,
-  ADD COLUMN IF NOT EXISTS fecha_actualizacion timestamptz NOT NULL DEFAULT now();
+  ADD COLUMN IF NOT EXISTS fecha_actualizacion timestamptz NOT NULL DEFAULT now(),
+  -- Subcategoría: id de la categoría madre (un solo nivel). Sin llave
+  -- foránea a propósito: madre e hija pueden subir en cualquier orden.
+  ADD COLUMN IF NOT EXISTS padre_id            uuid;
 
 -- tipo: 'ingreso' | 'gasto' | 'ambos'
 ALTER TABLE public.categorias DROP CONSTRAINT IF EXISTS categorias_tipo_check;
@@ -245,6 +249,40 @@ CREATE TABLE IF NOT EXISTS public.chanchitos (
   fecha_actualizacion timestamptz NOT NULL DEFAULT now()
 );
 
+-- -----------------------------------------------------------------------------
+-- 1.9 Reglas automáticas (si el concepto contiene…, poner esta categoría)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.reglas (
+  id                  uuid PRIMARY KEY,
+  user_id             uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users (id) ON DELETE CASCADE,
+  patron              text NOT NULL,
+  categoria_id        uuid NOT NULL REFERENCES public.categorias (id) ON DELETE CASCADE,
+  -- NULL = aplica a gastos e ingresos
+  tipo                text CHECK (tipo IS NULL OR tipo IN ('ingreso', 'gasto')),
+  cuenta_id           uuid REFERENCES public.cuentas (id) ON DELETE SET NULL,
+  etiquetas           text[] NOT NULL DEFAULT '{}',
+  fecha_actualizacion timestamptz NOT NULL DEFAULT now()
+);
+
+-- -----------------------------------------------------------------------------
+-- 1.10 Plantillas de registro rápido ("Café S/ 8", "Pasaje"…)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.plantillas (
+  id                  uuid PRIMARY KEY,
+  user_id             uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users (id) ON DELETE CASCADE,
+  nombre              text NOT NULL,
+  tipo                text NOT NULL CHECK (tipo IN ('ingreso', 'gasto')),
+  -- NULL = monto variable (se escribe cada vez)
+  monto               numeric(12, 2) CHECK (monto IS NULL OR monto > 0),
+  moneda              text NOT NULL DEFAULT 'PEN' CHECK (moneda IN ('PEN', 'USD')),
+  categoria_id        uuid NOT NULL REFERENCES public.categorias (id) ON DELETE CASCADE,
+  cuenta_id           uuid NOT NULL REFERENCES public.cuentas (id) ON DELETE CASCADE,
+  concepto            text,
+  etiquetas           text[] NOT NULL DEFAULT '{}',
+  orden               integer NOT NULL DEFAULT 0,
+  fecha_actualizacion timestamptz NOT NULL DEFAULT now()
+);
+
 
 -- #############################################################################
 -- 2. ÍNDICES, SEGURIDAD (RLS) Y PERMISOS
@@ -266,6 +304,8 @@ CREATE INDEX IF NOT EXISTS metas_user_idx         ON public.metas (user_id);
 CREATE INDEX IF NOT EXISTS deudas_user_idx        ON public.deudas (user_id);
 CREATE INDEX IF NOT EXISTS recurrentes_user_idx   ON public.recurrentes (user_id);
 CREATE INDEX IF NOT EXISTS chanchitos_user_idx    ON public.chanchitos (user_id);
+CREATE INDEX IF NOT EXISTS reglas_user_idx        ON public.reglas (user_id);
+CREATE INDEX IF NOT EXISTS plantillas_user_idx    ON public.plantillas (user_id);
 
 -- Anti-duplicados del importador de Yape: un nro_operacion por usuario.
 -- (Los NULL no chocan entre sí.) Solo se crea si la base no tiene ya un
@@ -293,7 +333,7 @@ DECLARE
 BEGIN
   FOREACH tabla IN ARRAY ARRAY[
     'categorias', 'cuentas', 'transacciones', 'presupuestos',
-    'metas', 'deudas', 'recurrentes', 'chanchitos'
+    'metas', 'deudas', 'recurrentes', 'chanchitos', 'reglas', 'plantillas'
   ] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tabla);
     EXECUTE format('DROP POLICY IF EXISTS "Acceso personal" ON public.%I', tabla);
@@ -314,7 +354,7 @@ END $$;
 NOTIFY pgrst, 'reload schema';
 
 -- -----------------------------------------------------------------------------
--- 2.4 Comprobación: debe mostrar 8 filas, todas con rls = true
+-- 2.4 Comprobación: debe mostrar 10 filas, todas con rls = true
 -- -----------------------------------------------------------------------------
 SELECT c.relname                                   AS tabla,
        c.relrowsecurity                            AS rls,
@@ -324,7 +364,8 @@ FROM pg_class c
 JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public'
   AND c.relname IN ('categorias', 'cuentas', 'transacciones', 'presupuestos',
-                    'metas', 'deudas', 'recurrentes', 'chanchitos')
+                    'metas', 'deudas', 'recurrentes', 'chanchitos',
+                    'reglas', 'plantillas')
 ORDER BY 1;
 
 
@@ -350,6 +391,8 @@ TRUNCATE TABLE
   public.metas,
   public.deudas,
   public.chanchitos,
+  public.reglas,
+  public.plantillas,
   public.categorias,
   public.cuentas
 RESTART IDENTITY CASCADE;
@@ -364,6 +407,8 @@ DROP TABLE IF EXISTS public.recurrentes   CASCADE;
 DROP TABLE IF EXISTS public.metas         CASCADE;
 DROP TABLE IF EXISTS public.deudas        CASCADE;
 DROP TABLE IF EXISTS public.chanchitos    CASCADE;
+DROP TABLE IF EXISTS public.reglas        CASCADE;
+DROP TABLE IF EXISTS public.plantillas    CASCADE;
 DROP TABLE IF EXISTS public.categorias    CASCADE;
 DROP TABLE IF EXISTS public.cuentas       CASCADE;
 

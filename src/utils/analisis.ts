@@ -1,4 +1,5 @@
 import type { Categoria, Transaccion } from '../types'
+import { idRaiz } from './categorias'
 
 /** Agrupación temporal del análisis. */
 export type Granularidad = 'mes' | 'trimestre'
@@ -142,11 +143,16 @@ export function resumenUltimosMeses(
   return periodos
 }
 
-/** Total por categoría de un tipo (ingreso/gasto), de mayor a menor. */
+/**
+ * Total por categoría de un tipo (ingreso/gasto), de mayor a menor. Con
+ * `agruparSubcategorias` (por defecto) lo de cada subcategoría se suma a su
+ * categoría madre.
+ */
 export function resumenPorCategoria(
   transacciones: Transaccion[],
   categorias: Categoria[],
   tipo: Transaccion['tipo'],
+  agruparSubcategorias = true,
 ): ResumenCategoria[] {
   const categoriasPorId = new Map(categorias.map((c) => [c.id, c]))
   const acumulado = new Map<string, { total: number; cantidad: number }>()
@@ -154,10 +160,11 @@ export function resumenPorCategoria(
 
   for (const t of transacciones) {
     if (t.tipo !== tipo || !esMovimientoReal(t)) continue
-    const actual = acumulado.get(t.categoriaId) ?? { total: 0, cantidad: 0 }
+    const clave = agruparSubcategorias ? idRaiz(t.categoriaId, categoriasPorId) : t.categoriaId
+    const actual = acumulado.get(clave) ?? { total: 0, cantidad: 0 }
     actual.total += t.monto
     actual.cantidad++
-    acumulado.set(t.categoriaId, actual)
+    acumulado.set(clave, actual)
     totalGeneral += t.monto
   }
 

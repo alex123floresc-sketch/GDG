@@ -1,6 +1,6 @@
 import { db } from '../db/database'
 import type { Cuenta, NuevaCuenta } from '../types'
-import { uuidDeterminista } from './sincronizable'
+import { registrarBorrado, uuidDeterminista } from './sincronizable'
 
 const CUENTAS_BASE: NuevaCuenta[] = [
   { nombre: 'Efectivo', tipo: 'efectivo', saldoInicial: 0 },
@@ -103,7 +103,7 @@ export async function actualizarCuenta(
  * otra (`reasignarA`). No se puede eliminar la única cuenta.
  */
 export async function eliminarCuenta(id: string, reasignarA?: string): Promise<void> {
-  const tablas = [db.cuentas, db.transacciones, db.recurrentes, db.eliminacionesPendientes]
+  const tablas = [db.cuentas, db.transacciones, db.recurrentes, db.plantillas, db.reglas, db.eliminacionesPendientes]
   await db.transaction('rw', tablas, async () => {
     const cuenta = await db.cuentas.get(id)
     if (!cuenta) return
@@ -122,6 +122,25 @@ export async function eliminarCuenta(id: string, reasignarA?: string): Promise<v
       await usos.modify(cambio)
       await recurrentes.modify(cambio)
     }
+
+    // Plantillas: pasan a la otra cuenta (o se eliminan). Reglas: dejan de
+    // asignar cuenta.
+    const plantillas = await db.plantillas.where('usuarioId').equals(cuenta.usuarioId).filter((p) => p.cuentaId === id).toArray()
+    if (reasignarA && reasignarA !== id) {
+      await db.plantillas.bulkPut(plantillas.map((p) => ({ ...p, cuentaId: reasignarA, sincronizado: false, fechaActualizacion: new Date() })))
+    } else if (plantillas.length > 0) {
+      await db.plantillas.bulkDelete(plantillas.map((p) => p.id))
+      await registrarBorrado('plantillas', cuenta.usuarioId, plantillas.map((p) => p.id))
+    }
+    await db.reglas
+      .where('usuarioId')
+      .equals(cuenta.usuarioId)
+      .filter((r) => r.cuentaId === id)
+      .modify((r) => {
+        delete r.cuentaId
+        r.sincronizado = false
+        r.fechaActualizacion = new Date()
+      })
 
     await db.cuentas.delete(id)
     await db.eliminacionesPendientes.add({

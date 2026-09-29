@@ -38,6 +38,9 @@ export function estadoPresupuestos(
     if (t.tipo !== 'gasto' || !esMovimientoReal(t)) continue
     if (t.fecha.getFullYear() !== anio || t.fecha.getMonth() !== mes) continue
     gastoPorCategoria.set(t.categoriaId, (gastoPorCategoria.get(t.categoriaId) ?? 0) + t.monto)
+    // Lo de una subcategoría también cuenta para el presupuesto de su madre.
+    const padre = categoriasPorId.get(t.categoriaId)?.padreId
+    if (padre) gastoPorCategoria.set(padre, (gastoPorCategoria.get(padre) ?? 0) + t.monto)
   }
 
   const esMesActual = hoy.getFullYear() === anio && hoy.getMonth() === mes

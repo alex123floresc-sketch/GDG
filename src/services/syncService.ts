@@ -11,8 +11,10 @@ import type {
   Meta,
   Moneda,
   OrigenTransaccion,
+  Plantilla,
   Presupuesto,
   Recurrente,
+  Regla,
   ResultadoSincronizacion,
   RetoAhorro,
   TablaSincronizable,
@@ -160,10 +162,25 @@ const MIGRACIONES: { archivo: string; comprobar: () => PromiseLike<{ error: unkn
     archivo: 'v0.14.sql',
     comprobar: () => [supabase!.from('chanchitos').select('id').limit(0)],
   },
+  {
+    // Subcategorías, reglas automáticas y plantillas.
+    archivo: 'v0.16.sql',
+    comprobar: () => [
+      supabase!.from('categorias').select('padre_id').limit(0),
+      supabase!.from('reglas').select('id').limit(0),
+      supabase!.from('plantillas').select('id').limit(0),
+    ],
+  },
 ]
 
 /** Migraciones ya confirmadas en esta sesión (no se vuelven a consultar). */
 const migracionesConfirmadas = new Set<string>()
+
+/**
+ * ¿Supabase ya tiene lo de esa migración? Las columnas nuevas de tablas
+ * existentes solo se envían si es así (si no, la fila fallaría).
+ */
+const esquemaListo = (archivo: string) => migracionesConfirmadas.has(archivo)
 
 /** Archivos de migración que aún no se ejecutaron en Supabase. */
 async function migracionesPendientes(): Promise<string[]> {
@@ -314,6 +331,12 @@ interface Entidad<L extends { id: string; usuarioId: string } & ControlSync> {
   nombre: (l: L) => string
   aFila: (l: L, userId: string, conFecha: boolean) => FilaRemota
   aLocal: (fila: Record<string, unknown>) => L
+  /**
+   * Columnas agregadas en una migración posterior: si la fila remota no la
+   * trae (falta ejecutar el SQL), se conserva el valor local del campo en
+   * vez de borrarlo al descargar.
+   */
+  conservar?: { columna: string; campo: keyof L }[]
 }
 
 const fechaRemota = (l: ControlSync) => (l.fechaActualizacion ?? new Date()).toISOString()
@@ -331,6 +354,7 @@ const CATEGORIAS: Entidad<Categoria> = {
     icono: c.icono ?? null,
     color: c.color ?? null,
     ...(conFecha ? { fecha_actualizacion: fechaRemota(c) } : {}),
+    ...(esquemaListo('v0.16.sql') ? { padre_id: c.padreId ?? null } : {}),
   }),
   aLocal: (f) => ({
     id: f.id as string,
@@ -339,8 +363,10 @@ const CATEGORIAS: Entidad<Categoria> = {
     tipo: f.tipo as TipoCategoria,
     icono: (f.icono as string | null) ?? undefined,
     color: (f.color as string | null) ?? undefined,
+    padreId: (f.padre_id as string | null) ?? undefined,
     ...marcaDeTiempo(f),
   }),
+  conservar: [{ columna: 'padre_id', campo: 'padreId' }],
 }
 
 const CUENTAS: Entidad<Cuenta> = {
@@ -522,6 +548,71 @@ const CHANCHITOS: Entidad<Chanchito> = {
   }),
 }
 
+const aEtiquetas = (valor: unknown): string[] | undefined =>
+  Array.isArray(valor) && valor.length > 0 ? (valor as string[]) : undefined
+
+const REGLAS: Entidad<Regla> = {
+  tabla: 'reglas',
+  local: db.reglas,
+  etiqueta: 'la regla',
+  nombre: (r) => `"${r.patron}"`,
+  aFila: (r, userId) => ({
+    id: r.id,
+    user_id: userId,
+    patron: r.patron,
+    categoria_id: r.categoriaId,
+    tipo: r.tipo ?? null,
+    cuenta_id: r.cuentaId ?? null,
+    etiquetas: r.etiquetas ?? [],
+    fecha_actualizacion: fechaRemota(r),
+  }),
+  aLocal: (f) => ({
+    id: f.id as string,
+    usuarioId: f.user_id as string,
+    patron: f.patron as string,
+    categoriaId: f.categoria_id as string,
+    tipo: f.tipo === 'ingreso' || f.tipo === 'gasto' ? (f.tipo as TipoTransaccion) : undefined,
+    cuentaId: (f.cuenta_id as string | null) ?? undefined,
+    etiquetas: aEtiquetas(f.etiquetas),
+    ...marcaDeTiempo(f),
+  }),
+}
+
+const PLANTILLAS: Entidad<Plantilla> = {
+  tabla: 'plantillas',
+  local: db.plantillas,
+  etiqueta: 'la plantilla',
+  nombre: (p) => `"${p.nombre}"`,
+  aFila: (p, userId) => ({
+    id: p.id,
+    user_id: userId,
+    nombre: p.nombre,
+    tipo: p.tipo,
+    monto: p.monto ?? null,
+    moneda: p.moneda ?? 'PEN',
+    categoria_id: p.categoriaId,
+    cuenta_id: p.cuentaId,
+    concepto: p.concepto ?? null,
+    etiquetas: p.etiquetas ?? [],
+    orden: p.orden ?? 0,
+    fecha_actualizacion: fechaRemota(p),
+  }),
+  aLocal: (f) => ({
+    id: f.id as string,
+    usuarioId: f.user_id as string,
+    nombre: f.nombre as string,
+    tipo: f.tipo as TipoTransaccion,
+    monto: aNumeroOpcional(f.monto),
+    moneda: f.moneda === 'USD' ? ('USD' as Moneda) : undefined,
+    categoriaId: f.categoria_id as string,
+    cuentaId: f.cuenta_id as string,
+    concepto: (f.concepto as string | null) ?? undefined,
+    etiquetas: aEtiquetas(f.etiquetas),
+    orden: aNumeroOpcional(f.orden),
+    ...marcaDeTiempo(f),
+  }),
+}
+
 const RECURRENTES: Entidad<Recurrente> = {
   tabla: 'recurrentes',
   local: db.recurrentes,
@@ -663,9 +754,9 @@ async function sincronizarEntidad<L extends { id: string; usuarioId: string } & 
 
   if (error) return describirError(`No se pudo descargar ${entidad.etiqueta}`, error)
 
-  const remotos = ((data ?? []) as Record<string, unknown>[])
-    .map(entidad.aLocal)
-    .filter((r) => !borrados.has(r.id))
+  const filas = ((data ?? []) as Record<string, unknown>[]).filter((f) => !borrados.has(f.id as string))
+  const filaPorId = new Map(filas.map((f) => [f.id as string, f]))
+  const remotos = filas.map(entidad.aLocal)
 
   if (fusionar) await fusionar(remotos)
 
@@ -674,11 +765,22 @@ async function sincronizarEntidad<L extends { id: string; usuarioId: string } & 
       (await entidad.local.where('usuarioId').equals(usuarioId).toArray()).map((l) => [l.id, l]),
     )
 
-    const aGuardar = remotos.filter((r) => {
-      const local = locales.get(r.id)
-      if (!local || local.sincronizado === true) return true
-      return (local.fechaActualizacion?.getTime() ?? 0) < (r.fechaActualizacion?.getTime() ?? 0)
-    })
+    const aGuardar = remotos
+      .filter((r) => {
+        const local = locales.get(r.id)
+        if (!local || local.sincronizado === true) return true
+        return (local.fechaActualizacion?.getTime() ?? 0) < (r.fechaActualizacion?.getTime() ?? 0)
+      })
+      .map((r) => {
+        const local = locales.get(r.id)
+        const fila = filaPorId.get(r.id)
+        if (!local || !fila || !entidad.conservar) return r
+        const combinado = { ...r }
+        for (const { columna, campo } of entidad.conservar) {
+          if (!(columna in fila)) combinado[campo] = local[campo]
+        }
+        return combinado
+      })
     await entidad.local.bulkPut(aGuardar)
 
     const idsRemotos = new Set(remotos.map((r) => r.id))
@@ -702,6 +804,39 @@ async function sincronizarEntidad<L extends { id: string; usuarioId: string } & 
 // ---------------------------------------------------------------------------
 
 /**
+ * Re-apunta a `nuevoId` lo que usaba alguno de `viejos` como categoría o
+ * cuenta: recurrentes, reglas, plantillas y (categorías) subcategorías.
+ * Transacciones y presupuestos los trata cada llamador.
+ */
+async function reapuntarReferencias(
+  usuarioId: string,
+  campo: 'categoriaId' | 'cuentaId',
+  viejos: Set<string>,
+  nuevoId: string,
+  ahora: Date,
+): Promise<void> {
+  const cambio = (fila: { categoriaId?: string; cuentaId?: string } & ControlSync) => {
+    fila[campo] = nuevoId
+    fila.sincronizado = false
+    fila.fechaActualizacion = ahora
+  }
+  await db.recurrentes.where('usuarioId').equals(usuarioId).filter((r) => viejos.has(r[campo])).modify(cambio)
+  await db.plantillas.where('usuarioId').equals(usuarioId).filter((p) => viejos.has(p[campo])).modify(cambio)
+  await db.reglas
+    .where('usuarioId')
+    .equals(usuarioId)
+    .filter((r) => viejos.has(r[campo] ?? ''))
+    .modify(cambio)
+  if (campo === 'categoriaId') {
+    await db.categorias
+      .where('usuarioId')
+      .equals(usuarioId)
+      .filter((c) => viejos.has(c.padreId ?? ''))
+      .modify({ padreId: nuevoId, sincronizado: false, fechaActualizacion: ahora })
+  }
+}
+
+/**
  * Fusiona en Dexie las filas remotas de un catálogo (categorías o cuentas)
  * que no existen localmente. Si localmente hay una con el mismo nombre y
  * tipo pero otro id que aún no está en el servidor (típico de las sembradas
@@ -717,7 +852,8 @@ async function fusionarCatalogo<T extends Categoria | Cuenta>(
   if (remotos.length === 0) return
 
   const clave = (r: T) => `${normalizar(r.nombre)}|${r.tipo}`
-  const tablas = [tabla, db.transacciones, db.presupuestos, db.recurrentes]
+  // Set: `tabla` puede ser la misma db.categorias.
+  const tablas = [...new Set([tabla, db.categorias, db.transacciones, db.presupuestos, db.recurrentes, db.reglas, db.plantillas])]
 
   await db.transaction('rw', tablas, async () => {
     const locales = await tabla.where('usuarioId').equals(usuarioId).toArray()
@@ -741,11 +877,7 @@ async function fusionarCatalogo<T extends Categoria | Cuenta>(
             t.sincronizado = false
             t.fechaActualizacion = ahora
           })
-        await db.recurrentes
-          .where('usuarioId')
-          .equals(usuarioId)
-          .filter((r) => r[campo] === duplicado.id)
-          .modify({ [campo]: remoto.id, sincronizado: false, fechaActualizacion: ahora })
+        await reapuntarReferencias(usuarioId, campo, new Set([duplicado.id]), remoto.id, ahora)
         if (campo === 'categoriaId') {
           await db.presupuestos
             .where('categoriaId')
@@ -779,10 +911,19 @@ async function deduplicarCatalogo<T extends Categoria | Cuenta>(
   tablaRemota: 'categorias' | 'cuentas',
   campo: 'categoriaId' | 'cuentaId',
 ): Promise<number> {
-  const tablas = [tabla, db.transacciones, db.presupuestos, db.recurrentes, db.eliminacionesPendientes]
+  const tablas = new Set([
+    tabla,
+    db.categorias,
+    db.transacciones,
+    db.presupuestos,
+    db.recurrentes,
+    db.reglas,
+    db.plantillas,
+    db.eliminacionesPendientes,
+  ])
   let unidas = 0
 
-  await db.transaction('rw', tablas, async () => {
+  await db.transaction('rw', [...tablas], async () => {
     const grupos = new Map<string, T[]>()
     for (const item of await tabla.where('usuarioId').equals(usuarioId).toArray()) {
       // Las cuentas de chanchitos nunca se unen: cada una es de un chanchito.
@@ -807,11 +948,7 @@ async function deduplicarCatalogo<T extends Categoria | Cuenta>(
       }
 
       await db.transacciones.where(campo).anyOf([...idsRepetidas]).modify(reapuntar)
-      await db.recurrentes
-        .where('usuarioId')
-        .equals(usuarioId)
-        .filter((r) => idsRepetidas.has(r[campo]))
-        .modify(reapuntar)
+      await reapuntarReferencias(usuarioId, campo, idsRepetidas, conservada.id, ahora)
 
       if (campo === 'categoriaId') {
         // Un presupuesto por categoría: si ambas tenían, queda el más reciente.
@@ -959,6 +1096,8 @@ const ORDEN_BORRADO: TablaSincronizable[] = [
   'metas',
   'deudas',
   'chanchitos',
+  'reglas',
+  'plantillas',
   'categorias',
   'cuentas',
 ]
@@ -1247,6 +1386,12 @@ export async function sincronizar(usuarioId: string): Promise<ResultadoSincroniz
     }
     agregar(await sincronizarEntidad(METAS, usuarioId, userId, borrados))
     agregar(await sincronizarEntidad(DEUDAS, usuarioId, userId, borrados))
+    // Sin las tablas (falta ejecutar BASE_DE_DATOS.sql) se quedan en el
+    // dispositivo hasta que existan.
+    if (esquemaListo('v0.16.sql')) {
+      agregar(await sincronizarEntidad(REGLAS, usuarioId, userId, borrados))
+      agregar(await sincronizarEntidad(PLANTILLAS, usuarioId, userId, borrados))
+    }
   }
 
   let descargadas = 0

@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from 'react'
-import { normalizarEtiqueta } from '../utils/etiquetas'
+import { MAX_ETIQUETAS, normalizarEtiqueta } from '../utils/etiquetas'
 
 interface CampoEtiquetasProps {
   etiquetas: string[]
@@ -8,8 +8,6 @@ interface CampoEtiquetasProps {
   sugerencias: string[]
   id?: string
 }
-
-const MAX_ETIQUETAS = 5
 
 /** Etiquetas como chips: Enter, coma o espacio agregan; ⌫ en vacío quita la última. */
 function CampoEtiquetas({ etiquetas, onCambiar, sugerencias, id }: CampoEtiquetasProps) {

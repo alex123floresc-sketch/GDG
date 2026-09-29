@@ -14,6 +14,15 @@ import { limpiarDatosLocales } from './services/transaccionService'
 import { minutosParaBloquear, pinActivo, quitarPin } from './utils/pin'
 import { useMontosOcultos } from './utils/privacidad'
 
+/** Qué queda solo en el dispositivo mientras falte cada parte del SQL. */
+const FUNCIONES_POR_MIGRACION: Record<string, string> = {
+  'v0.7.sql': 'metas, deudas, recurrentes, presupuestos, transferencias y dólares',
+  'v0.11.sql': 'etiquetas y gastos divididos',
+  'v0.13.sql': 'recurrentes programados para el 29, 30 o 31',
+  'v0.14.sql': 'chanchitos',
+  'v0.16.sql': 'subcategorías, reglas automáticas y plantillas',
+}
+
 function App() {
   const [sesion, setSesion] = useState<Session | null>(null)
   const [cargandoSesion, setCargandoSesion] = useState(true)
@@ -177,15 +186,8 @@ function App() {
                 <div className="header">Falta actualizar tu base de datos en Supabase</div>
                 <p>
                   Tus transacciones, categorías y cuentas se sincronizan normalmente, pero lo más
-                  nuevo (
-                  {migracionesPendientes.includes('v0.7.sql')
-                    ? 'metas, deudas, recurrentes, presupuestos, transferencias, dólares, etiquetas'
-                    : migracionesPendientes.includes('v0.11.sql')
-                      ? 'etiquetas, gastos divididos, recurrentes de fin de mes y chanchitos'
-                      : migracionesPendientes.includes('v0.13.sql')
-                        ? 'recurrentes programados para el 29, 30 o 31, y chanchitos'
-                        : 'chanchitos'}
-                  ) solo se guarda en este dispositivo hasta que ejecutes el archivo{' '}
+                  nuevo ({migracionesPendientes.map((m) => FUNCIONES_POR_MIGRACION[m] ?? m).join('; ')}) solo
+                  se guarda en este dispositivo hasta que ejecutes el archivo{' '}
                   <code>BASE_DE_DATOS.sql</code> completo en el SQL Editor de Supabase.
                 </p>
               </div>

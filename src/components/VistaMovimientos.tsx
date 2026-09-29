@@ -3,6 +3,7 @@ import { useAvisos } from '../hooks/useAvisos'
 import { exportarMovimientosExcel } from '../services/exportService'
 import type { Categoria, Cuenta, OrigenTransaccion, Transaccion } from '../types'
 import { esMovimientoReal } from '../utils/analisis'
+import { ordenJerarquico } from '../utils/categorias'
 import {
   aplicarFiltros,
   chipsDeFiltros,
@@ -186,9 +187,9 @@ function VistaMovimientos({ transacciones, categorias, cuentas, onSeleccionar }:
               <label htmlFor="f-categoria">Categoría</label>
               <select id="f-categoria" className="ui dropdown" value={filtros.categoriaId} onChange={(e) => actualizar({ categoriaId: e.target.value })}>
                 <option value="">Todas</option>
-                {categorias.map((c) => (
+                {ordenJerarquico(categorias).map(([c, esSub]) => (
                   <option key={c.id} value={c.id}>
-                    {c.nombre}
+                    {esSub ? `  › ${c.nombre}` : c.nombre}
                   </option>
                 ))}
               </select>

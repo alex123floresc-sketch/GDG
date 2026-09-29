@@ -12,6 +12,14 @@ export function normalizarEtiqueta(texto: string): string {
     .slice(0, 30)
 }
 
+/** Máximo de etiquetas por movimiento. */
+export const MAX_ETIQUETAS = 5
+
+/** Normaliza una lista: sin vacías ni repetidas, como máximo `MAX_ETIQUETAS`. */
+export function normalizarEtiquetas(etiquetas: string[]): string[] {
+  return [...new Set(etiquetas.map(normalizarEtiqueta).filter(Boolean))].slice(0, MAX_ETIQUETAS)
+}
+
 /** Etiquetas usadas, de la más a la menos frecuente. */
 export function etiquetasUsadas(transacciones: Transaccion[]): string[] {
   const conteo = new Map<string, number>()

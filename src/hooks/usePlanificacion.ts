@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect } from 'react'
 import { db } from '../db/database'
 import { generarRecurrentesPendientes } from '../services/recurrenteService'
-import type { Chanchito, Deuda, Meta, Presupuesto, Recurrente } from '../types'
+import type { Chanchito, Deuda, Meta, Plantilla, Presupuesto, Recurrente, Regla } from '../types'
 
 export function usePresupuestos(usuarioId: string): Presupuesto[] {
   return useLiveQuery(() => db.presupuestos.where('usuarioId').equals(usuarioId).toArray(), [usuarioId]) ?? []
@@ -34,4 +34,21 @@ export function useRecurrentes(usuarioId: string): Recurrente[] {
   }, [hayVencidos, usuarioId])
 
   return recurrentes
+}
+
+export function useReglas(usuarioId: string): Regla[] {
+  return useLiveQuery(() => db.reglas.where('usuarioId').equals(usuarioId).toArray(), [usuarioId]) ?? []
+}
+
+/** Plantillas de registro rápido, en el orden elegido. */
+export function usePlantillas(usuarioId: string): Plantilla[] {
+  return (
+    useLiveQuery(
+      async () =>
+        (await db.plantillas.where('usuarioId').equals(usuarioId).toArray()).sort(
+          (a, b) => (a.orden ?? 0) - (b.orden ?? 0) || a.nombre.localeCompare(b.nombre, 'es'),
+        ),
+      [usuarioId],
+    ) ?? []
+  )
 }

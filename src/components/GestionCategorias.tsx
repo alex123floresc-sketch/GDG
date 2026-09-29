@@ -7,6 +7,7 @@ import {
   ICONOS_CATEGORIA,
 } from '../services/categoriaService'
 import type { Categoria, TipoCategoria, Transaccion } from '../types'
+import { nombreCompleto } from '../utils/categorias'
 
 interface GestionCategoriasProps {
   usuarioId: string
@@ -27,6 +28,8 @@ interface Borrador {
   tipo: TipoCategoria
   icono: string
   color: string
+  /** '' = categoría principal. */
+  padreId: string
 }
 
 const BORRADOR_VACIO: Borrador = {
@@ -34,6 +37,7 @@ const BORRADOR_VACIO: Borrador = {
   tipo: 'gasto',
   icono: 'tag',
   color: COLORES_CATEGORIA[0],
+  padreId: '',
 }
 
 function GestionCategorias({ usuarioId, categorias, transacciones }: GestionCategoriasProps) {
@@ -50,20 +54,51 @@ function GestionCategorias({ usuarioId, categorias, transacciones }: GestionCate
     return conteo
   }, [transacciones])
 
-  const grupos = TIPOS.map((tipo) => ({
-    ...tipo,
-    categorias: categorias
-      .filter((c) => c.tipo === tipo.id)
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
-  }))
+  const porId = useMemo(() => new Map(categorias.map((c) => [c.id, c])), [categorias])
+  const conHijas = useMemo(() => new Set(categorias.map((c) => c.padreId).filter(Boolean)), [categorias])
 
-  function abrirNueva() {
+  // Cada grupo (por tipo): las principales, cada una seguida de sus
+  // subcategorías del mismo tipo. Una subcategoría cuya madre está en otro
+  // grupo (p. ej. madre "Ambos") se muestra suelta, con el nombre completo.
+  const grupos = TIPOS.map((tipo) => {
+    const delTipo = categorias
+      .filter((c) => c.tipo === tipo.id)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+    const ids = new Set(delTipo.map((c) => c.id))
+    const filas: { c: Categoria; sub: boolean }[] = []
+    for (const c of delTipo) {
+      if (c.padreId && ids.has(c.padreId)) continue
+      filas.push({ c, sub: false })
+      for (const h of delTipo.filter((x) => x.padreId === c.id)) filas.push({ c: h, sub: true })
+    }
+    return { ...tipo, filas }
+  })
+
+  // Posibles madres del borrador: principales de un tipo compatible.
+  const madresPosibles = borrador
+    ? categorias
+        .filter(
+          (c) =>
+            !c.padreId &&
+            c.id !== borrador.id &&
+            (c.tipo === borrador.tipo || c.tipo === 'ambos'),
+        )
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+    : []
+  const borradorTieneHijas = Boolean(borrador?.id && conHijas.has(borrador.id))
+
+  function abrirNueva(padre?: Categoria) {
     setEliminando(null)
     setError(null)
-    // Sugiere el primer color de la paleta que aún no se usa.
+    // Sugiere el primer color de la paleta que aún no se usa (o el de la madre).
     const usados = new Set(categorias.map((c) => c.color))
-    const color = COLORES_CATEGORIA.find((c) => !usados.has(c)) ?? COLORES_CATEGORIA[0]
-    setBorrador({ ...BORRADOR_VACIO, color })
+    const color = padre?.color ?? COLORES_CATEGORIA.find((c) => !usados.has(c)) ?? COLORES_CATEGORIA[0]
+    setBorrador({
+      ...BORRADOR_VACIO,
+      color,
+      tipo: padre && padre.tipo !== 'ambos' ? padre.tipo : 'gasto',
+      padreId: padre?.id ?? '',
+    })
   }
 
   function abrirEdicion(c: Categoria) {
@@ -75,6 +110,7 @@ function GestionCategorias({ usuarioId, categorias, transacciones }: GestionCate
       tipo: c.tipo,
       icono: c.icono ?? 'tag',
       color: c.color ?? COLORES_CATEGORIA[COLORES_CATEGORIA.length - 1],
+      padreId: c.padreId ?? '',
     })
   }
 
@@ -89,6 +125,8 @@ function GestionCategorias({ usuarioId, categorias, transacciones }: GestionCate
       tipo: borrador.tipo,
       icono: borrador.icono,
       color: borrador.color,
+      // Solo si la madre sigue siendo compatible con el tipo elegido.
+      padreId: madresPosibles.some((m) => m.id === borrador.padreId) ? borrador.padreId : undefined,
     }
 
     try {
@@ -139,7 +177,7 @@ function GestionCategorias({ usuarioId, categorias, transacciones }: GestionCate
           </div>
         </h2>
         {!borrador && (
-          <button type="button" className="ui primary button" onClick={abrirNueva}>
+          <button type="button" className="ui primary button" onClick={() => abrirNueva()}>
             <i className="plus icon" />
             Nueva categoría
           </button>
@@ -188,6 +226,29 @@ function GestionCategorias({ usuarioId, categorias, transacciones }: GestionCate
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="field">
+              <label htmlFor="cat-padre">Dentro de (opcional)</label>
+              <select
+                id="cat-padre"
+                className="ui dropdown"
+                value={madresPosibles.some((m) => m.id === borrador.padreId) ? borrador.padreId : ''}
+                disabled={borradorTieneHijas}
+                onChange={(e) => setBorrador({ ...borrador, padreId: e.target.value })}
+              >
+                <option value="">Ninguna: es una categoría principal</option>
+                {madresPosibles.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    Subcategoría de {m.nombre}
+                  </option>
+                ))}
+              </select>
+              <small className="texto-suave">
+                {borradorTieneHijas
+                  ? 'Tiene subcategorías, así que debe seguir siendo principal.'
+                  : 'Ej. "Delivery" dentro de "Alimentación": en los gráficos suma a su categoría principal.'}
+              </small>
             </div>
 
             <div className="field">
@@ -308,29 +369,41 @@ function GestionCategorias({ usuarioId, categorias, transacciones }: GestionCate
             <div className="content">
               {g.id === 'ambos' ? 'Ingresos y gastos' : `${g.etiqueta}s`}
               <div className="sub header">
-                {g.categorias.length} categoría{g.categorias.length === 1 ? '' : 's'}
+                {g.filas.length} categoría{g.filas.length === 1 ? '' : 's'}
               </div>
             </div>
           </h4>
 
-          {g.categorias.length === 0 ? (
+          {g.filas.length === 0 ? (
             <p className="texto-suave">Aún no hay categorías de este tipo.</p>
           ) : (
             <div className="rejilla-categorias">
-              {g.categorias.map((c) => {
+              {g.filas.map(({ c, sub }) => {
                 const n = usos.get(c.id) ?? 0
                 return (
-                  <div key={c.id} className="tarjeta-categoria">
+                  <div key={c.id} className={`tarjeta-categoria ${sub ? 'subcategoria' : ''}`}>
                     <span className="icono-circulo" style={{ background: c.color }}>
                       <i className={`${c.icono ?? 'tag'} icon`} />
                     </span>
                     <div className="detalle">
-                      <strong>{c.nombre}</strong>
+                      <strong>{sub ? c.nombre : nombreCompleto(c, porId)}</strong>
                       <span>
+                        {sub && <i className="level up alternate icon rotado" aria-label="Subcategoría" />}
                         {n} movimiento{n === 1 ? '' : 's'}
                       </span>
                     </div>
                     <div className="ui mini basic icon buttons">
+                      {!c.padreId && (
+                        <button
+                          type="button"
+                          className="ui button"
+                          title="Agregar subcategoría"
+                          aria-label={`Agregar subcategoría a ${c.nombre}`}
+                          onClick={() => abrirNueva(c)}
+                        >
+                          <i className="plus icon" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="ui button"
