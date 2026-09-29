@@ -16,7 +16,7 @@ import { crearRegla } from '../services/reglaService'
 import { normalizarEtiquetas } from '../utils/etiquetas'
 import { normalizarTexto, patronSugerido, reglaPara } from '../utils/reglas'
 import { textoHoras } from '../utils/horas'
-import { ICONO_CUENTA } from '../utils/cuentas'
+import IconoCuenta from './IconoCuenta'
 import { calcularParticipantes, DIVISION_INICIAL, type EstadoDivision } from '../utils/division'
 import { etiquetasUsadas } from '../utils/etiquetas'
 import { evaluarExpresion, tieneOperacion } from '../utils/expresion'
@@ -460,7 +460,7 @@ function FormularioTransaccion({
             onClick={() => onElegir(c.id)}
             className={`ui button ${seleccionada === c.id ? 'primary' : 'basic'}`}
           >
-            <i className={`${ICONO_CUENTA[c.tipo]} icon`} />
+            <IconoCuenta cuenta={c} tamano="linea" />
             {c.nombre}
           </button>
         ))}

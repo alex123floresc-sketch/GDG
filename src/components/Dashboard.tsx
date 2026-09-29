@@ -20,6 +20,7 @@ import { eliminarTransaccion } from '../services/transaccionService'
 import type { Plantilla, Transaccion } from '../types'
 import Automatizar from './automatizar/Automatizar'
 import Logros from './Logros'
+import Personalizar from './Personalizar'
 import { calcularLogros, calcularRacha } from '../utils/logros'
 import { valorHora } from '../utils/horas'
 import { generarInsights, type Insight } from '../utils/insights'
@@ -48,7 +49,7 @@ interface DashboardProps {
 }
 
 type Seccion = 'inicio' | 'movimientos' | 'analisis' | 'planificar' | 'mas'
-type SubseccionMas = 'cuentas' | 'categorias' | 'automatizar' | 'logros' | 'importar' | 'seguridad'
+type SubseccionMas = 'cuentas' | 'categorias' | 'automatizar' | 'logros' | 'personalizar' | 'importar' | 'seguridad'
 type Destino = NonNullable<Insight['destino']> | 'movimientos'
 
 const SECCIONES: { id: Seccion; etiqueta: string; icono: string }[] = [
@@ -64,6 +65,7 @@ const SUBSECCIONES_MAS: { id: SubseccionMas; etiqueta: string; icono: string }[]
   { id: 'categorias', etiqueta: 'Categorías', icono: 'tags' },
   { id: 'automatizar', etiqueta: 'Automatizar', icono: 'magic' },
   { id: 'logros', etiqueta: 'Logros', icono: 'trophy' },
+  { id: 'personalizar', etiqueta: 'Personalizar', icono: 'paint brush' },
   { id: 'importar', etiqueta: 'Importar Yape', icono: 'file excel outline' },
   { id: 'seguridad', etiqueta: 'Seguridad y respaldo', icono: 'lock' },
 ]
@@ -415,6 +417,8 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
               )}
 
               {subseccionMas === 'logros' && <Logros logros={logros} racha={racha} />}
+
+              {subseccionMas === 'personalizar' && <Personalizar usuarioId={usuarioId} ajustes={ajustes} />}
 
               {subseccionMas === 'seguridad' && (
                 <>

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { EVENTO_TEMA } from './Personalizar'
 import { guardarTema, leerTema, type Tema } from '../utils/preferencias'
 import { alternarMontosOcultos } from '../utils/privacidad'
 import { aplicarTema } from '../utils/tema'
@@ -37,6 +38,13 @@ function Header({
   const [cerrandoSesion, setCerrandoSesion] = useState(false)
   const [tema, setTema] = useState<Tema>(leerTema)
   const temaActual = TEMAS.find((t) => t.id === tema)!
+
+  // El tema también se cambia desde Más → Personalizar.
+  useEffect(() => {
+    const actualizar = () => setTema(leerTema())
+    window.addEventListener(EVENTO_TEMA, actualizar)
+    return () => window.removeEventListener(EVENTO_TEMA, actualizar)
+  }, [])
 
   function cambiarTema() {
     const siguiente = TEMAS[(TEMAS.indexOf(temaActual) + 1) % TEMAS.length].id

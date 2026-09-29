@@ -58,6 +58,10 @@ export interface Cuenta extends ControlSync {
   diaCorte?: number
   /** Día del mes (1-31) límite de pago. Solo tarjetas. */
   diaPago?: number
+  /** Icono de Semantic o 'logo:<id>' (ver `LOGOS_CUENTA`). Sin valor = según el tipo/nombre. */
+  icono?: string
+  /** Color de fondo del icono (no aplica a logos). */
+  color?: string
 }
 
 export interface Transaccion {
@@ -320,7 +324,11 @@ export interface Ajustes extends ControlSync {
   horasSemana?: number
   /** Suscripciones detectadas que el usuario descartó (clave normalizada). */
   suscripcionesIgnoradas?: string[]
+  /** Inicio a tu gusto: orden de las secciones y las ocultas. */
+  inicio?: { orden: SeccionInicio[]; ocultas: SeccionInicio[] }
 }
+
+export type SeccionInicio = 'plantillas' | 'cuentas' | 'hoy' | 'insights' | 'planes' | 'graficos' | 'movimientos'
 
 export type TablaSincronizable =
   | 'transacciones'

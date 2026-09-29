@@ -1,4 +1,4 @@
-import { leerTema, type Tema } from './preferencias'
+import { leerColor, leerCompacto, leerLetra, leerTema, type Tema } from './preferencias'
 
 const consultaOscuro = () => window.matchMedia?.('(prefers-color-scheme: dark)')
 
@@ -8,17 +8,22 @@ export function temaEfectivo(tema: Tema): 'claro' | 'oscuro' {
   return consultaOscuro()?.matches ? 'oscuro' : 'claro'
 }
 
-const COLOR_BARRA = { claro: '#1e1b4b', oscuro: '#0f0e1f' }
-
 /**
  * Aplica el tema en `<html data-theme>` (lo usan los estilos de
- * index.css) y en el color de la barra del navegador/PWA.
+ * index.css), junto con el color de la app (`data-color`), el tamaño de
+ * letra (`data-letra`) y el modo compacto (`data-compacto`), y pinta la
+ * barra del navegador/PWA con el color del encabezado.
  */
 export function aplicarTema(tema: Tema = leerTema()): void {
   const efectivo = temaEfectivo(tema)
-  document.documentElement.dataset.theme = efectivo === 'oscuro' ? 'dark' : 'light'
-  document.documentElement.style.colorScheme = efectivo === 'oscuro' ? 'dark' : 'light'
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', COLOR_BARRA[efectivo])
+  const raiz = document.documentElement
+  raiz.dataset.theme = efectivo === 'oscuro' ? 'dark' : 'light'
+  raiz.style.colorScheme = efectivo === 'oscuro' ? 'dark' : 'light'
+  raiz.dataset.color = leerColor()
+  raiz.dataset.letra = leerLetra()
+  raiz.dataset.compacto = leerCompacto() ? 'si' : 'no'
+  const barra = getComputedStyle(raiz).getPropertyValue('--color-header-1').trim()
+  if (barra) document.querySelector('meta[name="theme-color"]')?.setAttribute('content', barra)
 }
 
 /** Reaplica el tema si cambia la preferencia del sistema (modo "auto"). */

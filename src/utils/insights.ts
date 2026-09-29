@@ -30,6 +30,7 @@ export interface Insight {
     | 'mas:categorias'
     | 'mas:automatizar'
     | 'mas:logros'
+    | 'mas:personalizar'
     | 'analisis:anual'
     | 'planificar:deseos'
     | 'analisis'

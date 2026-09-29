@@ -6,10 +6,14 @@ import {
   cuentasOperativas,
   ETIQUETA_CUENTA,
   estadoTarjeta,
-  ICONO_CUENTA,
+  ICONOS_CUENTA_OPCIONES,
+  LOGOS_CUENTA,
+  logoSugerido,
   saldosPorCuenta,
   TIPOS_CUENTA,
 } from '../utils/cuentas'
+import { COLORES_CATEGORIA } from '../services/categoriaService'
+import IconoCuenta from './IconoCuenta'
 import { formatearFecha, formatearMoneda, formatearPorcentaje } from '../utils/formato'
 import Modal from './Modal'
 
@@ -30,6 +34,9 @@ interface Borrador {
   limite: string
   diaCorte: string
   diaPago: string
+  /** '' = automático (según el nombre o el tipo). */
+  icono: string
+  color: string
 }
 
 const VACIO: Borrador = {
@@ -39,6 +46,8 @@ const VACIO: Borrador = {
   limite: '',
   diaCorte: '',
   diaPago: '',
+  icono: '',
+  color: '',
 }
 
 const DIAS_ALERTA_PAGO = 5
@@ -73,6 +82,8 @@ function GestionCuentas({ usuarioId, cuentas, transacciones, onTransferir }: Ges
             limite: cuenta.limiteCredito ? String(cuenta.limiteCredito) : '',
             diaCorte: cuenta.diaCorte ? String(cuenta.diaCorte) : '',
             diaPago: cuenta.diaPago ? String(cuenta.diaPago) : '',
+            icono: cuenta.icono ?? '',
+            color: cuenta.color ?? '',
           }
         : VACIO,
     )
@@ -92,6 +103,8 @@ function GestionCuentas({ usuarioId, cuentas, transacciones, onTransferir }: Ges
       limiteCredito: borrador.limite ? Number(borrador.limite) : undefined,
       diaCorte: borrador.diaCorte ? Number(borrador.diaCorte) : undefined,
       diaPago: borrador.diaPago ? Number(borrador.diaPago) : undefined,
+      icono: borrador.icono || undefined,
+      color: borrador.icono && !borrador.icono.startsWith('logo:') ? borrador.color || undefined : undefined,
     }
 
     try {
@@ -170,9 +183,7 @@ function GestionCuentas({ usuarioId, cuentas, transacciones, onTransferir }: Ges
           return (
             <div key={c.id} className={`tarjeta-cuenta ui segment ${tarjeta ? 'es-tarjeta' : ''}`}>
               <div className="cabecera">
-                <span className="icono-circulo mini fondo-marca">
-                  <i className={`${ICONO_CUENTA[c.tipo]} icon`} />
-                </span>
+                <IconoCuenta cuenta={c} />
                 <div className="nombre">
                   <strong>{c.nombre}</strong>
                   <span>{ETIQUETA_CUENTA[c.tipo]}</span>
@@ -292,6 +303,78 @@ function GestionCuentas({ usuarioId, cuentas, transacciones, onTransferir }: Ges
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="field">
+              <label>
+                Ícono o logo
+                <span className="vista-icono">
+                  <IconoCuenta
+                    cuenta={{ nombre: borrador.nombre, tipo: borrador.tipo, icono: borrador.icono || undefined, color: borrador.color || undefined }}
+                  />
+                </span>
+              </label>
+              <div className="selector-logo" role="radiogroup" aria-label="Logo">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={borrador.icono === ''}
+                  className={`opcion-logo automatico ${borrador.icono === '' ? 'activa' : ''}`}
+                  onClick={() => setBorrador({ ...borrador, icono: '' })}
+                  title={logoSugerido(borrador.nombre) ? 'Automático (según el nombre)' : 'Automático (según el tipo)'}
+                >
+                  Auto
+                </button>
+                {LOGOS_CUENTA.map((l) => (
+                  <button
+                    key={l.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={borrador.icono === `logo:${l.id}`}
+                    aria-label={l.nombre}
+                    title={l.nombre}
+                    className={`opcion-logo ${borrador.icono === `logo:${l.id}` ? 'activa' : ''}`}
+                    style={{ background: l.fondo, color: l.texto }}
+                    onClick={() => setBorrador({ ...borrador, icono: `logo:${l.id}` })}
+                  >
+                    {l.sigla}
+                  </button>
+                ))}
+              </div>
+              <div className="selector-icono compacto" role="radiogroup" aria-label="Icono">
+                {ICONOS_CUENTA_OPCIONES.map((icono) => (
+                  <button
+                    key={icono}
+                    type="button"
+                    role="radio"
+                    aria-checked={borrador.icono === icono}
+                    title={icono}
+                    className={`opcion-icono ${borrador.icono === icono ? 'activa' : ''}`}
+                    style={borrador.icono === icono ? { background: borrador.color || 'var(--color-marca)' } : undefined}
+                    onClick={() => setBorrador({ ...borrador, icono })}
+                  >
+                    <i className={`${icono} icon`} />
+                  </button>
+                ))}
+              </div>
+              {borrador.icono && !borrador.icono.startsWith('logo:') && (
+                <div className="selector-color" role="radiogroup" aria-label="Color del icono">
+                  {['', ...COLORES_CATEGORIA].map((color) => (
+                    <button
+                      key={color || 'marca'}
+                      type="button"
+                      role="radio"
+                      aria-checked={borrador.color === color}
+                      aria-label={color || 'Color de la app'}
+                      className={`muestra-color ${borrador.color === color ? 'activa' : ''}`}
+                      style={{ background: color || 'var(--color-marca)' }}
+                      onClick={() => setBorrador({ ...borrador, color })}
+                    >
+                      {borrador.color === color && <i className="check icon" />}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="field">

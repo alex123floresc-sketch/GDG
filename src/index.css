@@ -17,6 +17,10 @@
   --color-campo: #ffffff;
   --color-header-1: #1e1b4b;
   --color-header-2: #312e81;
+  /* Degradado de la tarjeta principal de Inicio. */
+  --grad-1: #4f46e5;
+  --grad-2: #3730a3;
+  --grad-3: #1e1b4b;
   --color-texto: #1f2033;
   --color-texto-suave: #6b6f86;
   --color-borde: #e4e6f0;
@@ -439,7 +443,7 @@ body {
 
 .grupo-barras:hover .zona-impacto,
 .grupo-barras:focus-visible .zona-impacto {
-  fill: rgba(79, 70, 229, 0.06);
+  fill: color-mix(in srgb, var(--color-marca) 6%, transparent);
 }
 
 .grupo-barras.atenuado {
@@ -1221,8 +1225,10 @@ body.con-modal {
 
 /* ---------- Cuentas ---------- */
 
+/* --color-boton y no --color-marca: en oscuro la marca es clara y el
+   icono blanco no se distinguiría. */
 .fondo-marca {
-  background: var(--color-marca);
+  background: var(--color-boton);
 }
 
 .rejilla-cuentas {
@@ -1350,7 +1356,7 @@ body.con-modal {
   color: #fff;
   font-size: 1.15em;
   cursor: pointer;
-  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.45);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-boton) 45%, transparent);
   transition: transform 0.15s, background 0.15s;
 }
 
@@ -1985,6 +1991,9 @@ body.con-modal {
   --color-campo: #13122a;
   --color-header-1: #0b0a18;
   --color-header-2: #1e1b4b;
+  --grad-1: #3b36b8;
+  --grad-2: #2a2580;
+  --grad-3: #16143a;
   --color-texto: #e9e9f4;
   --color-texto-suave: #a4a7c1;
   --color-borde: #2d2c49;
@@ -2207,8 +2216,8 @@ body.con-modal {
   color: #fff;
   background:
     radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.16), transparent 45%),
-    linear-gradient(135deg, #4f46e5 0%, #3730a3 55%, #1e1b4b 100%);
-  box-shadow: 0 10px 30px rgba(55, 48, 163, 0.35);
+    linear-gradient(135deg, var(--grad-1) 0%, var(--grad-2) 55%, var(--grad-3) 100%);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--grad-2) 35%, transparent);
 }
 
 .tarjeta-principal .saludo {
@@ -2472,8 +2481,8 @@ body.con-modal {
 
 [data-theme='dark'] .tarjeta-principal {
   background:
-    radial-gradient(circle at 100% 0%, rgba(139, 147, 255, 0.22), transparent 45%),
-    linear-gradient(135deg, #3b36b8 0%, #2a2580 55%, #16143a 100%);
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--color-marca) 22%, transparent), transparent 45%),
+    linear-gradient(135deg, var(--grad-1) 0%, var(--grad-2) 55%, var(--grad-3) 100%);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
 
@@ -3842,4 +3851,408 @@ i.icon.rotado {
 
 .chip-racha i.icon {
   margin: 0 0.2em 0 0;
+}
+
+/* ---------- Colores de la app (v0.20): <html data-color="…"> ---------- */
+/* Índigo es el de :root; cada tema redefine solo los tokens de marca. */
+
+:root[data-color='azul'] {
+  --color-marca: #1d6fd6;
+  --color-marca-oscuro: #174a8c;
+  --color-marca-suave: #e8f1fc;
+  --color-boton: #1a5fb4;
+  --color-boton-hover: #154c90;
+  --color-header-1: #0b2545;
+  --color-header-2: #13315c;
+  --grad-1: #2f7de0;
+  --grad-2: #1a5fb4;
+  --grad-3: #0b2545;
+}
+
+:root[data-theme='dark'][data-color='azul'] {
+  --color-marca: #7cb3ff;
+  --color-marca-oscuro: #5a9bf0;
+  --color-marca-suave: rgba(124, 179, 255, 0.14);
+  --color-boton: #2f6fd0;
+  --color-boton-hover: #3d7fe0;
+  --color-header-1: #07111f;
+  --color-header-2: #0b2545;
+  --grad-1: #2a63b8;
+  --grad-2: #1a4480;
+  --grad-3: #0a1a33;
+}
+
+:root[data-color='verde'] {
+  --color-marca: #0f7b5f;
+  --color-marca-oscuro: #0b5e49;
+  --color-marca-suave: #e6f5f0;
+  --color-boton: #0f7b5f;
+  --color-boton-hover: #0b5e49;
+  --color-header-1: #06302a;
+  --color-header-2: #0b4a3d;
+  --grad-1: #149473;
+  --grad-2: #0b6a52;
+  --grad-3: #06302a;
+}
+
+:root[data-theme='dark'][data-color='verde'] {
+  --color-marca: #4fd1a5;
+  --color-marca-oscuro: #35b58b;
+  --color-marca-suave: rgba(79, 209, 165, 0.14);
+  --color-boton: #0f7b5f;
+  --color-boton-hover: #138a6a;
+  --color-header-1: #041c18;
+  --color-header-2: #06302a;
+  --grad-1: #11775c;
+  --grad-2: #0b5443;
+  --grad-3: #05241e;
+}
+
+:root[data-color='rosa'] {
+  --color-marca: #c2185b;
+  --color-marca-oscuro: #9c134a;
+  --color-marca-suave: #fce8f0;
+  --color-boton: #c2185b;
+  --color-boton-hover: #9c134a;
+  --color-header-1: #3d0a22;
+  --color-header-2: #5c0f33;
+  --grad-1: #d63a77;
+  --grad-2: #a3154d;
+  --grad-3: #3d0a22;
+}
+
+:root[data-theme='dark'][data-color='rosa'] {
+  --color-marca: #ff7eb0;
+  --color-marca-oscuro: #f45b98;
+  --color-marca-suave: rgba(255, 126, 176, 0.14);
+  --color-boton: #c2185b;
+  --color-boton-hover: #d6286c;
+  --color-header-1: #1f0612;
+  --color-header-2: #3d0a22;
+  --grad-1: #a81650;
+  --grad-2: #7a1039;
+  --grad-3: #2a0818;
+}
+
+:root[data-color='turquesa'] {
+  --color-marca: #0e7490;
+  --color-marca-oscuro: #155e75;
+  --color-marca-suave: #e6f4f8;
+  --color-boton: #0e7490;
+  --color-boton-hover: #155e75;
+  --color-header-1: #062a33;
+  --color-header-2: #0a3d4a;
+  --grad-1: #1189a8;
+  --grad-2: #0e6780;
+  --grad-3: #062a33;
+}
+
+:root[data-theme='dark'][data-color='turquesa'] {
+  --color-marca: #5fd3ee;
+  --color-marca-oscuro: #3ebcd9;
+  --color-marca-suave: rgba(95, 211, 238, 0.14);
+  --color-boton: #0e7a96;
+  --color-boton-hover: #1190b0;
+  --color-header-1: #031a20;
+  --color-header-2: #062a33;
+  --grad-1: #0d6a82;
+  --grad-2: #0a4d5f;
+  --grad-3: #04222a;
+}
+
+:root[data-color='grafito'] {
+  --color-marca: #374151;
+  --color-marca-oscuro: #1f2937;
+  --color-marca-suave: #eef0f3;
+  --color-boton: #374151;
+  --color-boton-hover: #1f2937;
+  --color-header-1: #111827;
+  --color-header-2: #1f2937;
+  --grad-1: #4b5563;
+  --grad-2: #374151;
+  --grad-3: #111827;
+}
+
+:root[data-theme='dark'][data-color='grafito'] {
+  --color-marca: #cbd5e1;
+  --color-marca-oscuro: #94a3b8;
+  --color-marca-suave: rgba(203, 213, 225, 0.12);
+  --color-boton: #4b5563;
+  --color-boton-hover: #6b7280;
+  --color-header-1: #0b0f17;
+  --color-header-2: #111827;
+  --grad-1: #374151;
+  --grad-2: #1f2937;
+  --grad-3: #0b0f17;
+}
+
+/* ---------- Tamaño de letra y modo compacto (v0.20) ---------- */
+
+:root[data-letra='pequena'],
+:root[data-letra='pequena'] body {
+  font-size: 13px;
+}
+
+:root[data-letra='grande'],
+:root[data-letra='grande'] body {
+  font-size: 15.5px;
+}
+
+:root[data-letra='muy-grande'],
+:root[data-letra='muy-grande'] body {
+  font-size: 17px;
+}
+
+:root[data-compacto='si'] .ui.segment {
+  padding: 0.75em 0.9em;
+}
+
+:root[data-compacto='si'] .ui.segment + .ui.segment,
+:root[data-compacto='si'] .rejilla-inicio,
+:root[data-compacto='si'] .rejilla-kpi,
+:root[data-compacto='si'] .tarjeta-principal,
+:root[data-compacto='si'] .carrusel-cuentas,
+:root[data-compacto='si'] .carrusel-plantillas {
+  margin-bottom: 0.6em;
+}
+
+:root[data-compacto='si'] .lista-transacciones.ui.list > .item {
+  padding-top: 0.4em !important;
+  padding-bottom: 0.4em !important;
+}
+
+:root[data-compacto='si'] .tarjeta-principal {
+  padding: 1em 1.2em 0.9em;
+}
+
+:root[data-compacto='si'] .nav-principal.ui.menu,
+:root[data-compacto='si'] .ui.secondary.pointing.menu.submenu-mas {
+  margin-bottom: 0.8em;
+}
+
+:root[data-compacto='si'] .app-contenido {
+  padding-top: 0.8em;
+}
+
+/* ---------- Personalizar y logos de cuentas (v0.20) ---------- */
+
+.logo-cuenta {
+  font-weight: 800;
+  font-size: 0.72em;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.icono-circulo.logo-cuenta {
+  display: inline-grid;
+  place-items: center;
+}
+
+.logo-cuenta.en-linea {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.7em;
+  height: 1.7em;
+  margin-right: 0.4em;
+  padding: 0 0.25em;
+  border-radius: 6px;
+  font-size: 0.7em;
+  vertical-align: middle;
+}
+
+.vista-icono {
+  margin-left: 0.6em;
+  vertical-align: middle;
+}
+
+.selector-logo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  margin-bottom: 0.6em;
+}
+
+.opcion-logo {
+  display: grid;
+  place-items: center;
+  width: 2.6em;
+  height: 2.6em;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  font: inherit;
+  font-weight: 800;
+  font-size: 0.8em;
+  cursor: pointer;
+}
+
+.opcion-logo.automatico {
+  border-color: var(--color-borde);
+  background: var(--color-fondo);
+  color: var(--color-texto-suave);
+  font-weight: 600;
+}
+
+.opcion-logo.activa {
+  outline: 3px solid var(--color-marca);
+  outline-offset: 2px;
+}
+
+.selector-icono.compacto {
+  margin-bottom: 0.6em;
+}
+
+.pie-inicio {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5em;
+}
+
+.fila-preferencia {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75em;
+  padding: 0.8em 0;
+}
+
+.fila-preferencia + .fila-preferencia {
+  border-top: 1px solid var(--color-borde);
+}
+
+.nombre-preferencia {
+  font-weight: 600;
+}
+
+.selector-color-app {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+}
+
+.opcion-color-app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25em;
+  padding: 0.3em;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: var(--color-texto-suave);
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+
+.opcion-color-app .muestra {
+  display: grid;
+  place-items: center;
+  width: 2.4em;
+  height: 2.4em;
+  border-radius: 50%;
+  color: #fff;
+}
+
+.opcion-color-app .muestra i.icon {
+  margin: 0;
+}
+
+.opcion-color-app.activa {
+  color: var(--color-texto);
+  font-weight: 700;
+}
+
+.opcion-color-app.activa .muestra {
+  outline: 3px solid var(--color-borde);
+  outline-offset: 2px;
+}
+
+.selector-letra .ui.button {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2em;
+}
+
+.selector-letra small {
+  font-weight: 400;
+  font-size: 0.75em;
+}
+
+.interruptor {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  cursor: pointer;
+  color: var(--color-texto-suave);
+}
+
+.interruptor input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.interruptor .deslizador {
+  position: relative;
+  width: 2.8em;
+  height: 1.6em;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--color-borde);
+  transition: background 0.15s;
+}
+
+.interruptor .deslizador::after {
+  content: '';
+  position: absolute;
+  top: 0.2em;
+  left: 0.2em;
+  width: 1.2em;
+  height: 1.2em;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s;
+}
+
+.interruptor input:checked + .deslizador {
+  background: var(--color-boton);
+}
+
+.interruptor input:checked + .deslizador::after {
+  transform: translateX(1.2em);
+}
+
+.interruptor input:focus-visible + .deslizador {
+  outline: 2px solid var(--color-marca);
+  outline-offset: 2px;
+}
+
+.lista-secciones-inicio {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  margin-bottom: 0.75em;
+}
+
+.fila-seccion-inicio {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.5em 0.75em;
+  border: 1px solid var(--color-borde);
+  border-radius: 10px;
+}
+
+.fila-seccion-inicio .nombre {
+  flex: 1;
+}
+
+.fila-seccion-inicio.oculta {
+  opacity: 0.55;
+  border-style: dashed;
 }

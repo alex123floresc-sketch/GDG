@@ -36,12 +36,18 @@ function validar(datos: NuevaCuenta): NuevaCuenta {
   if (!nombre) throw new Error('El nombre de la cuenta es obligatorio.')
   if (!Number.isFinite(datos.saldoInicial)) throw new Error('El saldo inicial no es válido.')
 
+  const apariencia = {
+    ...(datos.icono ? { icono: datos.icono } : {}),
+    ...(datos.color && datos.icono && !datos.icono.startsWith('logo:') ? { color: datos.color } : {}),
+  }
+
   if (datos.tipo !== 'tarjeta_credito') {
-    return { nombre, tipo: datos.tipo, saldoInicial: datos.saldoInicial }
+    return { nombre, tipo: datos.tipo, saldoInicial: datos.saldoInicial, ...apariencia }
   }
 
   const dia = (d?: number) => (d && d >= 1 && d <= 31 ? Math.round(d) : undefined)
   return {
+    ...apariencia,
     nombre,
     tipo: datos.tipo,
     saldoInicial: datos.saldoInicial,

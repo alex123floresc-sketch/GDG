@@ -2,7 +2,7 @@
 --  GESTOR DE GASTOS — BASE DE DATOS COMPLETA (Supabase / PostgreSQL)
 -- =============================================================================
 --
---  Esquema al día con la app v0.19.0.
+--  Esquema al día con la app v0.20.0.
 --
 --  CÓMO USARLO
 --  -----------
@@ -33,6 +33,7 @@
 --  v0.17  categorias.clase (regla 50/30/20); tabla ajustes
 --  v0.18  tabla cuotas (compras en cuotas)
 --  v0.19  tabla deseos (lista de deseos)
+--  v0.20  cuentas.icono y cuentas.color (ícono o logo de cada cuenta)
 -- =============================================================================
 
 
@@ -96,7 +97,10 @@ ALTER TABLE public.cuentas
   ADD COLUMN IF NOT EXISTS limite_credito      numeric(12, 2),
   ADD COLUMN IF NOT EXISTS dia_corte           smallint CHECK (dia_corte BETWEEN 1 AND 31),
   ADD COLUMN IF NOT EXISTS dia_pago            smallint CHECK (dia_pago BETWEEN 1 AND 31),
-  ADD COLUMN IF NOT EXISTS fecha_actualizacion timestamptz NOT NULL DEFAULT now();
+  ADD COLUMN IF NOT EXISTS fecha_actualizacion timestamptz NOT NULL DEFAULT now(),
+  -- Ícono de Semantic UI o 'logo:<banco>' (NULL = según el tipo/nombre)
+  ADD COLUMN IF NOT EXISTS icono               text,
+  ADD COLUMN IF NOT EXISTS color               text;
 
 ALTER TABLE public.cuentas DROP CONSTRAINT IF EXISTS cuentas_tipo_check;
 ALTER TABLE public.cuentas ADD CONSTRAINT cuentas_tipo_check

@@ -47,7 +47,7 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   + gris; mantener ese orden).
 - Navegación principal en `Dashboard.tsx`: 5 secciones (Inicio,
   Movimientos, Análisis, Planificar → Presupuestos/Metas/Chanchitos/
-  Deudas/Recurrentes/Cuotas/Calendario/Deseos, Más → Cuentas/Categorías/Automatizar/Logros/Importar Yape/
+  Deudas/Recurrentes/Cuotas/Calendario/Deseos, Más → Cuentas/Categorías/Automatizar/Logros/Personalizar/Importar Yape/
   Seguridad); en móvil (<768px)
   la barra pasa al pie de pantalla. Registrar es el botón flotante "+"
   (abre `FormularioTransaccion` en un `Modal`).
@@ -128,7 +128,8 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   open.er-api.com, caché 6 h en localStorage; es tipo de mercado, se
   ofrece como sugerencia editable)
 - `src/utils/preferencias.ts` — preferencias del dispositivo en
-  localStorage (tipo de cambio, tema), siempre en try/catch
+  localStorage (tipo de cambio, tema, color, letra, compacto), siempre en
+  try/catch
 - `BASE_DE_DATOS.sql` — todo el SQL de Supabase en un solo archivo
 - `supabase/migraciones/` — historial de migraciones (ya incluidas arriba)
 
@@ -364,6 +365,28 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   "Compartir" usa Web Share o copia el texto. Insight del 15 de
   diciembre a fin de enero.
 
+## Personalizar (v0.20)
+
+- Más → Personalizar (`Personalizar.tsx`). Del dispositivo
+  (`utils/preferencias.ts`, localStorage): tema, **color de la app**
+  (`ColorApp`: índigo, azul, verde, rosa, turquesa, grafito →
+  `<html data-color>`; cada tema redefine solo los tokens de marca y el
+  degradado `--grad-1/2/3`, en claro y oscuro; botones con contraste
+  ≥ 4.5 con texto blanco), **tamaño de letra** (`data-letra`, cambia el
+  `font-size` de html/body que Fomantic fija en 14px) y **modo compacto**
+  (`data-compacto`). `aplicarTema` aplica todo antes del primer render y
+  pinta la barra del navegador con `--color-header-1`. El Header escucha
+  `EVENTO_TEMA` para reflejar un cambio de tema hecho aquí.
+- **Inicio a tu gusto**: `Ajustes.inicio` ({orden, ocultas}, se
+  sincroniza); `ordenInicio` + `SECCIONES_INICIO` (utils/inicio.ts). En
+  Inicio cada sección es una entrada de `secciones`.
+- **Íconos/logos de cuentas**: `Cuenta.icono` (icono de Semantic o
+  'logo:<id>' de `LOGOS_CUENTA`: sigla sobre el color de la marca, sin
+  imágenes oficiales) y `Cuenta.color`. Sin elección, `logoSugerido` usa
+  el nombre ("Yape" → logo de Yape) y si no, el icono del tipo. Se
+  dibujan con `IconoCuenta` (no usar `ICONO_CUENTA` directo). Remoto
+  `cuentas.icono/color` (migración `v0.20.sql`).
+
 ## Reporte mensual (v0.12)
 
 - `PanelReporte` genera el reporte de un mes; "Descargar PDF" llama a
@@ -499,6 +522,7 @@ la migración).
 - `v0.17.sql`: `categorias.clase`, tabla `ajustes`.
 - `v0.18.sql`: tabla `cuotas`.
 - `v0.19.sql`: tabla `deseos`.
+- `v0.20.sql`: `cuentas.icono`, `cuentas.color`.
   `esquemaListo(archivo)` dice si ya está confirmada (las columnas nuevas
   de tablas existentes solo se envían entonces). El aviso de App.tsx
   usa `FUNCIONES_POR_MIGRACION`.

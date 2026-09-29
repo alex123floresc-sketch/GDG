@@ -126,3 +126,56 @@ export function estadoTarjeta(
       : undefined,
   }
 }
+
+/**
+ * "Logos" de bancos y billeteras de Perú: una sigla sobre el color de la
+ * marca (no se usan las imágenes oficiales). `Cuenta.icono` los guarda
+ * como 'logo:<id>'.
+ */
+export const LOGOS_CUENTA: { id: string; nombre: string; sigla: string; fondo: string; texto: string; claves: string[] }[] = [
+  { id: 'bcp', nombre: 'BCP', sigla: 'BCP', fondo: '#0033a0', texto: '#ff7a00', claves: ['bcp', 'credito del peru'] },
+  { id: 'interbank', nombre: 'Interbank', sigla: 'IB', fondo: '#00a94f', texto: '#ffffff', claves: ['interbank'] },
+  { id: 'bbva', nombre: 'BBVA', sigla: 'BBVA', fondo: '#004481', texto: '#ffffff', claves: ['bbva', 'continental'] },
+  { id: 'scotiabank', nombre: 'Scotiabank', sigla: 'S', fondo: '#ec111a', texto: '#ffffff', claves: ['scotia'] },
+  { id: 'nacion', nombre: 'Banco de la Nación', sigla: 'BN', fondo: '#b3001b', texto: '#ffffff', claves: ['nacion', 'bn '] },
+  { id: 'banbif', nombre: 'BanBif', sigla: 'BIF', fondo: '#00355f', texto: '#ffffff', claves: ['banbif'] },
+  { id: 'pichincha', nombre: 'Pichincha', sigla: 'P', fondo: '#ffd100', texto: '#1f2033', claves: ['pichincha'] },
+  { id: 'mibanco', nombre: 'Mibanco', sigla: 'Mi', fondo: '#00843d', texto: '#ffd100', claves: ['mibanco'] },
+  { id: 'caja-arequipa', nombre: 'Caja Arequipa', sigla: 'CA', fondo: '#e30613', texto: '#ffffff', claves: ['caja arequipa'] },
+  { id: 'falabella', nombre: 'Falabella', sigla: 'F', fondo: '#007a33', texto: '#ffffff', claves: ['falabella', 'cmr'] },
+  { id: 'ripley', nombre: 'Ripley', sigla: 'R', fondo: '#5c2d91', texto: '#ffffff', claves: ['ripley'] },
+  { id: 'yape', nombre: 'Yape', sigla: 'Y', fondo: '#742284', texto: '#00e0c6', claves: ['yape'] },
+  { id: 'plin', nombre: 'Plin', sigla: 'P', fondo: '#00bfb3', texto: '#ffffff', claves: ['plin'] },
+  { id: 'tunki', nombre: 'Tunki', sigla: 'T', fondo: '#ff6a13', texto: '#ffffff', claves: ['tunki'] },
+  { id: 'agora', nombre: 'Agora', sigla: 'A', fondo: '#3d1f8f', texto: '#ffffff', claves: ['agora'] },
+  { id: 'paypal', nombre: 'PayPal', sigla: 'PP', fondo: '#003087', texto: '#ffffff', claves: ['paypal'] },
+]
+
+/** Iconos genéricos que se ofrecen para una cuenta. */
+export const ICONOS_CUENTA_OPCIONES = [
+  'money bill alternate outline', 'wallet', 'university', 'mobile alternate', 'credit card',
+  'piggy bank', 'briefcase', 'home', 'building', 'globe', 'coins', 'dollar sign', 'gem', 'lock', 'gift',
+]
+
+const sinTildes = (t: string) => t.toLocaleLowerCase('es').normalize('NFD').replace(/\p{Diacritic}/gu, '')
+
+/** Logo que corresponde al nombre de la cuenta (p. ej. "Yape" → yape), si hay. */
+export function logoSugerido(nombre: string): string | undefined {
+  const texto = ` ${sinTildes(nombre)} `
+  return LOGOS_CUENTA.find((l) => l.claves.some((c) => texto.includes(c)))?.id
+}
+
+export type AparienciaCuenta =
+  | { tipo: 'logo'; sigla: string; fondo: string; texto: string; nombre: string }
+  | { tipo: 'icono'; icono: string; fondo?: string }
+
+/**
+ * Cómo se dibuja una cuenta: su logo o icono elegido; si no eligió, el
+ * logo que sugiere su nombre; y si no, el icono de su tipo.
+ */
+export function aparienciaCuenta(cuenta: Pick<Cuenta, 'icono' | 'color' | 'nombre' | 'tipo'>): AparienciaCuenta {
+  const idLogo = cuenta.icono?.startsWith('logo:') ? cuenta.icono.slice(5) : cuenta.icono ? undefined : logoSugerido(cuenta.nombre)
+  const logo = idLogo ? LOGOS_CUENTA.find((l) => l.id === idLogo) : undefined
+  if (logo) return { tipo: 'logo', sigla: logo.sigla, fondo: logo.fondo, texto: logo.texto, nombre: logo.nombre }
+  return { tipo: 'icono', icono: cuenta.icono && !cuenta.icono.startsWith('logo:') ? cuenta.icono : ICONO_CUENTA[cuenta.tipo], fondo: cuenta.color }
+}

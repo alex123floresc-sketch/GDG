@@ -192,6 +192,11 @@ const MIGRACIONES: { archivo: string; comprobar: () => PromiseLike<{ error: unkn
     archivo: 'v0.19.sql',
     comprobar: () => [supabase!.from('deseos').select('id').limit(0)],
   },
+  {
+    // Ícono/logo y color de las cuentas.
+    archivo: 'v0.20.sql',
+    comprobar: () => [supabase!.from('cuentas').select('icono, color').limit(0)],
+  },
 ]
 
 /** Migraciones ya confirmadas en esta sesión (no se vuelven a consultar). */
@@ -414,6 +419,7 @@ const CUENTAS: Entidad<Cuenta> = {
           fecha_actualizacion: fechaRemota(c),
         }
       : {}),
+    ...(esquemaListo('v0.20.sql') ? { icono: c.icono ?? null, color: c.color ?? null } : {}),
   }),
   aLocal: (f) => ({
     id: f.id as string,
@@ -424,8 +430,14 @@ const CUENTAS: Entidad<Cuenta> = {
     limiteCredito: aNumeroOpcional(f.limite_credito),
     diaCorte: aNumeroOpcional(f.dia_corte),
     diaPago: aNumeroOpcional(f.dia_pago),
+    icono: (f.icono as string | null) ?? undefined,
+    color: (f.color as string | null) ?? undefined,
     ...marcaDeTiempo(f),
   }),
+  conservar: [
+    { columna: 'icono', campo: 'icono' },
+    { columna: 'color', campo: 'color' },
+  ],
 }
 
 const PRESUPUESTOS: Entidad<Presupuesto> = {
@@ -648,6 +660,7 @@ const CAMPOS_AJUSTES = [
   'ingresoMensual',
   'horasSemana',
   'suscripcionesIgnoradas',
+  'inicio',
 ] as const
 
 const AJUSTES: Entidad<Ajustes> = {
