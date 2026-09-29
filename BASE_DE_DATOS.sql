@@ -2,7 +2,7 @@
 --  GESTOR DE GASTOS — BASE DE DATOS COMPLETA (Supabase / PostgreSQL)
 -- =============================================================================
 --
---  Esquema al día con la app v0.16.0.
+--  Esquema al día con la app v0.17.0.
 --
 --  CÓMO USARLO
 --  -----------
@@ -30,6 +30,7 @@
 --  v0.13.1 script único; índices por usuario; permisos explícitos
 --  v0.14  tabla chanchitos; tipo de cuenta 'chanchito'
 --  v0.16  categorias.padre_id (subcategorías); tablas reglas y plantillas
+--  v0.17  categorias.clase (regla 50/30/20); tabla ajustes
 -- =============================================================================
 
 
@@ -59,7 +60,13 @@ ALTER TABLE public.categorias
   ADD COLUMN IF NOT EXISTS fecha_actualizacion timestamptz NOT NULL DEFAULT now(),
   -- Subcategoría: id de la categoría madre (un solo nivel). Sin llave
   -- foránea a propósito: madre e hija pueden subir en cualquier orden.
-  ADD COLUMN IF NOT EXISTS padre_id            uuid;
+  ADD COLUMN IF NOT EXISTS padre_id            uuid,
+  -- Regla 50/30/20: 'necesidad' | 'deseo' (NULL = la app la estima)
+  ADD COLUMN IF NOT EXISTS clase               text;
+
+ALTER TABLE public.categorias DROP CONSTRAINT IF EXISTS categorias_clase_check;
+ALTER TABLE public.categorias ADD CONSTRAINT categorias_clase_check
+  CHECK (clase IS NULL OR clase IN ('necesidad', 'deseo')) NOT VALID;
 
 -- tipo: 'ingreso' | 'gasto' | 'ambos'
 ALTER TABLE public.categorias DROP CONSTRAINT IF EXISTS categorias_tipo_check;
@@ -283,6 +290,18 @@ CREATE TABLE IF NOT EXISTS public.plantillas (
   fecha_actualizacion timestamptz NOT NULL DEFAULT now()
 );
 
+-- -----------------------------------------------------------------------------
+-- 1.11 Ajustes del usuario (una fila por usuario: id = user_id)
+-- -----------------------------------------------------------------------------
+-- datos: { fondoMeses, fondoOrigen, fondoId, reparto: {necesidades, deseos,
+--   ahorro}, ingresoMensual, horasSemana }
+CREATE TABLE IF NOT EXISTS public.ajustes (
+  id                  uuid PRIMARY KEY,
+  user_id             uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users (id) ON DELETE CASCADE,
+  datos               jsonb NOT NULL DEFAULT '{}'::jsonb,
+  fecha_actualizacion timestamptz NOT NULL DEFAULT now()
+);
+
 
 -- #############################################################################
 -- 2. ÍNDICES, SEGURIDAD (RLS) Y PERMISOS
@@ -306,6 +325,7 @@ CREATE INDEX IF NOT EXISTS recurrentes_user_idx   ON public.recurrentes (user_id
 CREATE INDEX IF NOT EXISTS chanchitos_user_idx    ON public.chanchitos (user_id);
 CREATE INDEX IF NOT EXISTS reglas_user_idx        ON public.reglas (user_id);
 CREATE INDEX IF NOT EXISTS plantillas_user_idx    ON public.plantillas (user_id);
+CREATE INDEX IF NOT EXISTS ajustes_user_idx       ON public.ajustes (user_id);
 
 -- Anti-duplicados del importador de Yape: un nro_operacion por usuario.
 -- (Los NULL no chocan entre sí.) Solo se crea si la base no tiene ya un
@@ -333,7 +353,8 @@ DECLARE
 BEGIN
   FOREACH tabla IN ARRAY ARRAY[
     'categorias', 'cuentas', 'transacciones', 'presupuestos',
-    'metas', 'deudas', 'recurrentes', 'chanchitos', 'reglas', 'plantillas'
+    'metas', 'deudas', 'recurrentes', 'chanchitos', 'reglas', 'plantillas',
+    'ajustes'
   ] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tabla);
     EXECUTE format('DROP POLICY IF EXISTS "Acceso personal" ON public.%I', tabla);
@@ -354,7 +375,7 @@ END $$;
 NOTIFY pgrst, 'reload schema';
 
 -- -----------------------------------------------------------------------------
--- 2.4 Comprobación: debe mostrar 10 filas, todas con rls = true
+-- 2.4 Comprobación: debe mostrar 11 filas, todas con rls = true
 -- -----------------------------------------------------------------------------
 SELECT c.relname                                   AS tabla,
        c.relrowsecurity                            AS rls,
@@ -365,7 +386,7 @@ JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public'
   AND c.relname IN ('categorias', 'cuentas', 'transacciones', 'presupuestos',
                     'metas', 'deudas', 'recurrentes', 'chanchitos',
-                    'reglas', 'plantillas')
+                    'reglas', 'plantillas', 'ajustes')
 ORDER BY 1;
 
 
@@ -393,6 +414,7 @@ TRUNCATE TABLE
   public.chanchitos,
   public.reglas,
   public.plantillas,
+  public.ajustes,
   public.categorias,
   public.cuentas
 RESTART IDENTITY CASCADE;
@@ -409,6 +431,7 @@ DROP TABLE IF EXISTS public.deudas        CASCADE;
 DROP TABLE IF EXISTS public.chanchitos    CASCADE;
 DROP TABLE IF EXISTS public.reglas        CASCADE;
 DROP TABLE IF EXISTS public.plantillas    CASCADE;
+DROP TABLE IF EXISTS public.ajustes       CASCADE;
 DROP TABLE IF EXISTS public.categorias    CASCADE;
 DROP TABLE IF EXISTS public.cuentas       CASCADE;
 

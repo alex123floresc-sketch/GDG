@@ -82,10 +82,10 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `Modal` (modal de Fomantic sin jQuery, vía portal), `Avisos` (toasts;
   se usan con `useAvisos().avisar(...)`), `graficos/`, `YapeImporter`
   (cargado con `React.lazy`, ver Rendimiento)
-- `src/db/database.ts` — esquema Dexie v10 (`GestorGastosDB`, tablas
+- `src/db/database.ts` — esquema Dexie v11 (`GestorGastosDB`, tablas
   `transacciones`, `categorias`, `cuentas`, `presupuestos`, `metas`,
   `deudas`, `recurrentes`, `chanchitos`, `reglas`, `plantillas`,
-  `eliminacionesPendientes`). `TABLAS_SINCRONIZABLES` es la lista única
+  `ajustes`, `eliminacionesPendientes`). `TABLAS_SINCRONIZABLES` es la lista única
   de tablas del usuario (la usan `useSync` para contar pendientes,
   `respaldoService` y `limpiarDatosLocales`): una tabla nueva se agrega
   ahí.
@@ -300,6 +300,26 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `public/atajos/`): `/?accion=gasto|ingreso|transferencia` y
   `/?seccion=movimientos`; los interpreta `accionDeUrl` en Dashboard.
 
+## Salud financiera (v0.17)
+
+- `utils/salud.ts`: `calcularReparto` (50/30/20: `Categoria.clase`
+  necesidad/deseo; sin clase se estima por el nombre con
+  `claseDeCategoria`, las subcategorías heredan la de su madre),
+  `estadoFondo` (fondo de emergencia: todo lo líquido o una cuenta/meta/
+  chanchito elegido; meses cubiertos sobre el promedio de necesidades de
+  3 meses completos), `proyectarSaldo` (cuentas líquidas día a día:
+  recurrentes de esas cuentas, pago de tarjetas, deudas "debo" y el
+  promedio variable de 90 días), `cuantoPuedoGastar` (margen del mes ÷
+  días que quedan; si no hay ingresos del mes usa el promedio) y
+  `puntajeSalud` (0–100: ahorro 25, fondo 25, deudas 20, presupuestos
+  15, constancia 15).
+- UI: Análisis → Salud financiera (`PanelSalud`) y en Inicio
+  `TarjetaHoy` (con desglose y el puntaje, que lleva a esa pestaña).
+- `Ajustes` (tabla `ajustes`, una fila por usuario con id = usuarioId,
+  remoto `datos jsonb`): meses del fondo, origen del fondo, porcentajes
+  del reparto y (v0.19) horas de trabajo. `useAjustes` /
+  `guardarAjustes`. Remoto `categorias.clase` (migración `v0.17.sql`).
+
 ## Reporte mensual (v0.12)
 
 - `PanelReporte` genera el reporte de un mes; "Descargar PDF" llama a
@@ -432,6 +452,7 @@ la migración).
 - `v0.13.sql`: `recurrentes.dia_mes`.
 - `v0.14.sql`: tabla `chanchitos`.
 - `v0.16.sql`: `categorias.padre_id`, tablas `reglas` y `plantillas`.
+- `v0.17.sql`: `categorias.clase`, tabla `ajustes`.
   `esquemaListo(archivo)` dice si ya está confirmada (las columnas nuevas
   de tablas existentes solo se envían entonces). El aviso de App.tsx
   usa `FUNCIONES_POR_MIGRACION`.

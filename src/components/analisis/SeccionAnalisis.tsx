@@ -1,20 +1,26 @@
 import type { ReactNode } from 'react'
-import type { Categoria, Cuenta, Deuda, Meta, Presupuesto, Transaccion } from '../../types'
+import type { Ajustes, Categoria, Chanchito, Cuenta, Deuda, Meta, Presupuesto, Recurrente, Transaccion } from '../../types'
 import Analisis from '../Analisis'
 import PanelComparar from './PanelComparar'
 import PanelPatrimonio from './PanelPatrimonio'
 import PanelReporte from './PanelReporte'
+import PanelSalud from './PanelSalud'
 
-export type PestanaAnalisis = 'resumen' | 'comparar' | 'patrimonio' | 'reporte'
+export type PestanaAnalisis = 'resumen' | 'salud' | 'comparar' | 'patrimonio' | 'reporte'
 
 const PESTANAS: { id: PestanaAnalisis; etiqueta: string; icono: string }[] = [
   { id: 'resumen', etiqueta: 'Resumen', icono: 'chart bar' },
+  { id: 'salud', etiqueta: 'Salud financiera', icono: 'heartbeat' },
   { id: 'comparar', etiqueta: 'Comparar', icono: 'exchange' },
   { id: 'patrimonio', etiqueta: 'Patrimonio', icono: 'balance scale' },
   { id: 'reporte', etiqueta: 'Reporte mensual', icono: 'file alternate outline' },
 ]
 
 interface SeccionAnalisisProps {
+  usuarioId: string
+  ajustes: Ajustes
+  chanchitos: Chanchito[]
+  recurrentes: Recurrente[]
   pestana: PestanaAnalisis
   onCambiarPestana: (p: PestanaAnalisis) => void
   email: string
@@ -55,6 +61,20 @@ function SeccionAnalisis(props: SeccionAnalisisProps) {
             categorias={categorias}
             cuentas={cuentas}
             filtroCuenta={props.filtroCuenta}
+          />
+        )}
+        {pestana === 'salud' && (
+          <PanelSalud
+            usuarioId={props.usuarioId}
+            ajustes={props.ajustes}
+            transacciones={transacciones}
+            categorias={categorias}
+            cuentas={cuentas}
+            presupuestos={props.presupuestos}
+            metas={props.metas}
+            chanchitos={props.chanchitos}
+            deudas={props.deudas}
+            recurrentes={props.recurrentes}
           />
         )}
         {pestana === 'comparar' && <PanelComparar transacciones={transacciones} categorias={categorias} />}

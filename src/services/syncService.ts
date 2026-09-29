@@ -1,6 +1,7 @@
 import type { Table } from 'dexie'
 import { db } from '../db/database'
 import type {
+  Ajustes,
   Aporte,
   Categoria,
   Chanchito,
@@ -169,6 +170,14 @@ const MIGRACIONES: { archivo: string; comprobar: () => PromiseLike<{ error: unkn
       supabase!.from('categorias').select('padre_id').limit(0),
       supabase!.from('reglas').select('id').limit(0),
       supabase!.from('plantillas').select('id').limit(0),
+    ],
+  },
+  {
+    // Clase de gasto (50/30/20) y ajustes sincronizados.
+    archivo: 'v0.17.sql',
+    comprobar: () => [
+      supabase!.from('categorias').select('clase').limit(0),
+      supabase!.from('ajustes').select('id').limit(0),
     ],
   },
 ]
@@ -355,6 +364,7 @@ const CATEGORIAS: Entidad<Categoria> = {
     color: c.color ?? null,
     ...(conFecha ? { fecha_actualizacion: fechaRemota(c) } : {}),
     ...(esquemaListo('v0.16.sql') ? { padre_id: c.padreId ?? null } : {}),
+    ...(esquemaListo('v0.17.sql') ? { clase: c.clase ?? null } : {}),
   }),
   aLocal: (f) => ({
     id: f.id as string,
@@ -364,9 +374,13 @@ const CATEGORIAS: Entidad<Categoria> = {
     icono: (f.icono as string | null) ?? undefined,
     color: (f.color as string | null) ?? undefined,
     padreId: (f.padre_id as string | null) ?? undefined,
+    clase: f.clase === 'necesidad' || f.clase === 'deseo' ? f.clase : undefined,
     ...marcaDeTiempo(f),
   }),
-  conservar: [{ columna: 'padre_id', campo: 'padreId' }],
+  conservar: [
+    { columna: 'padre_id', campo: 'padreId' },
+    { columna: 'clase', campo: 'clase' },
+  ],
 }
 
 const CUENTAS: Entidad<Cuenta> = {
@@ -611,6 +625,27 @@ const PLANTILLAS: Entidad<Plantilla> = {
     orden: aNumeroOpcional(f.orden),
     ...marcaDeTiempo(f),
   }),
+}
+
+/** Campos de `Ajustes` que viajan dentro de la columna jsonb `datos`. */
+const CAMPOS_AJUSTES = ['fondoMeses', 'fondoOrigen', 'fondoId', 'reparto', 'ingresoMensual', 'horasSemana'] as const
+
+const AJUSTES: Entidad<Ajustes> = {
+  tabla: 'ajustes',
+  local: db.ajustes,
+  etiqueta: 'los ajustes',
+  nombre: () => 'del usuario',
+  aFila: (a, userId) => ({
+    id: userId,
+    user_id: userId,
+    datos: Object.fromEntries(CAMPOS_AJUSTES.filter((c) => a[c] !== undefined).map((c) => [c, a[c]])),
+    fecha_actualizacion: fechaRemota(a),
+  }),
+  aLocal: (f) => {
+    const datos = (f.datos && typeof f.datos === 'object' ? f.datos : {}) as Partial<Ajustes>
+    const limpio = Object.fromEntries(CAMPOS_AJUSTES.filter((c) => datos[c] !== undefined).map((c) => [c, datos[c]]))
+    return { ...limpio, id: f.id as string, usuarioId: f.user_id as string, ...marcaDeTiempo(f) }
+  },
 }
 
 const RECURRENTES: Entidad<Recurrente> = {
@@ -1098,6 +1133,7 @@ const ORDEN_BORRADO: TablaSincronizable[] = [
   'chanchitos',
   'reglas',
   'plantillas',
+  'ajustes',
   'categorias',
   'cuentas',
 ]
@@ -1392,6 +1428,7 @@ export async function sincronizar(usuarioId: string): Promise<ResultadoSincroniz
       agregar(await sincronizarEntidad(REGLAS, usuarioId, userId, borrados))
       agregar(await sincronizarEntidad(PLANTILLAS, usuarioId, userId, borrados))
     }
+    if (esquemaListo('v0.17.sql')) agregar(await sincronizarEntidad(AJUSTES, usuarioId, userId, borrados))
   }
 
   let descargadas = 0

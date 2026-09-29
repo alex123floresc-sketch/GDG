@@ -100,7 +100,7 @@ export async function leerRespaldo(archivo: File, usuarioId: string): Promise<{ 
 }
 
 /** Campos que apuntan a otra fila (se re-mapean al cambiar de usuario). */
-const REFERENCIAS = ['cuentaId', 'categoriaId', 'recurrenteId', 'padreId'] as const
+const REFERENCIAS = ['cuentaId', 'categoriaId', 'recurrenteId', 'padreId', 'fondoId'] as const
 
 /**
  * Restaura un respaldo en este dispositivo (luego se sube a Supabase):
@@ -123,7 +123,9 @@ export async function restaurarRespaldo(respaldo: Respaldo, usuarioId: string): 
   const ahora = new Date()
   const porTabla = TABLAS.map((nombre) => {
     const filas = (respaldo.datos[nombre] ?? []).map((original) => {
-      const fila: Fila = { ...original, id: idDe(original.id), usuarioId, sincronizado: false, fechaActualizacion: ahora }
+      // Los ajustes son una fila por usuario: su id es el del usuario.
+      const id = nombre === 'ajustes' ? usuarioId : idDe(original.id)
+      const fila: Fila = { ...original, id, usuarioId, sincronizado: false, fechaActualizacion: ahora }
       for (const campo of REFERENCIAS) {
         if (typeof fila[campo] === 'string') fila[campo] = idDe(fila[campo] as string)
       }

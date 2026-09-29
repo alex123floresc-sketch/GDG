@@ -39,7 +39,11 @@ export interface Categoria extends ControlSync {
   color?: string
   /** Subcategoría: id de la categoría "madre" (un solo nivel). */
   padreId?: string
+  /** Regla 50/30/20: necesidad o deseo (solo gastos). Sin valor = se estima. */
+  clase?: ClaseGasto
 }
+
+export type ClaseGasto = 'necesidad' | 'deseo'
 
 export interface Cuenta extends ControlSync {
   id: string
@@ -241,6 +245,28 @@ export interface Plantilla extends ControlSync {
   orden?: number
 }
 
+/** De dónde sale el fondo de emergencia. */
+export type OrigenFondo = 'liquido' | 'cuenta' | 'meta' | 'chanchito'
+
+/**
+ * Preferencias del usuario que se sincronizan (una fila por usuario,
+ * `id` = `usuarioId`). Las del dispositivo van en utils/preferencias.ts.
+ */
+export interface Ajustes extends ControlSync {
+  id: string
+  usuarioId: string
+  /** Meses de gastos que debe cubrir el fondo de emergencia (por defecto 6). */
+  fondoMeses?: number
+  fondoOrigen?: OrigenFondo
+  /** Cuenta, meta o chanchito elegido como fondo (según `fondoOrigen`). */
+  fondoId?: string
+  /** Porcentajes de la regla 50/30/20 (necesidades/deseos/ahorro). */
+  reparto?: { necesidades: number; deseos: number; ahorro: number }
+  /** Para expresar gastos en horas de trabajo. */
+  ingresoMensual?: number
+  horasSemana?: number
+}
+
 export type TablaSincronizable =
   | 'transacciones'
   | 'categorias'
@@ -252,6 +278,7 @@ export type TablaSincronizable =
   | 'chanchitos'
   | 'reglas'
   | 'plantillas'
+  | 'ajustes'
 
 /**
  * Registro local de un borrado que falta replicar en Supabase (se procesa

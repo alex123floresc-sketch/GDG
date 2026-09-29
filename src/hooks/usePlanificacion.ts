@@ -1,8 +1,9 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { db } from '../db/database'
 import { generarRecurrentesPendientes } from '../services/recurrenteService'
-import type { Chanchito, Deuda, Meta, Plantilla, Presupuesto, Recurrente, Regla } from '../types'
+import type { Ajustes, Chanchito, Deuda, Meta, Plantilla, Presupuesto, Recurrente, Regla } from '../types'
+import { ajustesVacios } from '../services/ajustesService'
 
 export function usePresupuestos(usuarioId: string): Presupuesto[] {
   return useLiveQuery(() => db.presupuestos.where('usuarioId').equals(usuarioId).toArray(), [usuarioId]) ?? []
@@ -51,4 +52,10 @@ export function usePlantillas(usuarioId: string): Plantilla[] {
       [usuarioId],
     ) ?? []
   )
+}
+
+/** Ajustes sincronizados del usuario (con valores vacíos si aún no hay). */
+export function useAjustes(usuarioId: string): Ajustes {
+  const fila = useLiveQuery(() => db.ajustes.get(usuarioId), [usuarioId])
+  return useMemo(() => fila ?? ajustesVacios(usuarioId), [fila, usuarioId])
 }

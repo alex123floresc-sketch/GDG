@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import type {
+  Ajustes,
   Categoria,
   Chanchito,
   Cuenta,
@@ -55,6 +56,7 @@ export class GestorGastosDB extends Dexie {
   chanchitos!: Table<Chanchito, string>
   reglas!: Table<Regla, string>
   plantillas!: Table<Plantilla, string>
+  ajustes!: Table<Ajustes, string>
 
   constructor() {
     super('GestorGastosDB')
@@ -155,6 +157,12 @@ export class GestorGastosDB extends Dexie {
       reglas: 'id, usuarioId',
       plantillas: 'id, usuarioId',
     })
+
+    // v11: ajustes sincronizados del usuario (fondo de emergencia, regla
+    // 50/30/20, horas de trabajo). `Categoria.clase` no necesita índice.
+    this.version(11).stores({
+      ajustes: 'id, usuarioId',
+    })
   }
 }
 
@@ -176,4 +184,5 @@ export const TABLAS_SINCRONIZABLES: TablaSincronizable[] = [
   'chanchitos',
   'reglas',
   'plantillas',
+  'ajustes',
 ]

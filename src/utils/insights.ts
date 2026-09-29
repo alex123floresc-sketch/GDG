@@ -28,6 +28,7 @@ export interface Insight {
     | 'analisis'
     | 'analisis:reporte'
     | 'analisis:comparar'
+    | 'analisis:salud'
 }
 
 interface DatosInsights {

@@ -3,6 +3,7 @@ import { useCategorias } from '../hooks/useCategorias'
 import { useCuentas } from '../hooks/useCuentas'
 import { useAvisos } from '../hooks/useAvisos'
 import {
+  useAjustes,
   useChanchitos,
   useDeudas,
   useMetas,
@@ -101,6 +102,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   const recurrentes = useRecurrentes(usuarioId)
   const reglas = useReglas(usuarioId)
   const plantillas = usePlantillas(usuarioId)
+  const ajustes = useAjustes(usuarioId)
   const { avisar } = useAvisos()
 
   const [desdeUrl] = useState(accionDeUrl)
@@ -251,6 +253,10 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
             cuentas={cuentas}
             presupuestos={presupuestos}
             metas={metas}
+            deudas={deudas}
+            recurrentes={recurrentes}
+            chanchitos={chanchitos}
+            ajustes={ajustes}
             insights={insights}
             plantillas={plantillas}
             onUsarPlantilla={usarPlantilla}
@@ -271,6 +277,10 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
 
         {seccion === 'analisis' && (
           <SeccionAnalisis
+            usuarioId={usuarioId}
+            ajustes={ajustes}
+            chanchitos={chanchitos}
+            recurrentes={recurrentes}
             pestana={pestanaAnalisis}
             onCambiarPestana={setPestanaAnalisis}
             email={email}

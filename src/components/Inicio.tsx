@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useNumeroAnimado } from '../hooks/useNumeroAnimado'
-import type { Categoria, Cuenta, Meta, Plantilla, Presupuesto, Transaccion } from '../types'
+import type { Ajustes, Categoria, Chanchito, Cuenta, Deuda, Meta, Plantilla, Presupuesto, Recurrente, Transaccion } from '../types'
+import { cuantoPuedoGastar, puntajeSalud } from '../utils/salud'
+import TarjetaHoy from './TarjetaHoy'
 import { clavePeriodo, esMovimientoReal, resumenPorCategoria, resumenUltimosMeses } from '../utils/analisis'
 import { ICONO_CUENTA, saldosPorCuenta } from '../utils/cuentas'
 import { formatearMoneda, formatearPorcentaje } from '../utils/formato'
@@ -23,6 +25,10 @@ interface InicioProps {
   cuentas: Cuenta[]
   presupuestos: Presupuesto[]
   metas: Meta[]
+  deudas: Deuda[]
+  recurrentes: Recurrente[]
+  chanchitos: Chanchito[]
+  ajustes: Ajustes
   insights: Insight[]
   plantillas: Plantilla[]
   onUsarPlantilla: (p: Plantilla) => void
@@ -47,6 +53,10 @@ function Inicio({
   cuentas,
   presupuestos,
   metas,
+  deudas,
+  recurrentes,
+  chanchitos,
+  ajustes,
   insights,
   plantillas,
   onUsarPlantilla,
@@ -85,6 +95,15 @@ function Inicio({
         .sort((a, b) => b.e.porcentaje - a.e.porcentaje)
         .slice(0, 3),
     [metas, hoy],
+  )
+
+  const gastoDiario = useMemo(
+    () => cuantoPuedoGastar({ transacciones, recurrentes, deudas, metas, hoy }),
+    [transacciones, recurrentes, deudas, metas, hoy],
+  )
+  const puntaje = useMemo(
+    () => puntajeSalud({ ajustes, cuentas, transacciones, categorias, metas, chanchitos, presupuestos, deudas, hoy }),
+    [ajustes, cuentas, transacciones, categorias, metas, chanchitos, presupuestos, deudas, hoy],
   )
 
   const saldoAnimado = useNumeroAnimado(saldoTotal)
@@ -203,6 +222,8 @@ function Inicio({
           </button>
         )}
       </section>
+
+      <TarjetaHoy gasto={gastoDiario} puntaje={puntaje} onVerSalud={() => onNavegar('analisis:salud')} />
 
       <ResumenInteligente insights={insights} onNavegar={onNavegar} />
 
