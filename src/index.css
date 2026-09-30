@@ -4598,3 +4598,71 @@ i.icon.rotado {
 .titulo-bloque .ui.button {
   white-space: nowrap;
 }
+
+/* ---- Inversiones en bolsa (v0.27) ---- */
+.simbolo-inversion {
+  display: inline-block;
+  margin-left: 0.45em;
+  padding: 0.05em 0.45em;
+  border-radius: 6px;
+  background: var(--color-marca-suave);
+  color: var(--color-marca);
+  font-size: 0.75em;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+.linea-inversion {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25em 1em;
+  margin-top: 0.35em;
+  font-size: 0.92em;
+}
+.linea-inversion small {
+  font-weight: 400;
+}
+.enlace-sugerencia.precio-inversion {
+  display: block;
+  margin: 0.6em 0 0.2em;
+  font-size: 0.85em;
+}
+.tarjeta-inversion.vendida.ui.segment {
+  opacity: 0.8;
+}
+.primera-compra {
+  margin: 0 0 1em;
+  padding: 0.75em 1em 0.25em;
+  border: 1px dashed var(--color-borde);
+  border-radius: 10px;
+}
+.primera-compra legend {
+  padding: 0 0.4em;
+  color: var(--color-texto-suave);
+  font-size: 0.9em;
+}
+.total-operacion {
+  margin: 0.25em 0 1em;
+  font-size: 1.05em;
+}
+.enlace-sugerencia.en-linea {
+  display: inline;
+  padding: 0;
+  margin: 0;
+  font-size: inherit;
+}
+input.entrada-cambio {
+  width: 6.5em;
+  padding: 0.15em 0.4em;
+  border: 1px solid var(--color-borde);
+  border-radius: 6px;
+  background: var(--color-superficie);
+  color: var(--color-texto);
+}
+.archivadas-inversion {
+  margin-top: 1em;
+}
+.lista-archivadas {
+  margin-top: 0.5em;
+}

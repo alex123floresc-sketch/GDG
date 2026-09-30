@@ -5,6 +5,7 @@ import { useAvisos } from '../hooks/useAvisos'
 import {
   useAjustes,
   useChanchitos,
+  useInversiones,
   useCuotas,
   useDeseos,
   useDeudas,
@@ -112,6 +113,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   const presupuestos = usePresupuestos(usuarioId)
   const metas = useMetas(usuarioId)
   const chanchitos = useChanchitos(usuarioId)
+  const inversiones = useInversiones(usuarioId)
   const ocultos = useMontosOcultos()
   const deudas = useDeudas(usuarioId)
   // Además de listarlos, genera las transacciones recurrentes vencidas.
@@ -389,6 +391,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
             recurrentes={recurrentes}
             cuotas={cuotas}
             deseos={deseos}
+            inversiones={inversiones}
             pestana={pestanaAnalisis}
             onCambiarPestana={setPestanaAnalisis}
             email={email}
@@ -414,6 +417,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
             presupuestos={presupuestos}
             metas={metas}
             chanchitos={chanchitos}
+            inversiones={inversiones}
             deudas={deudas}
             recurrentes={recurrentes}
             cuotas={cuotas}

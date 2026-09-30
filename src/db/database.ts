@@ -10,6 +10,7 @@ import type {
   Deseo,
   Deuda,
   EliminacionPendiente,
+  Inversion,
   Meta,
   MovimientoAjeno,
   Plantilla,
@@ -66,6 +67,7 @@ export class GestorGastosDB extends Dexie {
   cuotas!: Table<CompraCuotas, string>
   deseos!: Table<Deseo, string>
   recibos!: Table<ReciboLocal, string>
+  inversiones!: Table<Inversion, string>
   compartidas!: Table<Compartida, string>
   cuentasAjenas!: Table<CuentaAjena, string>
   movimientosAjenos!: Table<MovimientoAjeno, string>
@@ -199,6 +201,11 @@ export class GestorGastosDB extends Dexie {
       cuentasAjenas: 'id, usuarioId',
       movimientosAjenos: 'id, usuarioId, cuentaId',
     })
+
+    // v16: inversiones en bolsa (Planificar → Inversiones).
+    this.version(16).stores({
+      inversiones: 'id, usuarioId',
+    })
   }
 }
 
@@ -223,4 +230,5 @@ export const TABLAS_SINCRONIZABLES: TablaSincronizable[] = [
   'ajustes',
   'cuotas',
   'deseos',
+  'inversiones',
 ]

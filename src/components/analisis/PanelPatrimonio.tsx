@@ -1,19 +1,23 @@
 import { useMemo, useState } from 'react'
-import type { Cuenta, Deuda, Transaccion } from '../../types'
+import type { Cuenta, Deuda, Inversion, Transaccion } from '../../types'
 import { formatearMoneda, formatearPorcentaje } from '../../utils/formato'
+import { resumenPortafolio } from '../../utils/inversiones'
 import { evolucionPatrimonio } from '../../utils/patrimonio'
+import { leerTipoCambio } from '../../utils/preferencias'
 import GraficoLinea from '../graficos/GraficoLinea'
 
 interface PanelPatrimonioProps {
   cuentas: Cuenta[]
   transacciones: Transaccion[]
   deudas: Deuda[]
+  /** Se muestran aparte (su valor es de hoy; no hay historia mes a mes). */
+  inversiones?: Inversion[]
 }
 
 const RANGOS = [6, 12, 24]
 
 /** Evolución del patrimonio neto mes a mes. */
-function PanelPatrimonio({ cuentas, transacciones, deudas }: PanelPatrimonioProps) {
+function PanelPatrimonio({ cuentas, transacciones, deudas, inversiones = [] }: PanelPatrimonioProps) {
   const [meses, setMeses] = useState(12)
   const puntos = useMemo(
     () => evolucionPatrimonio(cuentas, transacciones, deudas, meses),
@@ -24,6 +28,8 @@ function PanelPatrimonio({ cuentas, transacciones, deudas }: PanelPatrimonioProp
   const inicial = puntos[0]
   const cambio = actual && inicial ? actual.patrimonio - inicial.patrimonio : 0
   const cambioRelativo = inicial && inicial.patrimonio !== 0 ? cambio / Math.abs(inicial.patrimonio) : null
+
+  const portafolio = useMemo(() => resumenPortafolio(inversiones, leerTipoCambio()), [inversiones])
 
   if (!actual) return null
 
@@ -53,6 +59,15 @@ function PanelPatrimonio({ cuentas, transacciones, deudas }: PanelPatrimonioProp
           <strong className={actual.debo > 0 ? 'texto-gasto' : ''}>{formatearMoneda(actual.debo)}</strong>
           <span className="nota">A otras personas</span>
         </div>
+        {portafolio.valorActual > 0 && (
+          <div className="kpi ui segment">
+            <span className="etiqueta"><i className="chartline icon" />Inversiones</span>
+            <strong>{formatearMoneda(portafolio.valorActual)}</strong>
+            <span className="nota">
+              Con ellas: {formatearMoneda(actual.patrimonio + portafolio.valorActual)} (valor de hoy)
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="ui segment">

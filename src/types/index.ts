@@ -408,6 +408,7 @@ export type TablaSincronizable =
   | 'ajustes'
   | 'cuotas'
   | 'deseos'
+  | 'inversiones'
 
 /**
  * Registro local de un borrado que falta replicar en Supabase (se procesa
@@ -422,6 +423,47 @@ export interface EliminacionPendiente {
 
 type SinControl = 'id' | 'usuarioId' | 'sincronizado' | 'fechaActualizacion'
 
+/*
+ * Inversiones en bolsa (v0.27). Como Metas y Chanchitos físicos: es un
+ * registro aparte, NO mueve el saldo de las cuentas. Los montos van en la
+ * moneda del instrumento (`moneda`); los totales se pasan a soles con el
+ * tipo de cambio del dispositivo.
+ */
+export type TipoInversion = 'accion' | 'etf' | 'fondo' | 'bono' | 'cripto' | 'otro'
+
+export type TipoOperacion = 'compra' | 'venta' | 'dividendo'
+
+export interface OperacionInversion {
+  id: string
+  fecha: Date
+  tipo: TipoOperacion
+  /** Unidades (acciones, cuotas, monedas). 0 en un dividendo. */
+  cantidad: number
+  /** Precio por unidad; en un dividendo, el monto total cobrado. */
+  precio: number
+  /** Comisión del broker (se suma al costo de la compra / resta a la venta). */
+  comision?: number
+  nota?: string
+}
+
+export interface Inversion extends ControlSync {
+  id: string
+  usuarioId: string
+  nombre: string
+  /** Ticker: AAPL, VOO, BTC… */
+  simbolo?: string
+  tipo: TipoInversion
+  moneda: Moneda
+  /** Dónde está (broker, SAB, app). */
+  broker?: string
+  color: string
+  /** Último precio por unidad que anotó el usuario. */
+  precioActual?: number
+  fechaPrecio?: Date
+  operaciones: OperacionInversion[]
+  archivada?: boolean
+}
+
 export type NuevaCategoria = Omit<Categoria, SinControl>
 export type NuevaCuenta = Omit<Cuenta, SinControl>
 export type NuevoPresupuesto = Omit<Presupuesto, SinControl>
@@ -433,6 +475,7 @@ export type NuevoDeseo = Omit<Deseo, SinControl | 'estado' | 'fechaEstado' | 'me
 export type NuevaRegla = Omit<Regla, SinControl>
 export type NuevaPlantilla = Omit<Plantilla, SinControl>
 export type NuevoChanchito = Pick<Chanchito, 'nombre' | 'icono' | 'color' | 'tipo' | 'reto'>
+export type NuevaInversion = Pick<Inversion, 'nombre' | 'simbolo' | 'tipo' | 'moneda' | 'broker' | 'color'>
 
 export type NuevaTransaccion = Omit<
   Transaccion,

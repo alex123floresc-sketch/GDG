@@ -1,10 +1,11 @@
-import type { Ajustes, Categoria, Chanchito, CompraCuotas, Cuenta, Deseo, Deuda, Meta, Presupuesto, Recurrente, Transaccion } from '../../types'
+import type { Ajustes, Categoria, Chanchito, CompraCuotas, Cuenta, Deseo, Deuda, Inversion, Meta, Presupuesto, Recurrente, Transaccion } from '../../types'
 import { cuentasOperativas } from '../../utils/cuentas'
 import PanelCalendarioPagos from './PanelCalendarioPagos'
 import PanelChanchitos from './PanelChanchitos'
 import PanelCuotas from './PanelCuotas'
 import PanelDeseos from './PanelDeseos'
 import PanelDeudas from './PanelDeudas'
+import PanelInversiones from './PanelInversiones'
 import PanelMetas from './PanelMetas'
 import PanelPresupuestos from './PanelPresupuestos'
 import PanelRecurrentes from './PanelRecurrentes'
@@ -13,6 +14,7 @@ export type PestanaPlanificar =
   | 'presupuestos'
   | 'metas'
   | 'chanchitos'
+  | 'inversiones'
   | 'deudas'
   | 'recurrentes'
   | 'cuotas'
@@ -23,6 +25,7 @@ const PESTANAS: { id: PestanaPlanificar; etiqueta: string; icono: string }[] = [
   { id: 'presupuestos', etiqueta: 'Presupuestos', icono: 'chart pie' },
   { id: 'metas', etiqueta: 'Metas', icono: 'bullseye' },
   { id: 'chanchitos', etiqueta: 'Chanchitos', icono: 'piggy bank' },
+  { id: 'inversiones', etiqueta: 'Inversiones', icono: 'chartline' },
   { id: 'deudas', etiqueta: 'Deudas', icono: 'handshake' },
   { id: 'recurrentes', etiqueta: 'Recurrentes', icono: 'redo alternate' },
   { id: 'cuotas', etiqueta: 'Cuotas', icono: 'credit card outline' },
@@ -40,6 +43,7 @@ interface PlanificarProps {
   presupuestos: Presupuesto[]
   metas: Meta[]
   chanchitos: Chanchito[]
+  inversiones: Inversion[]
   deudas: Deuda[]
   recurrentes: Recurrente[]
   cuotas: CompraCuotas[]
@@ -57,7 +61,7 @@ function Planificar(props: PlanificarProps) {
           <i className="compass outline icon" />
           <div className="content">
             Planificar
-            <div className="sub header">Presupuestos, metas, chanchitos, deudas, pagos fijos y cuotas</div>
+            <div className="sub header">Presupuestos, metas, chanchitos, inversiones, deudas, pagos fijos y cuotas</div>
           </div>
         </h2>
       </div>
@@ -96,6 +100,7 @@ function Planificar(props: PlanificarProps) {
             metas={props.metas}
           />
         )}
+        {pestana === 'inversiones' && <PanelInversiones usuarioId={usuarioId} inversiones={props.inversiones} />}
         {pestana === 'deudas' && (
           <PanelDeudas usuarioId={usuarioId} deudas={props.deudas} cuentas={cuentasOperativas(cuentas)} categorias={categorias} />
         )}

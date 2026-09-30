@@ -13,8 +13,10 @@ import type {
   Deseo,
   Deuda,
   Frecuencia,
+  Inversion,
   Meta,
   Moneda,
+  OperacionInversion,
   MovimientoAjeno,
   OrigenTransaccion,
   Plantilla,
@@ -28,6 +30,7 @@ import type {
   TipoChanchito,
   TipoCuenta,
   TipoDeuda,
+  TipoInversion,
   TipoReto,
   TipoTransaccion,
   Transaccion,
@@ -219,6 +222,11 @@ const MIGRACIONES: { archivo: string; comprobar: () => PromiseLike<{ error: unkn
     // Cuentas compartidas por invitación.
     archivo: 'v0.24.sql',
     comprobar: () => [supabase!.from('cuentas_compartidas').select('id').limit(0)],
+  },
+  {
+    // Inversiones en bolsa.
+    archivo: 'v0.27.sql',
+    comprobar: () => [supabase!.from('inversiones').select('id').limit(0)],
   },
 ]
 
@@ -836,6 +844,78 @@ const DESEOS: Entidad<Deseo> = {
   }),
 }
 
+interface OperacionRemota {
+  id: string
+  fecha: string
+  tipo: string
+  cantidad: number
+  precio: number
+  comision: number | null
+  nota: string | null
+}
+
+const TIPOS_INVERSION_VALIDOS: TipoInversion[] = ['accion', 'etf', 'fondo', 'bono', 'cripto', 'otro']
+
+const aOperacionesLocales = (valor: unknown): OperacionInversion[] =>
+  Array.isArray(valor)
+    ? (valor as OperacionRemota[]).map((o) => ({
+        id: o.id,
+        fecha: new Date(o.fecha),
+        tipo: o.tipo === 'venta' || o.tipo === 'dividendo' ? o.tipo : 'compra',
+        cantidad: aNumero(o.cantidad),
+        precio: aNumero(o.precio),
+        comision: aNumeroOpcional(o.comision),
+        nota: o.nota ?? undefined,
+      }))
+    : []
+
+const INVERSIONES: Entidad<Inversion> = {
+  tabla: 'inversiones',
+  local: db.inversiones,
+  etiqueta: 'la inversión',
+  nombre: (i) => `"${i.nombre}"`,
+  aFila: (i, userId) => ({
+    id: i.id,
+    user_id: userId,
+    nombre: i.nombre,
+    simbolo: i.simbolo ?? null,
+    tipo: i.tipo,
+    moneda: i.moneda,
+    broker: i.broker ?? null,
+    color: i.color,
+    precio_actual: i.precioActual ?? null,
+    fecha_precio: i.fechaPrecio ? i.fechaPrecio.toISOString() : null,
+    operaciones: i.operaciones.map(
+      (o): OperacionRemota => ({
+        id: o.id,
+        fecha: o.fecha.toISOString(),
+        tipo: o.tipo,
+        cantidad: o.cantidad,
+        precio: o.precio,
+        comision: o.comision ?? null,
+        nota: o.nota ?? null,
+      }),
+    ),
+    archivada: i.archivada === true,
+    fecha_actualizacion: fechaRemota(i),
+  }),
+  aLocal: (f) => ({
+    id: f.id as string,
+    usuarioId: f.user_id as string,
+    nombre: f.nombre as string,
+    simbolo: (f.simbolo as string | null) ?? undefined,
+    tipo: TIPOS_INVERSION_VALIDOS.includes(f.tipo as TipoInversion) ? (f.tipo as TipoInversion) : 'otro',
+    moneda: f.moneda === 'USD' ? 'USD' : 'PEN',
+    broker: (f.broker as string | null) ?? undefined,
+    color: (f.color as string | null) ?? '#4f46e5',
+    precioActual: aNumeroOpcional(f.precio_actual),
+    fechaPrecio: f.fecha_precio ? new Date(f.fecha_precio as string) : undefined,
+    operaciones: aOperacionesLocales(f.operaciones),
+    archivada: f.archivada === true ? true : undefined,
+    ...marcaDeTiempo(f),
+  }),
+}
+
 const RECURRENTES: Entidad<Recurrente> = {
   tabla: 'recurrentes',
   local: db.recurrentes,
@@ -1319,6 +1399,7 @@ async function repararReferenciasHuerfanas(usuarioId: string): Promise<void> {
 
 /** Orden de borrado: primero lo que referencia a categorías/cuentas. */
 const ORDEN_BORRADO: TablaSincronizable[] = [
+  'inversiones',
   'cuotas',
   'deseos',
   'transacciones',
@@ -1642,6 +1723,7 @@ export async function sincronizar(usuarioId: string): Promise<ResultadoSincroniz
     if (esquemaListo('v0.17.sql')) agregar(await sincronizarEntidad(AJUSTES, usuarioId, userId, borrados))
     if (esquemaListo('v0.18.sql')) agregar(await sincronizarEntidad(CUOTAS, usuarioId, userId, borrados))
     if (esquemaListo('v0.19.sql')) agregar(await sincronizarEntidad(DESEOS, usuarioId, userId, borrados))
+    if (esquemaListo('v0.27.sql')) agregar(await sincronizarEntidad(INVERSIONES, usuarioId, userId, borrados))
   }
 
   let descargadas = 0

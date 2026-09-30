@@ -2,7 +2,7 @@
 --  GESTOR DE GASTOS — BASE DE DATOS COMPLETA (Supabase / PostgreSQL)
 -- =============================================================================
 --
---  Esquema al día con la app v0.24.0.
+--  Esquema al día con la app v0.27.0.
 --
 --  CÓMO USARLO
 --  -----------
@@ -41,6 +41,7 @@
 --  v0.24  tabla cuentas_compartidas (compartir una cuenta por correo),
 --         funciones puede_ver_cuenta / comparte_cuenta_con /
 --         aceptar_invitacion / salir_de_cuenta y sus políticas (2.4)
+--  v0.27  tabla inversiones (inversiones en bolsa)
 -- =============================================================================
 
 
@@ -389,6 +390,29 @@ CREATE TABLE IF NOT EXISTS public.cuentas_compartidas (
 );
 
 -- -----------------------------------------------------------------------------
+-- 1.16 Inversiones en bolsa (acciones, ETF, fondos, bonos, cripto)
+-- -----------------------------------------------------------------------------
+-- No mueven el saldo de las cuentas. Montos en la moneda del instrumento.
+-- operaciones: [{ id, fecha, tipo: compra|venta|dividendo, cantidad,
+--   precio (por unidad; en dividendo, el monto), comision, nota }]
+CREATE TABLE IF NOT EXISTS public.inversiones (
+  id                  uuid PRIMARY KEY,
+  user_id             uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users (id) ON DELETE CASCADE,
+  nombre              text NOT NULL,
+  simbolo             text,
+  tipo                text NOT NULL DEFAULT 'accion'
+                        CHECK (tipo IN ('accion', 'etf', 'fondo', 'bono', 'cripto', 'otro')),
+  moneda              text NOT NULL DEFAULT 'PEN' CHECK (moneda IN ('PEN', 'USD')),
+  broker              text,
+  color               text,
+  precio_actual       numeric(18, 6),
+  fecha_precio        timestamptz,
+  operaciones         jsonb NOT NULL DEFAULT '[]'::jsonb,
+  archivada           boolean NOT NULL DEFAULT false,
+  fecha_actualizacion timestamptz NOT NULL DEFAULT now()
+);
+
+-- -----------------------------------------------------------------------------
 -- 1.11 Ajustes del usuario (una fila por usuario: id = user_id)
 -- -----------------------------------------------------------------------------
 -- datos: { fondoMeses, fondoOrigen, fondoId, reparto: {necesidades, deseos,
@@ -426,6 +450,7 @@ CREATE INDEX IF NOT EXISTS plantillas_user_idx    ON public.plantillas (user_id)
 CREATE INDEX IF NOT EXISTS ajustes_user_idx       ON public.ajustes (user_id);
 CREATE INDEX IF NOT EXISTS cuotas_user_idx        ON public.cuotas (user_id);
 CREATE INDEX IF NOT EXISTS deseos_user_idx        ON public.deseos (user_id);
+CREATE INDEX IF NOT EXISTS inversiones_user_idx   ON public.inversiones (user_id);
 CREATE INDEX IF NOT EXISTS suscripciones_push_user_idx ON public.suscripciones_push (user_id);
 CREATE INDEX IF NOT EXISTS cuentas_compartidas_cuenta_idx  ON public.cuentas_compartidas (cuenta_id);
 CREATE INDEX IF NOT EXISTS cuentas_compartidas_miembro_idx ON public.cuentas_compartidas (miembro_id);
@@ -459,7 +484,7 @@ BEGIN
   FOREACH tabla IN ARRAY ARRAY[
     'categorias', 'cuentas', 'transacciones', 'presupuestos',
     'metas', 'deudas', 'recurrentes', 'chanchitos', 'reglas', 'plantillas',
-    'ajustes', 'cuotas', 'deseos', 'suscripciones_push'
+    'ajustes', 'cuotas', 'deseos', 'suscripciones_push', 'inversiones'
   ] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tabla);
     EXECUTE format('DROP POLICY IF EXISTS "Acceso personal" ON public.%I', tabla);
@@ -616,7 +641,7 @@ CREATE POLICY "Categorias de quienes comparten conmigo" ON public.categorias FOR
 NOTIFY pgrst, 'reload schema';
 
 -- -----------------------------------------------------------------------------
--- 2.6 Comprobación: debe mostrar 15 filas, todas con rls = true
+-- 2.6 Comprobación: debe mostrar 16 filas, todas con rls = true
 -- -----------------------------------------------------------------------------
 SELECT c.relname                                   AS tabla,
        c.relrowsecurity                            AS rls,
@@ -628,7 +653,7 @@ WHERE n.nspname = 'public'
   AND c.relname IN ('categorias', 'cuentas', 'transacciones', 'presupuestos',
                     'metas', 'deudas', 'recurrentes', 'chanchitos',
                     'reglas', 'plantillas', 'ajustes', 'cuotas', 'deseos',
-                    'suscripciones_push', 'cuentas_compartidas')
+                    'suscripciones_push', 'cuentas_compartidas', 'inversiones')
 ORDER BY 1;
 
 
@@ -648,6 +673,7 @@ ORDER BY 1;
 /*
 -- ---------- 3A. VACIAR: borra TODOS los datos, conserva tablas y usuarios --
 TRUNCATE TABLE
+  public.inversiones,
   public.cuentas_compartidas,
   public.suscripciones_push,
   public.cuotas,
@@ -671,6 +697,7 @@ RESTART IDENTITY CASCADE;
 /*
 -- ---------- 3B. ELIMINAR TODO: tablas, datos y (opcional) usuarios --------
 -- Primero lo que apunta a otras tablas, al final categorias/cuentas.
+DROP TABLE IF EXISTS public.inversiones   CASCADE;
 DROP TABLE IF EXISTS public.cuentas_compartidas CASCADE;
 DROP TABLE IF EXISTS public.suscripciones_push CASCADE;
 DROP TABLE IF EXISTS public.cuotas        CASCADE;

@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from 'react'
-import type { Ajustes, Categoria, Chanchito, CompraCuotas, Deseo, Cuenta, Deuda, Meta, Presupuesto, Recurrente, Transaccion } from '../../types'
+import type { Ajustes, Categoria, Chanchito, CompraCuotas, Deseo, Cuenta, Deuda, Inversion, Meta, Presupuesto, Recurrente, Transaccion } from '../../types'
 import Analisis from '../Analisis'
 import PanelAnual from './PanelAnual'
 import PanelComparar from './PanelComparar'
@@ -29,6 +29,7 @@ interface SeccionAnalisisProps {
   recurrentes: Recurrente[]
   cuotas: CompraCuotas[]
   deseos: Deseo[]
+  inversiones: Inversion[]
   pestana: PestanaAnalisis
   onCambiarPestana: (p: PestanaAnalisis) => void
   email: string
@@ -97,7 +98,12 @@ function SeccionAnalisis(props: SeccionAnalisisProps) {
         )}
         {pestana === 'comparar' && <PanelComparar transacciones={transacciones} categorias={categorias} />}
         {pestana === 'patrimonio' && (
-          <PanelPatrimonio cuentas={cuentas} transacciones={transacciones} deudas={props.deudas} />
+          <PanelPatrimonio
+            cuentas={cuentas}
+            transacciones={transacciones}
+            deudas={props.deudas}
+            inversiones={props.inversiones}
+          />
         )}
         {pestana === 'mapa' && (
           <Suspense fallback={<div className="ui active centered inline loader" />}>

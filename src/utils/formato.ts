@@ -77,3 +77,19 @@ export function formatearDolares(monto: number): string {
   if (montosOcultos()) return `US$ ${OCULTO}`
   return `US${formateadorUSD.format(monto)}`
 }
+
+/** Monto en su moneda: S/ 1,234.50 o US$1,234.50. */
+export function formatearEn(monto: number, moneda: 'PEN' | 'USD' = 'PEN'): string {
+  return moneda === 'USD' ? formatearDolares(monto) : formatearMoneda(monto)
+}
+
+/**
+ * Precio por unidad (acciones, cripto): hasta 6 decimales si es menor a 1
+ * (p. ej. US$0.000452), si no, como cualquier monto.
+ */
+export function formatearPrecio(precio: number, moneda: 'PEN' | 'USD' = 'PEN'): string {
+  if (Math.abs(precio) >= 1 || precio === 0) return formatearEn(precio, moneda)
+  const simbolo = moneda === 'USD' ? 'US$' : 'S/ '
+  if (montosOcultos()) return `${simbolo}${OCULTO}`
+  return `${simbolo}${new Intl.NumberFormat('es-PE', { maximumSignificantDigits: 4 }).format(precio)}`
+}

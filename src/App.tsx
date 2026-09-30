@@ -29,6 +29,7 @@ const FUNCIONES_POR_MIGRACION: Record<string, string> = {
   'v0.21.sql': 'ubicación de los gastos',
   'v0.23.sql': 'fotos de recibos y recordatorios en el celular',
   'v0.24.sql': 'cuentas compartidas',
+  'v0.27.sql': 'inversiones en bolsa',
 }
 
 function App() {

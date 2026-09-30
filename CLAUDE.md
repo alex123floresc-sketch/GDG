@@ -46,7 +46,7 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `categoriaService.COLORES_CATEGORIA` (8 tonos validados para daltonismo
   + gris; mantener ese orden).
 - Navegación principal en `Dashboard.tsx`: 5 secciones (Inicio,
-  Movimientos, Análisis, Planificar → Presupuestos/Metas/Chanchitos/
+  Movimientos, Análisis, Planificar → Presupuestos/Metas/Chanchitos/Inversiones/
   Deudas/Recurrentes/Cuotas/Calendario/Deseos, Más → Cuentas/Compartir/Categorías/Automatizar/Logros/Personalizar/Importar (Yape o extracto del banco)/
   Seguridad); en móvil (<768px)
   la barra pasa al pie de pantalla. Registrar es el botón flotante "+"
@@ -82,10 +82,10 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `Modal` (modal de Fomantic sin jQuery, vía portal), `Avisos` (toasts;
   se usan con `useAvisos().avisar(...)`), `graficos/`, `YapeImporter`
   (cargado con `React.lazy`, ver Rendimiento)
-- `src/db/database.ts` — esquema Dexie v15 (`GestorGastosDB`, tablas
+- `src/db/database.ts` — esquema Dexie v16 (`GestorGastosDB`, tablas
   `transacciones`, `categorias`, `cuentas`, `presupuestos`, `metas`,
   `deudas`, `recurrentes`, `chanchitos`, `reglas`, `plantillas`,
-  `ajustes`, `cuotas`, `deseos`, `eliminacionesPendientes`, `recibos`
+  `ajustes`, `cuotas`, `deseos`, `inversiones`, `eliminacionesPendientes`, `recibos`
   (fotos; no es "sincronizable", ver v0.23), `compartidas`,
   `cuentasAjenas`, `movimientosAjenos` (copias de solo lectura, v0.24)). `TABLAS_SINCRONIZABLES` es la lista única
   de tablas del usuario (la usan `useSync` para contar pendientes,
@@ -474,6 +474,25 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `repararReferenciasHuerfanas` considera válidas las ajenas. Una cuenta
   compartida no se puede eliminar hasta quitar a sus miembros.
 
+## Inversiones en bolsa (v0.27)
+
+- Planificar → Inversiones (`PanelInversiones`, `inversionService`,
+  `utils/inversiones.ts`). `Inversion` (acción/ETF/fondo/bono/cripto/otro,
+  moneda PEN o USD, símbolo, broker) con `operaciones` (compra, venta,
+  dividendo; jsonb remoto, tabla `inversiones`, migración `v0.27.sql`).
+  Como Metas/Chanchitos físicos: **no mueve el saldo de las cuentas**.
+- `estadoInversion`: costo promedio ponderado (la comisión de compra suma
+  al costo; al vender, lo vendido se lleva el costo promedio → ganancia
+  realizada), no realizada = cantidad × precio − costo, dividendos,
+  rentabilidad. El precio es el que anota el usuario (`precioActual`,
+  "actualizar"; una compra/venta más reciente también lo actualiza) o, si
+  no hay, el de la última operación. Sin API de cotizaciones.
+- `inversionService` no deja vender más de lo que había a esa fecha, ni
+  editar/borrar una compra que dejaría una venta posterior sin respaldo.
+- Totales en soles con el tipo de cambio del dispositivo
+  (`leerTipoCambio`, editable en el panel). Análisis → Patrimonio muestra
+  el valor de hoy aparte (no hay historia mensual del portafolio).
+
 ## Extractos bancarios (v0.25)
 
 - Más → Importar → "Extracto del banco" (`ImportarExtracto`, lazy como
@@ -634,6 +653,7 @@ la migración).
 - `v0.23.sql`: `transacciones.recibo`, bucket `recibos`, tabla
   `suscripciones_push`.
 - `v0.24.sql`: tabla `cuentas_compartidas` + funciones y políticas.
+- `v0.27.sql`: tabla `inversiones`.
   `esquemaListo(archivo)` dice si ya está confirmada (las columnas nuevas
   de tablas existentes solo se envían entonces). El aviso de App.tsx
   usa `FUNCIONES_POR_MIGRACION`.
