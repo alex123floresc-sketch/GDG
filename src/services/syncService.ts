@@ -6,13 +6,16 @@ import type {
   Categoria,
   Chanchito,
   CompraCuotas,
+  Compartida,
   ControlSync,
   Cuenta,
+  CuentaAjena,
   Deseo,
   Deuda,
   Frecuencia,
   Meta,
   Moneda,
+  MovimientoAjeno,
   OrigenTransaccion,
   Plantilla,
   Presupuesto,
@@ -211,6 +214,11 @@ const MIGRACIONES: { archivo: string; comprobar: () => PromiseLike<{ error: unkn
       supabase!.from('transacciones').select('recibo').limit(0),
       supabase!.from('suscripciones_push').select('id').limit(0),
     ],
+  },
+  {
+    // Cuentas compartidas por invitación.
+    archivo: 'v0.24.sql',
+    comprobar: () => [supabase!.from('cuentas_compartidas').select('id').limit(0)],
   },
 ]
 
@@ -1275,14 +1283,16 @@ async function subirCatalogosLegado(usuarioId: string, userId: string): Promise<
  * siempre. Las transferencias no tienen categoría y se respetan.
  */
 async function repararReferenciasHuerfanas(usuarioId: string): Promise<void> {
-  const [categorias, cuentas] = await Promise.all([
+  const [categorias, cuentas, ajenas] = await Promise.all([
     db.categorias.where('usuarioId').equals(usuarioId).toArray(),
     db.cuentas.where('usuarioId').equals(usuarioId).toArray(),
+    // Las cuentas compartidas conmigo no son referencias rotas.
+    db.cuentasAjenas.where('usuarioId').equals(usuarioId).primaryKeys(),
   ])
   if (categorias.length === 0) return
 
   const idsCategorias = new Set(categorias.map((c) => c.id))
-  const idsCuentas = new Set(cuentas.map((c) => c.id))
+  const idsCuentas = new Set([...cuentas.map((c) => c.id), ...ajenas.map(String)])
   const categoriaRespaldo =
     categorias.find((c) => c.tipo === 'ambos') ??
     categorias.find((c) => normalizar(c.nombre) === 'otros') ??
@@ -1645,8 +1655,122 @@ export async function sincronizar(usuarioId: string): Promise<ResultadoSincroniz
   // Fotos de recibos (Storage): después de las transacciones, así ya se
   // sabe cuáles siguen existiendo. Sin el SQL se quedan en el dispositivo.
   if (esquemaListo('v0.23.sql')) agregar(await sincronizarRecibos(usuarioId, userId))
+  if (esquemaListo('v0.24.sql')) agregar(await sincronizarCompartidas(usuarioId, userId))
 
   if (errores.length > 0) throw new Error(errores.join(' · '))
 
   return { subidas, descargadas, fecha: new Date(), migracionesPendientes: pendientesEsquema }
+}
+
+// ---------------------------------------------------------------------------
+// Cuentas compartidas (v0.24)
+// ---------------------------------------------------------------------------
+
+export function aCompartidaLocal(fila: Record<string, unknown>, usuarioId: string): Compartida {
+  return {
+    id: fila.id as string,
+    usuarioId,
+    cuentaId: fila.cuenta_id as string,
+    cuentaNombre: (fila.cuenta_nombre as string | null) ?? '',
+    duenoId: fila.user_id as string,
+    duenoEmail: (fila.dueno_email as string | null) ?? '',
+    email: (fila.email as string | null) ?? '',
+    miembroId: (fila.miembro_id as string | null) ?? undefined,
+    estado: fila.estado === 'aceptada' ? 'aceptada' : 'pendiente',
+    fechaCreacion: new Date(fila.fecha_creacion as string),
+  }
+}
+
+/** Trozos de ids para no pasarse del largo de la URL de PostgREST. */
+function enTrozos<T>(lista: T[], tamano = 100): T[][] {
+  const trozos: T[][] = []
+  for (let i = 0; i < lista.length; i += tamano) trozos.push(lista.slice(i, i + tamano))
+  return trozos
+}
+
+/**
+ * Descarga lo compartido (invitaciones, cuentas de otros compartidas
+ * conmigo y los movimientos de otras personas en cuentas compartidas, mías
+ * o ajenas) y reemplaza la copia local. Es de solo lectura: nada de esto
+ * se sube (lo propio va por las tablas normales).
+ */
+export async function sincronizarCompartidas(usuarioId: string, userId: string): Promise<string | null> {
+  if (!supabase) return null
+
+  const { data: filasInv, error: errorInv } = await supabase.from('cuentas_compartidas').select('*')
+  if (errorInv) return describirError('No se pudieron descargar las cuentas compartidas', errorInv)
+  const compartidas = ((filasInv ?? []) as Record<string, unknown>[]).map((f) => aCompartidaLocal(f, usuarioId))
+
+  const aceptadas = compartidas.filter((c) => c.estado === 'aceptada')
+  const idsAjenas = [...new Set(aceptadas.filter((c) => c.miembroId === userId).map((c) => c.cuentaId))]
+  const idsPropias = [...new Set(aceptadas.filter((c) => c.duenoId === userId).map((c) => c.cuentaId))]
+
+  // Correo de cada persona (para mostrar quién registró qué).
+  const correos = new Map<string, string>()
+  for (const c of compartidas) {
+    correos.set(c.duenoId, c.duenoEmail)
+    if (c.miembroId) correos.set(c.miembroId, c.email)
+  }
+
+  const cuentasAjenas: CuentaAjena[] = []
+  for (const ids of enTrozos(idsAjenas)) {
+    const { data, error } = await supabase.from('cuentas').select('*').in('id', ids)
+    if (error) return describirError('No se pudieron descargar las cuentas compartidas', error)
+    for (const f of (data ?? []) as Record<string, unknown>[]) {
+      const cuenta = CUENTAS.aLocal(f)
+      cuentasAjenas.push({
+        ...cuenta,
+        usuarioId,
+        duenoId: f.user_id as string,
+        duenoEmail: correos.get(f.user_id as string) ?? '',
+        sincronizado: true,
+      })
+    }
+  }
+
+  const movimientos: MovimientoAjeno[] = []
+  for (const ids of enTrozos([...idsAjenas, ...idsPropias])) {
+    const { data, error } = await supabase
+      .from('transacciones')
+      .select('*')
+      .in('cuenta_id', ids)
+      .neq('user_id', userId)
+      .order('fecha', { ascending: false })
+      .limit(5000)
+    if (error) return describirError('No se pudieron descargar los movimientos compartidos', error)
+    for (const f of (data ?? []) as Record<string, unknown>[]) {
+      const t = aTransaccionLocal(f)
+      movimientos.push({ ...t, usuarioId, autorId: t.usuarioId, autorEmail: correos.get(t.usuarioId) ?? '' })
+    }
+  }
+
+  // Nombre, ícono y color de las categorías de las otras personas.
+  const idsCategorias = [...new Set(movimientos.map((m) => m.categoriaId).filter(Boolean))]
+  const categorias = new Map<string, { nombre: string; icono?: string; color?: string }>()
+  for (const ids of enTrozos(idsCategorias)) {
+    const { data } = await supabase.from('categorias').select('id, nombre, icono, color').in('id', ids)
+    for (const c of (data ?? []) as Record<string, unknown>[]) {
+      categorias.set(c.id as string, {
+        nombre: c.nombre as string,
+        icono: (c.icono as string | null) ?? undefined,
+        color: (c.color as string | null) ?? undefined,
+      })
+    }
+  }
+  for (const m of movimientos) {
+    const c = categorias.get(m.categoriaId)
+    if (c) Object.assign(m, { categoriaNombre: c.nombre, categoriaIcono: c.icono, categoriaColor: c.color })
+  }
+
+  await db.transaction('rw', db.compartidas, db.cuentasAjenas, db.movimientosAjenos, async () => {
+    await Promise.all([
+      db.compartidas.where('usuarioId').equals(usuarioId).delete(),
+      db.cuentasAjenas.where('usuarioId').equals(usuarioId).delete(),
+      db.movimientosAjenos.where('usuarioId').equals(usuarioId).delete(),
+    ])
+    await db.compartidas.bulkPut(compartidas)
+    await db.cuentasAjenas.bulkPut(cuentasAjenas)
+    await db.movimientosAjenos.bulkPut(movimientos)
+  })
+  return null
 }

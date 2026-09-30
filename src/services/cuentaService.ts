@@ -109,6 +109,10 @@ export async function actualizarCuenta(
  * otra (`reasignarA`). No se puede eliminar la única cuenta.
  */
 export async function eliminarCuenta(id: string, reasignarA?: string): Promise<void> {
+  // Los movimientos de los otros miembros la referencian en Supabase.
+  if ((await db.compartidas.where('cuentaId').equals(id).count()) > 0) {
+    throw new Error('Esta cuenta está compartida: quita a las personas en Más → Compartir antes de eliminarla.')
+  }
   const tablas = [db.cuentas, db.transacciones, db.recurrentes, db.plantillas, db.reglas, db.cuotas, db.eliminacionesPendientes]
   await db.transaction('rw', tablas, async () => {
     const cuenta = await db.cuentas.get(id)

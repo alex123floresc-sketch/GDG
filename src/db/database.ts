@@ -4,11 +4,14 @@ import type {
   Categoria,
   Chanchito,
   CompraCuotas,
+  Compartida,
+  CuentaAjena,
   Cuenta,
   Deseo,
   Deuda,
   EliminacionPendiente,
   Meta,
+  MovimientoAjeno,
   Plantilla,
   Presupuesto,
   ReciboLocal,
@@ -63,6 +66,9 @@ export class GestorGastosDB extends Dexie {
   cuotas!: Table<CompraCuotas, string>
   deseos!: Table<Deseo, string>
   recibos!: Table<ReciboLocal, string>
+  compartidas!: Table<Compartida, string>
+  cuentasAjenas!: Table<CuentaAjena, string>
+  movimientosAjenos!: Table<MovimientoAjeno, string>
 
   constructor() {
     super('GestorGastosDB')
@@ -184,6 +190,14 @@ export class GestorGastosDB extends Dexie {
     // no es una tabla "sincronizable": la sube reciboService).
     this.version(14).stores({
       recibos: 'id, usuarioId',
+    })
+
+    // v15: cuentas compartidas (copias de solo lectura de lo remoto; ver
+    // syncService.sincronizarCompartidas).
+    this.version(15).stores({
+      compartidas: 'id, usuarioId, cuentaId',
+      cuentasAjenas: 'id, usuarioId',
+      movimientosAjenos: 'id, usuarioId, cuentaId',
     })
   }
 }

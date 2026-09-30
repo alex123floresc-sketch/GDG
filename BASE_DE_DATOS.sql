@@ -2,7 +2,7 @@
 --  GESTOR DE GASTOS — BASE DE DATOS COMPLETA (Supabase / PostgreSQL)
 -- =============================================================================
 --
---  Esquema al día con la app v0.23.0.
+--  Esquema al día con la app v0.24.0.
 --
 --  CÓMO USARLO
 --  -----------
@@ -38,6 +38,9 @@
 --  v0.23  transacciones.recibo + bucket de Storage 'recibos' (foto del
 --         recibo); tabla suscripciones_push (recordatorios en el celular);
 --         sección 4 (opcional): programar los recordatorios con pg_cron
+--  v0.24  tabla cuentas_compartidas (compartir una cuenta por correo),
+--         funciones puede_ver_cuenta / comparte_cuenta_con /
+--         aceptar_invitacion / salir_de_cuenta y sus políticas (2.4)
 -- =============================================================================
 
 
@@ -368,6 +371,24 @@ CREATE TABLE IF NOT EXISTS public.suscripciones_push (
 );
 
 -- -----------------------------------------------------------------------------
+-- 1.15 Cuentas compartidas: una fila por persona invitada a una cuenta
+-- -----------------------------------------------------------------------------
+-- user_id = dueño de la cuenta. El invitado la ve al iniciar sesión con ese
+-- correo y la acepta con aceptar_invitacion() (sección 2.4).
+CREATE TABLE IF NOT EXISTS public.cuentas_compartidas (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  cuenta_id           uuid NOT NULL REFERENCES public.cuentas (id) ON DELETE CASCADE,
+  user_id             uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users (id) ON DELETE CASCADE,
+  cuenta_nombre       text NOT NULL,
+  dueno_email         text NOT NULL,
+  email               text NOT NULL CHECK (email = lower(email)),
+  miembro_id          uuid REFERENCES auth.users (id) ON DELETE CASCADE,
+  estado              text NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'aceptada')),
+  fecha_creacion      timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (cuenta_id, email)
+);
+
+-- -----------------------------------------------------------------------------
 -- 1.11 Ajustes del usuario (una fila por usuario: id = user_id)
 -- -----------------------------------------------------------------------------
 -- datos: { fondoMeses, fondoOrigen, fondoId, reparto: {necesidades, deseos,
@@ -406,6 +427,10 @@ CREATE INDEX IF NOT EXISTS ajustes_user_idx       ON public.ajustes (user_id);
 CREATE INDEX IF NOT EXISTS cuotas_user_idx        ON public.cuotas (user_id);
 CREATE INDEX IF NOT EXISTS deseos_user_idx        ON public.deseos (user_id);
 CREATE INDEX IF NOT EXISTS suscripciones_push_user_idx ON public.suscripciones_push (user_id);
+CREATE INDEX IF NOT EXISTS cuentas_compartidas_cuenta_idx  ON public.cuentas_compartidas (cuenta_id);
+CREATE INDEX IF NOT EXISTS cuentas_compartidas_miembro_idx ON public.cuentas_compartidas (miembro_id);
+CREATE INDEX IF NOT EXISTS cuentas_compartidas_email_idx   ON public.cuentas_compartidas (email);
+CREATE INDEX IF NOT EXISTS transacciones_cuenta_idx        ON public.transacciones (cuenta_id);
 
 -- Anti-duplicados del importador de Yape: un nro_operacion por usuario.
 -- (Los NULL no chocan entre sí.) Solo se crea si la base no tiene ya un
@@ -464,12 +489,134 @@ CREATE POLICY "Recibos propios" ON storage.objects FOR ALL TO authenticated
   WITH CHECK (bucket_id = 'recibos' AND (storage.foldername(name))[1] = (SELECT auth.uid())::text);
 
 -- -----------------------------------------------------------------------------
--- 2.4 Recarga el caché de la API para que vea los cambios de inmediato
+-- 2.4 Cuentas compartidas: quién ve qué
+-- -----------------------------------------------------------------------------
+-- Además del "Acceso personal" de 2.2 (que no cambia):
+--  * el miembro ve la cuenta compartida, todos sus movimientos (de quien
+--    sea) y los nombres de las categorías de las personas con quienes
+--    comparte;
+--  * nadie puede registrar movimientos en una cuenta que no es suya ni
+--    compartida con él (política RESTRICTIVE);
+--  * el invitado solo acepta o sale con las funciones de abajo (no puede
+--    editar la invitación directamente).
+
+-- ¿La cuenta es mía o me la compartieron (invitación aceptada)?
+CREATE OR REPLACE FUNCTION public.puede_ver_cuenta(p_cuenta uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $$
+  SELECT EXISTS (SELECT 1 FROM public.cuentas c
+                 WHERE c.id = p_cuenta AND c.user_id = (SELECT auth.uid()))
+      OR EXISTS (SELECT 1 FROM public.cuentas_compartidas m
+                 WHERE m.cuenta_id = p_cuenta AND m.estado = 'aceptada'
+                   AND m.miembro_id = (SELECT auth.uid()));
+$$;
+
+-- ¿Comparto alguna cuenta con esa persona (como dueño o como miembro)?
+CREATE OR REPLACE FUNCTION public.comparte_cuenta_con(p_usuario uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.cuentas_compartidas m
+    WHERE m.estado = 'aceptada'
+      AND (   (m.user_id = (SELECT auth.uid()) AND m.miembro_id = p_usuario)
+           OR (m.miembro_id = (SELECT auth.uid()) AND m.user_id = p_usuario)
+           OR (m.miembro_id = p_usuario AND EXISTS (
+                 SELECT 1 FROM public.cuentas_compartidas yo
+                 WHERE yo.cuenta_id = m.cuenta_id AND yo.estado = 'aceptada'
+                   AND yo.miembro_id = (SELECT auth.uid()))))
+  );
+$$;
+
+-- El invitado acepta (con el correo de su sesión).
+CREATE OR REPLACE FUNCTION public.aceptar_invitacion(p_id uuid)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $$
+BEGIN
+  UPDATE public.cuentas_compartidas
+     SET miembro_id = (SELECT auth.uid()), estado = 'aceptada'
+   WHERE id = p_id
+     AND estado = 'pendiente'
+     AND email = lower((SELECT auth.jwt()) ->> 'email');
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'La invitación ya no existe o es para otro correo';
+  END IF;
+END;
+$$;
+
+-- El invitado rechaza la invitación o sale de la cuenta.
+CREATE OR REPLACE FUNCTION public.salir_de_cuenta(p_id uuid)
+RETURNS void
+LANGUAGE sql SECURITY DEFINER SET search_path = ''
+AS $$
+  DELETE FROM public.cuentas_compartidas
+   WHERE id = p_id
+     AND (miembro_id = (SELECT auth.uid())
+          OR email = lower((SELECT auth.jwt()) ->> 'email'));
+$$;
+
+REVOKE ALL ON FUNCTION public.puede_ver_cuenta(uuid), public.comparte_cuenta_con(uuid),
+  public.aceptar_invitacion(uuid), public.salir_de_cuenta(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.puede_ver_cuenta(uuid), public.comparte_cuenta_con(uuid),
+  public.aceptar_invitacion(uuid), public.salir_de_cuenta(uuid) TO authenticated;
+
+-- Invitaciones: el dueño las crea y borra (a su nombre, con su correo y
+-- sobre sus cuentas); las ven el dueño, el invitado y los otros miembros.
+ALTER TABLE public.cuentas_compartidas ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Ver invitaciones" ON public.cuentas_compartidas;
+DROP POLICY IF EXISTS "Invitar" ON public.cuentas_compartidas;
+DROP POLICY IF EXISTS "Quitar invitados" ON public.cuentas_compartidas;
+CREATE POLICY "Ver invitaciones" ON public.cuentas_compartidas FOR SELECT TO authenticated
+  USING (   user_id = (SELECT auth.uid())
+         OR miembro_id = (SELECT auth.uid())
+         OR email = lower((SELECT auth.jwt()) ->> 'email')
+         OR public.puede_ver_cuenta(cuenta_id));
+CREATE POLICY "Invitar" ON public.cuentas_compartidas FOR INSERT TO authenticated
+  WITH CHECK (   user_id = (SELECT auth.uid())
+             AND miembro_id IS NULL AND estado = 'pendiente'
+             AND dueno_email = lower((SELECT auth.jwt()) ->> 'email')
+             AND email <> dueno_email
+             AND EXISTS (SELECT 1 FROM public.cuentas c
+                         WHERE c.id = cuenta_id AND c.user_id = (SELECT auth.uid())));
+CREATE POLICY "Quitar invitados" ON public.cuentas_compartidas FOR DELETE TO authenticated
+  USING (user_id = (SELECT auth.uid()));
+GRANT SELECT, INSERT, DELETE ON public.cuentas_compartidas TO authenticated;
+
+-- La cuenta compartida la ven sus miembros.
+DROP POLICY IF EXISTS "Cuentas compartidas conmigo" ON public.cuentas;
+CREATE POLICY "Cuentas compartidas conmigo" ON public.cuentas FOR SELECT TO authenticated
+  USING (public.puede_ver_cuenta(id));
+
+-- Los movimientos de una cuenta compartida los ven todos sus miembros.
+DROP POLICY IF EXISTS "Movimientos de cuentas compartidas" ON public.transacciones;
+CREATE POLICY "Movimientos de cuentas compartidas" ON public.transacciones FOR SELECT TO authenticated
+  USING (cuenta_id IS NOT NULL AND public.puede_ver_cuenta(cuenta_id));
+
+-- Solo se registra en una cuenta propia o compartida contigo.
+DROP POLICY IF EXISTS "Solo cuentas permitidas (alta)" ON public.transacciones;
+DROP POLICY IF EXISTS "Solo cuentas permitidas (cambio)" ON public.transacciones;
+CREATE POLICY "Solo cuentas permitidas (alta)" ON public.transacciones AS RESTRICTIVE
+  FOR INSERT TO authenticated
+  WITH CHECK (cuenta_id IS NULL OR public.puede_ver_cuenta(cuenta_id));
+CREATE POLICY "Solo cuentas permitidas (cambio)" ON public.transacciones AS RESTRICTIVE
+  FOR UPDATE TO authenticated
+  USING (true)
+  WITH CHECK (cuenta_id IS NULL OR public.puede_ver_cuenta(cuenta_id));
+
+-- Nombres de las categorías de quienes comparten una cuenta contigo.
+DROP POLICY IF EXISTS "Categorias de quienes comparten conmigo" ON public.categorias;
+CREATE POLICY "Categorias de quienes comparten conmigo" ON public.categorias FOR SELECT TO authenticated
+  USING (public.comparte_cuenta_con(user_id));
+
+-- -----------------------------------------------------------------------------
+-- 2.5 Recarga el caché de la API para que vea los cambios de inmediato
 -- -----------------------------------------------------------------------------
 NOTIFY pgrst, 'reload schema';
 
 -- -----------------------------------------------------------------------------
--- 2.5 Comprobación: debe mostrar 14 filas, todas con rls = true
+-- 2.6 Comprobación: debe mostrar 15 filas, todas con rls = true
 -- -----------------------------------------------------------------------------
 SELECT c.relname                                   AS tabla,
        c.relrowsecurity                            AS rls,
@@ -481,7 +628,7 @@ WHERE n.nspname = 'public'
   AND c.relname IN ('categorias', 'cuentas', 'transacciones', 'presupuestos',
                     'metas', 'deudas', 'recurrentes', 'chanchitos',
                     'reglas', 'plantillas', 'ajustes', 'cuotas', 'deseos',
-                    'suscripciones_push')
+                    'suscripciones_push', 'cuentas_compartidas')
 ORDER BY 1;
 
 
@@ -501,6 +648,7 @@ ORDER BY 1;
 /*
 -- ---------- 3A. VACIAR: borra TODOS los datos, conserva tablas y usuarios --
 TRUNCATE TABLE
+  public.cuentas_compartidas,
   public.suscripciones_push,
   public.cuotas,
   public.deseos,
@@ -523,6 +671,7 @@ RESTART IDENTITY CASCADE;
 /*
 -- ---------- 3B. ELIMINAR TODO: tablas, datos y (opcional) usuarios --------
 -- Primero lo que apunta a otras tablas, al final categorias/cuentas.
+DROP TABLE IF EXISTS public.cuentas_compartidas CASCADE;
 DROP TABLE IF EXISTS public.suscripciones_push CASCADE;
 DROP TABLE IF EXISTS public.cuotas        CASCADE;
 DROP TABLE IF EXISTS public.deseos        CASCADE;
@@ -537,6 +686,8 @@ DROP TABLE IF EXISTS public.plantillas    CASCADE;
 DROP TABLE IF EXISTS public.ajustes       CASCADE;
 DROP TABLE IF EXISTS public.categorias    CASCADE;
 DROP TABLE IF EXISTS public.cuentas       CASCADE;
+DROP FUNCTION IF EXISTS public.puede_ver_cuenta(uuid), public.comparte_cuenta_con(uuid),
+  public.aceptar_invitacion(uuid), public.salir_de_cuenta(uuid);
 
 -- Tabla "profiles" de la plantilla de Supabase (la app no la usa). Si
 -- existe un trigger que la llena al registrarse, se quita antes: si no,

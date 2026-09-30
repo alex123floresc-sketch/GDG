@@ -18,6 +18,8 @@ import { formatearFecha, formatearMoneda, formatearPorcentaje } from '../utils/f
 import Modal from './Modal'
 
 interface GestionCuentasProps {
+  /** Lo que otras personas registraron en tus cuentas compartidas (solo suma a los saldos). */
+  movimientosCompartidos?: Transaccion[]
   usuarioId: string
   cuentas: Cuenta[]
   transacciones: Transaccion[]
@@ -52,7 +54,7 @@ const VACIO: Borrador = {
 
 const DIAS_ALERTA_PAGO = 5
 
-function GestionCuentas({ usuarioId, cuentas, transacciones, onTransferir }: GestionCuentasProps) {
+function GestionCuentas({ usuarioId, cuentas, transacciones, onTransferir, movimientosCompartidos }: GestionCuentasProps) {
   const { avisar } = useAvisos()
   const [borrador, setBorrador] = useState<Borrador | null>(null)
   const [eliminando, setEliminando] = useState<Cuenta | null>(null)
@@ -60,7 +62,11 @@ function GestionCuentas({ usuarioId, cuentas, transacciones, onTransferir }: Ges
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const saldos = useMemo(() => saldosPorCuenta(cuentas, transacciones), [cuentas, transacciones])
+  const saldos = useMemo(
+    () =>
+      saldosPorCuenta(cuentas, movimientosCompartidos?.length ? [...transacciones, ...movimientosCompartidos] : transacciones),
+    [cuentas, transacciones, movimientosCompartidos],
+  )
   const usos = useMemo(() => {
     const conteo = new Map<string, number>()
     for (const t of transacciones) conteo.set(t.cuentaId, (conteo.get(t.cuentaId) ?? 0) + 1)

@@ -68,6 +68,8 @@ interface FormularioTransaccionProps {
   textoInicial?: string
   /** Foto de una boleta compartida a la app: se lee con OCR al abrir. */
   imagenInicial?: Blob
+  /** Cuenta elegida al abrir (p. ej. "Registrar aquí" en una cuenta compartida). */
+  cuentaInicial?: string
 }
 
 /** Pantalla táctil sin teclado físico: se usa el teclado numérico propio. */
@@ -98,6 +100,7 @@ function FormularioTransaccion({
   valorHora,
   textoInicial,
   imagenInicial,
+  cuentaInicial,
 }: FormularioTransaccionProps) {
   const { avisar } = useAvisos()
   const editando = Boolean(transaccion)
@@ -128,7 +131,7 @@ function FormularioTransaccion({
     String(transaccion?.tipoCambio ?? leerTipoCambio()),
   )
   const [cuentaId, setCuentaId] = useState(
-    patas?.salida?.cuentaId ?? transaccion?.cuentaId ?? pl?.cuentaId ?? '',
+    patas?.salida?.cuentaId ?? transaccion?.cuentaId ?? cuentaInicial ?? pl?.cuentaId ?? '',
   )
   const [cuentaDestinoId, setCuentaDestinoId] = useState(patas?.entrada?.cuentaId ?? '')
   const [categoriaId, setCategoriaId] = useState(transaccion?.categoriaId ?? pl?.categoriaId ?? '')

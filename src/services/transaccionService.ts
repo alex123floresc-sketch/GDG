@@ -152,7 +152,14 @@ export async function actualizarTransferencia(
  * sesión no vea datos financieros de la sesión anterior.
  */
 export async function limpiarDatosLocales(): Promise<void> {
-  const tablas = [...TABLAS_SINCRONIZABLES.map((t) => db[t]), db.eliminacionesPendientes, db.recibos]
+  const tablas = [
+    ...TABLAS_SINCRONIZABLES.map((t) => db[t]),
+    db.eliminacionesPendientes,
+    db.recibos,
+    db.compartidas,
+    db.cuentasAjenas,
+    db.movimientosAjenos,
+  ]
   await db.transaction('rw', tablas, async () => {
     await Promise.all(tablas.map((t) => t.clear()))
   })

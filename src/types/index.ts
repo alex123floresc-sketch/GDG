@@ -102,6 +102,43 @@ export interface Transaccion {
   fechaActualizacion: Date
 }
 
+/*
+ * Cuentas compartidas (v0.24). Todo esto es una copia de lo que hay en
+ * Supabase: se reemplaza completo en cada sincronización y no se sube.
+ * `usuarioId` es siempre el usuario de ESTE dispositivo.
+ */
+
+/** Invitación a una cuenta (enviada por mí o recibida). */
+export interface Compartida {
+  id: string
+  usuarioId: string
+  cuentaId: string
+  cuentaNombre: string
+  duenoId: string
+  duenoEmail: string
+  /** Correo invitado (minúsculas). */
+  email: string
+  /** Quién aceptó (null mientras está pendiente). */
+  miembroId?: string
+  estado: 'pendiente' | 'aceptada'
+  fechaCreacion: Date
+}
+
+/** Cuenta de otra persona compartida conmigo. */
+export interface CuentaAjena extends Cuenta {
+  duenoId: string
+  duenoEmail: string
+}
+
+/** Movimiento que registró otra persona en una cuenta compartida. */
+export interface MovimientoAjeno extends Transaccion {
+  autorId: string
+  autorEmail: string
+  categoriaNombre?: string
+  categoriaIcono?: string
+  categoriaColor?: string
+}
+
 /** Foto del recibo guardada en el dispositivo (id = id de la transacción). */
 export interface ReciboLocal {
   id: string

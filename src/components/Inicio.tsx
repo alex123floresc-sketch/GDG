@@ -34,6 +34,8 @@ import ResumenInteligente from './ResumenInteligente'
 type Destino = NonNullable<Insight['destino']> | 'movimientos'
 
 interface InicioProps {
+  /** Lo que otras personas registraron en tus cuentas compartidas (solo suma a los saldos). */
+  movimientosCompartidos?: Transaccion[]
   email: string
   transacciones: Transaccion[]
   categorias: Categoria[]
@@ -80,11 +82,16 @@ function Inicio({
   onRegistrar,
   onNavegar,
   onSeleccionar,
+  movimientosCompartidos,
 }: InicioProps) {
   const categoriasPorId = useMemo(() => new Map(categorias.map((c) => [c.id, c])), [categorias])
   const [hoy] = useState(() => new Date())
 
-  const saldos = useMemo(() => saldosPorCuenta(cuentas, transacciones), [cuentas, transacciones])
+  const saldos = useMemo(
+    () =>
+      saldosPorCuenta(cuentas, movimientosCompartidos?.length ? [...transacciones, ...movimientosCompartidos] : transacciones),
+    [cuentas, transacciones, movimientosCompartidos],
+  )
   const saldoTotal = [...saldos.values()].reduce((s, v) => s + v, 0)
 
   const mes = useMemo(() => {

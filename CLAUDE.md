@@ -47,7 +47,7 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   + gris; mantener ese orden).
 - Navegación principal en `Dashboard.tsx`: 5 secciones (Inicio,
   Movimientos, Análisis, Planificar → Presupuestos/Metas/Chanchitos/
-  Deudas/Recurrentes/Cuotas/Calendario/Deseos, Más → Cuentas/Categorías/Automatizar/Logros/Personalizar/Importar Yape/
+  Deudas/Recurrentes/Cuotas/Calendario/Deseos, Más → Cuentas/Compartir/Categorías/Automatizar/Logros/Personalizar/Importar Yape/
   Seguridad); en móvil (<768px)
   la barra pasa al pie de pantalla. Registrar es el botón flotante "+"
   (abre `FormularioTransaccion` en un `Modal`).
@@ -82,11 +82,12 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `Modal` (modal de Fomantic sin jQuery, vía portal), `Avisos` (toasts;
   se usan con `useAvisos().avisar(...)`), `graficos/`, `YapeImporter`
   (cargado con `React.lazy`, ver Rendimiento)
-- `src/db/database.ts` — esquema Dexie v14 (`GestorGastosDB`, tablas
+- `src/db/database.ts` — esquema Dexie v15 (`GestorGastosDB`, tablas
   `transacciones`, `categorias`, `cuentas`, `presupuestos`, `metas`,
   `deudas`, `recurrentes`, `chanchitos`, `reglas`, `plantillas`,
   `ajustes`, `cuotas`, `deseos`, `eliminacionesPendientes`, `recibos`
-  (fotos; no es "sincronizable", ver v0.23)). `TABLAS_SINCRONIZABLES` es la lista única
+  (fotos; no es "sincronizable", ver v0.23), `compartidas`,
+  `cuentasAjenas`, `movimientosAjenos` (copias de solo lectura, v0.24)). `TABLAS_SINCRONIZABLES` es la lista única
   de tablas del usuario (la usan `useSync` para contar pendientes,
   `respaldoService` y `limpiarDatosLocales`): una tabla nueva se agrega
   ahí.
@@ -445,6 +446,34 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   de `BASE_DE_DATOS.sql`, comentada). Despliegue: su `LEEME.md`.
   `sw-extra.js` muestra la notificación y al tocarla abre `?seccion=…`.
 
+## Cuentas compartidas (v0.24)
+
+- Más → Compartir (`CuentasCompartidas`). El dueño invita por correo a una
+  de sus cuentas (`compartirService.invitarACuenta`, necesita conexión y
+  que la cuenta ya esté sincronizada); el invitado la ve al entrar con ese
+  correo y acepta/rechaza/sale con las funciones SQL `aceptar_invitacion`
+  / `salir_de_cuenta` (no puede editar la fila). Avisar: `mailto:` o Web
+  Share con `textoInvitacion`.
+- Remoto (`BASE_DE_DATOS.sql` 1.15 y 2.4): tabla `cuentas_compartidas`;
+  `puede_ver_cuenta(cuenta)` (mía o aceptada) da SELECT a la cuenta, a
+  TODOS sus movimientos y (con `comparte_cuenta_con`) a las categorías de
+  quienes comparten; política RESTRICTIVE: un movimiento solo puede usar
+  una cuenta propia o compartida contigo. El "Acceso personal" no cambia
+  y **toda lectura propia de syncService sigue filtrando `user_id`** (si
+  no, lo compartido se mezclaría con lo tuyo).
+- Local: `sincronizarCompartidas` (al final de `sincronizar`, solo con
+  `v0.24.sql`) reemplaza por completo `compartidas`, `cuentasAjenas` y
+  `movimientosAjenos` (lo que OTRAS personas registraron en cuentas
+  compartidas, mías o ajenas, con autor y nombre de categoría). Nada de
+  eso se sube. `useCompartidas` lo expone.
+- Uso: lo que registro en una cuenta ajena es una transacción mía normal
+  (cuenta mis análisis). Dashboard pasa `cuentasConCompartidas` (ajenas
+  con "(compartida)") a los formularios y a Movimientos; `Inicio` y
+  `GestionCuentas` suman `movimientosCompartidos` solo a los saldos. Las
+  ajenas no suman a mi saldo total ni se editan en Cuentas.
+  `repararReferenciasHuerfanas` considera válidas las ajenas. Una cuenta
+  compartida no se puede eliminar hasta quitar a sus miembros.
+
 ## Reporte mensual (v0.12)
 
 - `PanelReporte` genera el reporte de un mes; "Descargar PDF" llama a
@@ -585,6 +614,7 @@ la migración).
 - `v0.21.sql`: `transacciones.ubicacion`.
 - `v0.23.sql`: `transacciones.recibo`, bucket `recibos`, tabla
   `suscripciones_push`.
+- `v0.24.sql`: tabla `cuentas_compartidas` + funciones y políticas.
   `esquemaListo(archivo)` dice si ya está confirmada (las columnas nuevas
   de tablas existentes solo se envían entonces). El aviso de App.tsx
   usa `FUNCIONES_POR_MIGRACION`.

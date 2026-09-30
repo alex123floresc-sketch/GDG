@@ -28,6 +28,7 @@ const FUNCIONES_POR_MIGRACION: Record<string, string> = {
   'v0.20.sql': 'íconos y logos de las cuentas',
   'v0.21.sql': 'ubicación de los gastos',
   'v0.23.sql': 'fotos de recibos y recordatorios en el celular',
+  'v0.24.sql': 'cuentas compartidas',
 }
 
 function App() {

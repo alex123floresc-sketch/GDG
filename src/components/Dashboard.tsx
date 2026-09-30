@@ -32,10 +32,12 @@ import Respaldo from './Respaldo'
 import Seguridad from './Seguridad'
 import Inicio from './Inicio'
 import Modal from './Modal'
+import CuentasCompartidas from './CuentasCompartidas'
 import Planificar, { type PestanaPlanificar } from './planificar/Planificar'
 import VistaMovimientos from './VistaMovimientos'
 import { cuentasOperativas } from '../utils/cuentas'
 import { useMontosOcultos } from '../utils/privacidad'
+import { useCompartidas } from '../hooks/useCompartidas'
 import { hayCompartidoEnUrl, leerCompartido, type Compartido } from '../utils/compartir'
 
 // xlsx (usado por YapeImporter) pesa varios cientos de KB: se carga bajo
@@ -50,7 +52,7 @@ interface DashboardProps {
 }
 
 type Seccion = 'inicio' | 'movimientos' | 'analisis' | 'planificar' | 'mas'
-type SubseccionMas = 'cuentas' | 'categorias' | 'automatizar' | 'logros' | 'personalizar' | 'importar' | 'seguridad'
+type SubseccionMas = 'cuentas' | 'compartir' | 'categorias' | 'automatizar' | 'logros' | 'personalizar' | 'importar' | 'seguridad'
 type Destino = NonNullable<Insight['destino']> | 'movimientos'
 
 const SECCIONES: { id: Seccion; etiqueta: string; icono: string }[] = [
@@ -63,6 +65,7 @@ const SECCIONES: { id: Seccion; etiqueta: string; icono: string }[] = [
 
 const SUBSECCIONES_MAS: { id: SubseccionMas; etiqueta: string; icono: string }[] = [
   { id: 'cuentas', etiqueta: 'Cuentas', icono: 'wallet' },
+  { id: 'compartir', etiqueta: 'Compartir', icono: 'users' },
   { id: 'categorias', etiqueta: 'Categorías', icono: 'tags' },
   { id: 'automatizar', etiqueta: 'Automatizar', icono: 'magic' },
   { id: 'logros', etiqueta: 'Logros', icono: 'trophy' },
@@ -117,6 +120,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   // Además de listarlas, registra las cuotas vencidas (modo "mes a mes").
   const cuotas = useCuotas(usuarioId)
   const deseos = useDeseos(usuarioId)
+  const compartidos = useCompartidas(usuarioId)
   const { avisar } = useAvisos()
 
   const [desdeUrl] = useState(accionDeUrl)
@@ -130,6 +134,8 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   const [registroRapido, setRegistroRapido] = useState<TipoFormulario | null>(desdeUrl.accion ?? null)
   /** Plantilla sin monto fijo con la que se abrió el registro. */
   const [plantillaRegistro, setPlantillaRegistro] = useState<Plantilla | undefined>()
+  /** Cuenta elegida al abrir el registro ("Registrar aquí" de una compartida). */
+  const [cuentaRegistro, setCuentaRegistro] = useState<string | undefined>()
   /** Texto o foto compartidos a la app con los que se abrió el registro. */
   const [compartido, setCompartido] = useState<Compartido | undefined>()
   /** Filtro de cuenta de Análisis. */
@@ -204,7 +210,19 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
     setRegistroRapido(null)
     setPlantillaRegistro(undefined)
     setCompartido(undefined)
+    setCuentaRegistro(undefined)
   }, [])
+
+  // Cuentas de otras personas compartidas conmigo: se pueden elegir al
+  // registrar (y aparecen con su nombre en Movimientos), pero no suman a
+  // mis saldos ni se editan en Cuentas.
+  const cuentasConCompartidas = useMemo(
+    () =>
+      compartidos.cuentasAjenas.length === 0
+        ? cuentas
+        : [...cuentas, ...compartidos.cuentasAjenas.map((c) => ({ ...c, nombre: `${c.nombre} (compartida)` }))],
+    [cuentas, compartidos.cuentasAjenas],
+  )
 
   // "Compartir → Gestor de Gastos": abre el registro con la foto o el texto.
   useEffect(() => {
@@ -340,6 +358,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
             chanchitos={chanchitos}
             ajustes={ajustes}
             racha={racha}
+            movimientosCompartidos={compartidos.movimientosAjenos}
             insights={insights}
             plantillas={plantillas}
             onUsarPlantilla={usarPlantilla}
@@ -353,7 +372,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
           <VistaMovimientos
             transacciones={transacciones}
             categorias={categorias}
-            cuentas={cuentas}
+            cuentas={cuentasConCompartidas}
             onSeleccionar={setEditando}
           />
         )}
@@ -421,7 +440,23 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
                   usuarioId={usuarioId}
                   cuentas={cuentas}
                   transacciones={transacciones}
+                  movimientosCompartidos={compartidos.movimientosAjenos}
                   onTransferir={() => setRegistroRapido('transferencia')}
+                />
+              )}
+
+              {subseccionMas === 'compartir' && (
+                <CuentasCompartidas
+                  usuarioId={usuarioId}
+                  email={email}
+                  cuentas={cuentas}
+                  transacciones={transacciones}
+                  datos={compartidos}
+                  sincronizarAhora={sincronizarAhora}
+                  onRegistrarEn={(id) => {
+                    setCuentaRegistro(id)
+                    setRegistroRapido('gasto')
+                  }}
                 />
               )}
 
@@ -484,7 +519,7 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
           <FormularioTransaccion
             key={editando.id}
             usuarioId={usuarioId}
-            cuentas={cuentas}
+            cuentas={cuentasConCompartidas}
             categorias={categorias}
             transacciones={transacciones}
             transaccion={editando}
@@ -502,10 +537,11 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
         {registroRapido && (
           <FormularioTransaccion
             usuarioId={usuarioId}
-            cuentas={cuentas}
+            cuentas={cuentasConCompartidas}
             categorias={categorias}
             transacciones={transacciones}
             tipoInicial={registroRapido}
+            cuentaInicial={cuentaRegistro}
             permitirContinuar
             personasPrevias={personasPrevias}
             reglas={reglas}
