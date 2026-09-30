@@ -28,10 +28,15 @@ import 'fomantic-ui-css/components/table.min.css'
 import './index.css'
 import App from './App.tsx'
 import { aplicarTema, escucharTemaSistema } from './utils/tema'
+import { registerSW } from 'virtual:pwa-register'
 
 // Antes del primer render, para que no parpadee el tema claro.
 aplicarTema()
 escucharTemaSistema()
+
+// Service Worker: con registerType 'autoUpdate', cuando se publica una
+// versión nueva se instala sola y la página se recarga para usarla.
+registerSW({ immediate: true })
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

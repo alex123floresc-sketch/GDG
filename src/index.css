@@ -4679,3 +4679,8 @@ input.entrada-cambio {
 .lista-archivadas {
   margin-top: 0.5em;
 }
+.version-app {
+  margin: 1.5em 0 0.5em;
+  text-align: center;
+  font-size: 0.85em;
+}

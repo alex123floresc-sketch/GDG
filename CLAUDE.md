@@ -58,6 +58,13 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   Tooltip/leyenda en `comun.tsx`; hook `useAncho` y escalas en
   `utilidades.ts`. Todo gráfico va acompañado de leyenda y de una tabla
   con los mismos datos (el color nunca es la única pista).
+- Avisos `ui warning message` dentro de un `ui form`: Fomantic los oculta
+  salvo `.ui.form.warning`; `index.css` los fuerza visibles (la
+  confirmación de borrar un movimiento quedaba invisible, v0.27.1).
+- Service Worker: `main.tsx` lo registra con `virtual:pwa-register`
+  (`injectRegister: false`); en modo autoUpdate recarga la página al
+  activarse una versión nueva. La versión (`__APP_VERSION__`, de
+  package.json vía `define`) se ve en Más → Seguridad y respaldo.
 - Iconos de la app/PWA: `public/favicon.svg` es la fuente; los PNG/ICO se
   regeneran con `npx pwa-assets-generator` (config en
   `pwa-assets.config.ts`).
@@ -702,7 +709,11 @@ transferencias) fallan individualmente sin bloquear al resto.
   `fechaActualizacion: new Date()` en cada alta/edición.
 - **Borrados**: se registran en `eliminacionesPendientes` y se replican en
   orden (`ORDEN_BORRADO`: primero lo que referencia a categorías/cuentas).
-  Un error de llave foránea deja el borrado para el siguiente ciclo.
+  Un error de llave foránea deja el borrado para el siguiente ciclo. El
+  DELETE va con `.select('id')`: si la base borró 0 filas sin error (RLS)
+  y el registro sigue ahí, el borrado **queda pendiente** (no se vuelve a
+  descargar ni "reaparece") y se informa el error; antes se descartaba en
+  silencio y el movimiento volvía en la siguiente descarga.
 - Orden del ciclo: categorías/cuentas (con `fusionarCatalogo`, que une las
   sembradas por separado en dos dispositivos por nombre+tipo) → re-apuntar
   referencias rotas → subir transacciones → borrados → presupuestos/

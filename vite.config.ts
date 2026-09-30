@@ -1,9 +1,14 @@
+import { readFileSync } from 'node:fs'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }
+
 export default defineConfig({
+  // Versión visible en Más → Seguridad y respaldo (para saber cuál tienes).
+  define: { __APP_VERSION__: JSON.stringify(version) },
   build: {
     rolldownOptions: {
       output: {
@@ -24,6 +29,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // El registro lo hace main.tsx (virtual:pwa-register), que además
+      // recarga la página cuando llega una versión nueva: así los arreglos
+      // llegan sin tener que recargar dos veces.
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
         name: 'Gestor de Gastos',

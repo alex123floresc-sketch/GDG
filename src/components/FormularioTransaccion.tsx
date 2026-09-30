@@ -143,6 +143,12 @@ function FormularioTransaccion({
   const [comoPlantilla, setComoPlantilla] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false)
+  const confirmacionRef = useRef<HTMLDivElement>(null)
+  // La confirmación aparece al final del formulario (largo en celular):
+  // se lleva a la vista para que se note.
+  useEffect(() => {
+    if (confirmandoBorrado) confirmacionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [confirmandoBorrado])
   const [error, setError] = useState<string | null>(null)
   const montoRef = useRef<HTMLInputElement>(null)
 
@@ -989,7 +995,7 @@ function FormularioTransaccion({
         </div>
       )}
       {confirmandoBorrado ? (
-        <div className="ui warning message confirmar-borrado">
+        <div ref={confirmacionRef} className="ui warning message confirmar-borrado" role="alertdialog">
           <p>
             {esTransferencia
               ? '¿Eliminar esta transferencia? Se quitará de ambas cuentas.'
@@ -1004,6 +1010,7 @@ function FormularioTransaccion({
               className={`ui red button ${enviando ? 'loading' : ''}`}
               disabled={enviando}
               onClick={eliminar}
+              autoFocus
             >
               <i className="trash icon" />
               Eliminar

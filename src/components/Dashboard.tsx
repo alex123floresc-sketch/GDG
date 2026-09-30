@@ -491,6 +491,9 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
                 <>
                   <Seguridad />
                   <Respaldo usuarioId={usuarioId} email={email} />
+                  <p className="version-app texto-suave">
+                    Gestor de Gastos · versión {__APP_VERSION__}
+                  </p>
                 </>
               )}
 

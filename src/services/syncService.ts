@@ -1426,17 +1426,38 @@ async function procesarEliminaciones(usuarioId: string): Promise<string[]> {
     const deTabla = pendientes.filter((e) => e.tabla === tabla)
     if (deTabla.length === 0) continue
 
-    const { error } = await supabase
+    const ids = deTabla.map((e) => e.registroId)
+    // `.select('id')` devuelve lo que de verdad se borró: si la base no lo
+    // permite (RLS), PostgREST no da error, solo borra 0 filas.
+    const { data: borradas, error } = await supabase
       .from(tabla)
       .delete()
       .eq('user_id', usuarioId)
-      .in(
-        'id',
-        deTabla.map((e) => e.registroId),
-      )
+      .in('id', ids)
+      .select('id')
 
     if (!error) {
-      await db.eliminacionesPendientes.bulkDelete(deTabla.map((e) => e.id!))
+      const hechos = new Set(((borradas ?? []) as { id: string }[]).map((f) => f.id))
+      const faltan = ids.filter((id) => !hechos.has(id))
+      // Lo que no se borró puede ser algo que nunca llegó a subir (ya no
+      // hay nada que borrar) o algo que la base se negó a borrar.
+      let siguen = new Set<string>()
+      if (faltan.length > 0) {
+        const { data: existentes, error: errorLectura } = await supabase
+          .from(tabla)
+          .select('id')
+          .eq('user_id', usuarioId)
+          .in('id', faltan)
+        siguen = errorLectura ? new Set(faltan) : new Set(((existentes ?? []) as { id: string }[]).map((f) => f.id))
+      }
+      await db.eliminacionesPendientes.bulkDelete(deTabla.filter((e) => !siguen.has(e.registroId)).map((e) => e.id!))
+      if (siguen.size > 0) {
+        // Queda pendiente: no se vuelve a descargar ni reaparece aquí.
+        errores.push(
+          `Supabase no permitió eliminar ${siguen.size} registro(s) de "${tabla}". ` +
+            'Ejecuta de nuevo BASE_DE_DATOS.sql completo (repara los permisos) y sincroniza.',
+        )
+      }
     } else if (error.code !== CODIGO_ERROR_LLAVE_FORANEA && error.code !== 'PGRST205' && error.code !== '42P01') {
       // Llave foránea: aún la usa algo remoto, se reintenta el próximo
       // ciclo. Tabla inexistente: falta la migración (se avisa aparte).
