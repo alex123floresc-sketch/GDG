@@ -1246,6 +1246,19 @@ body.con-modal {
   }
 }
 
+/* Fomantic oculta los avisos de advertencia dentro de un .ui.form salvo
+   que el formulario tenga la clase "warning". En esta app los avisos se
+   muestran u ocultan desde React, así que dentro de un formulario deben
+   verse siempre (si no, "¿Eliminar este movimiento?" quedaba invisible y
+   no se podía borrar). */
+.ui.form .ui.warning.message:not(:empty) {
+  display: block;
+}
+
+.ui.form .ui.icon.warning.message:not(:empty) {
+  display: flex;
+}
+
 .confirmar-borrado.ui.message p {
   margin-bottom: 0;
 }
