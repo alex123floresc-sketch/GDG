@@ -44,6 +44,8 @@ import { hayCompartidoEnUrl, leerCompartido, type Compartido } from '../utils/co
 // demanda para no inflar el bundle inicial ni el precache del Service
 // Worker con algo que la mayoría de sesiones nunca usa.
 const YapeImporter = lazy(() => import('./YapeImporter'))
+// Igual que Yape: xlsx solo se descarga al abrir el importador.
+const ImportarExtracto = lazy(() => import('./ImportarExtracto'))
 
 interface DashboardProps {
   usuarioId: string
@@ -70,7 +72,7 @@ const SUBSECCIONES_MAS: { id: SubseccionMas; etiqueta: string; icono: string }[]
   { id: 'automatizar', etiqueta: 'Automatizar', icono: 'magic' },
   { id: 'logros', etiqueta: 'Logros', icono: 'trophy' },
   { id: 'personalizar', etiqueta: 'Personalizar', icono: 'paint brush' },
-  { id: 'importar', etiqueta: 'Importar Yape', icono: 'file excel outline' },
+  { id: 'importar', etiqueta: 'Importar', icono: 'file excel outline' },
   { id: 'seguridad', etiqueta: 'Seguridad y respaldo', icono: 'lock' },
 ]
 
@@ -135,6 +137,8 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   /** Plantilla sin monto fijo con la que se abrió el registro. */
   const [plantillaRegistro, setPlantillaRegistro] = useState<Plantilla | undefined>()
   /** Cuenta elegida al abrir el registro ("Registrar aquí" de una compartida). */
+  /** Más → Importar: reporte de Yape o extracto del banco. */
+  const [origenImportacion, setOrigenImportacion] = useState<'yape' | 'banco'>('yape')
   const [cuentaRegistro, setCuentaRegistro] = useState<string | undefined>()
   /** Texto o foto compartidos a la app con los que se abrió el registro. */
   const [compartido, setCompartido] = useState<Compartido | undefined>()
@@ -494,14 +498,43 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
                     </div>
                   }
                 >
-                  <YapeImporter
-                    usuarioId={usuarioId}
-                    cuentas={cuentasOperativas(cuentas)}
-                    categorias={categorias}
-                    reglas={reglas}
-                    sincronizarAhora={sincronizarAhora}
-                    onImportado={() => irA('movimientos')}
-                  />
+                  <div className="ui small buttons selector-importacion">
+                    <button
+                      type="button"
+                      className={`ui button ${origenImportacion === 'yape' ? 'primary' : 'basic'}`}
+                      onClick={() => setOrigenImportacion('yape')}
+                    >
+                      <i className="mobile alternate icon" />
+                      Reporte de Yape
+                    </button>
+                    <button
+                      type="button"
+                      className={`ui button ${origenImportacion === 'banco' ? 'primary' : 'basic'}`}
+                      onClick={() => setOrigenImportacion('banco')}
+                    >
+                      <i className="university icon" />
+                      Extracto del banco
+                    </button>
+                  </div>
+                  {origenImportacion === 'yape' ? (
+                    <YapeImporter
+                      usuarioId={usuarioId}
+                      cuentas={cuentasOperativas(cuentas)}
+                      categorias={categorias}
+                      reglas={reglas}
+                      sincronizarAhora={sincronizarAhora}
+                      onImportado={() => irA('movimientos')}
+                    />
+                  ) : (
+                    <ImportarExtracto
+                      usuarioId={usuarioId}
+                      cuentas={cuentasOperativas(cuentas)}
+                      categorias={categorias}
+                      reglas={reglas}
+                      sincronizarAhora={sincronizarAhora}
+                      onImportado={() => irA('movimientos')}
+                    />
+                  )}
                 </Suspense>
               )}
             </div>

@@ -47,7 +47,7 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   + gris; mantener ese orden).
 - Navegación principal en `Dashboard.tsx`: 5 secciones (Inicio,
   Movimientos, Análisis, Planificar → Presupuestos/Metas/Chanchitos/
-  Deudas/Recurrentes/Cuotas/Calendario/Deseos, Más → Cuentas/Compartir/Categorías/Automatizar/Logros/Personalizar/Importar Yape/
+  Deudas/Recurrentes/Cuotas/Calendario/Deseos, Más → Cuentas/Compartir/Categorías/Automatizar/Logros/Personalizar/Importar (Yape o extracto del banco)/
   Seguridad); en móvil (<768px)
   la barra pasa al pie de pantalla. Registrar es el botón flotante "+"
   (abre `FormularioTransaccion` en un `Modal`).
@@ -473,6 +473,25 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   ajenas no suman a mi saldo total ni se editan en Cuentas.
   `repararReferenciasHuerfanas` considera válidas las ajenas. Una cuenta
   compartida no se puede eliminar hasta quitar a sus miembros.
+
+## Extractos bancarios (v0.25)
+
+- Más → Importar → "Extracto del banco" (`ImportarExtracto`, lazy como
+  Yape; `extractoService` + `utils/extracto.ts`). Excel o CSV de cualquier
+  banco (CSV: separador detectado por SheetJS, UTF-8 o Windows-1252, sin
+  convertir valores). No hay formatos fijos: `detectarMapeo` adivina fila
+  de títulos y columnas (fecha de operación antes que "fecha valor",
+  monto con signo o cargo/abono, descripción, nº de operación) y el
+  usuario lo corrige; `parsearImporte` entiende 1,234.56 / 1.234,56 /
+  (45.00) / 45.00- ; `parsearFechaExtracto` dd/mm[/aa], aaaa-mm-dd,
+  "05 SET", serie de Excel. "Invertir signos" para tarjetas. PDF: no.
+- Anti-duplicados: id = `uuidDeterminista(usuario|extracto|cuenta|clave)`
+  (clave = fecha|tipo|monto|concepto|operación|n.º de repetición), así
+  reimportar no duplica ni pisa ediciones; `revisarExtracto` además marca
+  "parece repetido" si ya hay uno a mano (misma cuenta, día, tipo y monto)
+  y por defecto lo omite. Origen `'manual'` (sin `nroOperacion`, para no
+  chocar con el índice único de Yape). Reglas automáticas: solo categoría.
+  Los PDF y los archivos reales de cada banco no se probaron.
 
 ## Reporte mensual (v0.12)
 

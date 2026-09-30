@@ -4475,3 +4475,31 @@ i.icon.rotado {
 .grupo-compartida + .grupo-compartida {
   margin-top: 0.9em;
 }
+
+/* ---- Importar extracto del banco (v0.25) ---- */
+.selector-importacion {
+  margin-bottom: 1em !important;
+}
+.mapeo-extracto {
+  margin-top: 1em;
+}
+.fields-extracto {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.75em;
+  margin-bottom: 0.75em;
+}
+.fields-extracto .field {
+  margin: 0 !important;
+}
+.mapeo-extracto .casilla-simple {
+  display: block;
+  margin: 0.5em 0;
+}
+.fila-omitida td {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+.fila-omitida td:last-child {
+  text-decoration: none;
+}
