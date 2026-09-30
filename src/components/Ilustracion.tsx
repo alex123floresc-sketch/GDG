@@ -13,6 +13,7 @@ export type NombreIlustracion =
   | 'graficos'
   | 'etiquetas'
   | 'chanchito'
+  | 'mapa'
 
 const FONDO = 'var(--color-marca-suave)'
 const TRAZO = 'var(--color-marca)'
@@ -125,6 +126,15 @@ function Dibujo({ nombre }: { nombre: NombreIlustracion }) {
           <path d="M34 34 h34 l30 30 -26 26 -30 -30 z" fill={SUPERFICIE} stroke={TRAZO} strokeWidth="2.5" strokeLinejoin="round" />
           <circle cx="48" cy="48" r="5" fill={TRAZO} />
           <text x="88" y="36" fontSize="26" fontWeight="700" fill={GASTO}>#</text>
+        </>
+      )
+    case 'mapa':
+      return (
+        <>
+          <path d="M30 36 l26 -10 28 10 26 -10 v58 l-26 10 -28 -10 -26 10 z" fill={SUPERFICIE} stroke={TRAZO} strokeWidth="2.5" strokeLinejoin="round" />
+          <path d="M56 26 v58 M84 36 v58" stroke={SUAVE} strokeWidth="2" />
+          <path d="M70 72 c-10 -12 -14 -18 -14 -24 a14 14 0 0 1 28 0 c0 6 -4 12 -14 24 z" fill={GASTO} />
+          <circle cx="70" cy="48" r="5" fill={SUPERFICIE} />
         </>
       )
   }

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import type { Ajustes, Categoria, Chanchito, CompraCuotas, Deseo, Cuenta, Deuda, Meta, Presupuesto, Recurrente, Transaccion } from '../../types'
 import Analisis from '../Analisis'
 import PanelAnual from './PanelAnual'
@@ -7,7 +7,10 @@ import PanelPatrimonio from './PanelPatrimonio'
 import PanelReporte from './PanelReporte'
 import PanelSalud from './PanelSalud'
 
-export type PestanaAnalisis = 'resumen' | 'salud' | 'anual' | 'comparar' | 'patrimonio' | 'reporte'
+// Leaflet solo se descarga al abrir la pestaña Mapa.
+const PanelMapa = lazy(() => import('./PanelMapa'))
+
+export type PestanaAnalisis = 'resumen' | 'salud' | 'anual' | 'comparar' | 'patrimonio' | 'mapa' | 'reporte'
 
 const PESTANAS: { id: PestanaAnalisis; etiqueta: string; icono: string }[] = [
   { id: 'resumen', etiqueta: 'Resumen', icono: 'chart bar' },
@@ -15,6 +18,7 @@ const PESTANAS: { id: PestanaAnalisis; etiqueta: string; icono: string }[] = [
   { id: 'anual', etiqueta: 'Tu año', icono: 'star' },
   { id: 'comparar', etiqueta: 'Comparar', icono: 'exchange' },
   { id: 'patrimonio', etiqueta: 'Patrimonio', icono: 'balance scale' },
+  { id: 'mapa', etiqueta: 'Mapa', icono: 'map marker alternate' },
   { id: 'reporte', etiqueta: 'Reporte mensual', icono: 'file alternate outline' },
 ]
 
@@ -94,6 +98,11 @@ function SeccionAnalisis(props: SeccionAnalisisProps) {
         {pestana === 'comparar' && <PanelComparar transacciones={transacciones} categorias={categorias} />}
         {pestana === 'patrimonio' && (
           <PanelPatrimonio cuentas={cuentas} transacciones={transacciones} deudas={props.deudas} />
+        )}
+        {pestana === 'mapa' && (
+          <Suspense fallback={<div className="ui active centered inline loader" />}>
+            <PanelMapa transacciones={transacciones} categorias={categorias} />
+          </Suspense>
         )}
         {pestana === 'reporte' && (
           <PanelReporte

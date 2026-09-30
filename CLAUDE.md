@@ -396,12 +396,30 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   Yape). **Leer boleta**: `ocrService.leerBoleta` carga tesseract.js bajo
   demanda (modelo `spa` desde CDN la primera vez) y `utils/boleta.ts`
   saca total/fecha/comercio. Props `textoInicial`/`imagenInicial` para
-  lo compartido (pendiente: Web Share Target).
+  lo compartido.
 - **Ubicación**: `Transaccion.ubicacion` {lat, lng, lugar} con el GPS al
   tocar el botón; remoto `transacciones.ubicacion` (migración
   `v0.21.sql`, solo se envía si está confirmada; la descarga conserva la
   local). `subirLoQueFaltaba` re-marca como pendiente lo editado antes de
-  cada migración para que suba completo. Pendiente: vista de mapa.
+  cada migración para que suba completo.
+
+## Compartir a la app y mapa (v0.22)
+
+- **Web Share Target**: manifest `share_target` (POST multipart a
+  `/compartir`, campos title/text/url + `imagen`). `public/sw-compartir.js`
+  (importado por el SW de Workbox con `workbox.importScripts`) lo guarda
+  en la caché `gg-compartido` y redirige a `/?compartido=1`;
+  `utils/compartir.ts` (`leerCompartido`, una sola lectura aunque se llame
+  dos veces) y Dashboard abren el registro con `textoInicial`/
+  `imagenInicial` (la foto pasa por el OCR). Solo funciona con la app
+  instalada (el SW debe estar activo).
+- **Análisis → Mapa** (`PanelMapa`, cargado con `React.lazy`: Leaflet +
+  su CSS solo para esa pestaña): gastos con `ubicacion`, agrupados por
+  lugar (`utils/mapa.ts`: mismo nombre sin tildes, o ≤ 60 m si no tiene
+  nombre); círculo con área ∝ gasto y color de la categoría principal,
+  tabla "Dónde gastas más" (clic = centrar el lugar). Teselas de
+  OpenStreetMap (invertidas en tema oscuro); popups armados con
+  `textContent` (el nombre lo escribe el usuario).
 
 ## Reporte mensual (v0.12)
 

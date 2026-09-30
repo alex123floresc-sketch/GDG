@@ -4303,3 +4303,52 @@ i.icon.rotado {
 .fila-ubicacion input {
   flex: 1 1 200px;
 }
+
+/* ---- Análisis → Mapa (v0.22) ---- */
+.mapa-gastos {
+  height: 420px;
+  margin: 0.5em 0 1em;
+  border-radius: 12px;
+  border: 1px solid var(--color-borde);
+  background: var(--color-fondo);
+  overflow: hidden;
+  z-index: 0;
+}
+@media (max-width: 767px) {
+  .mapa-gastos {
+    height: 320px;
+  }
+}
+.mapa-gastos .leaflet-popup-content-wrapper,
+.mapa-gastos .leaflet-popup-tip {
+  background: var(--color-superficie);
+  color: var(--color-texto);
+}
+.popup-lugar strong {
+  display: block;
+  margin-bottom: 0.2em;
+}
+[data-theme='dark'] .mapa-gastos .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+}
+.punto-leyenda {
+  display: inline-block;
+  width: 0.75em;
+  height: 0.75em;
+  margin-right: 0.4em;
+  border-radius: 50%;
+  vertical-align: baseline;
+}
+.enlace-tabla {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-marca);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.enlace-tabla:hover,
+.enlace-tabla:focus-visible {
+  text-decoration: underline;
+}

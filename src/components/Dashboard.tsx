@@ -36,6 +36,7 @@ import Planificar, { type PestanaPlanificar } from './planificar/Planificar'
 import VistaMovimientos from './VistaMovimientos'
 import { cuentasOperativas } from '../utils/cuentas'
 import { useMontosOcultos } from '../utils/privacidad'
+import { hayCompartidoEnUrl, leerCompartido, type Compartido } from '../utils/compartir'
 
 // xlsx (usado por YapeImporter) pesa varios cientos de KB: se carga bajo
 // demanda para no inflar el bundle inicial ni el precache del Service
@@ -76,13 +77,15 @@ const FILTRO_TODAS = 'todas'
  * Acción pedida por URL: los atajos del ícono de la app (manifest
  * `shortcuts`) abren `/?accion=gasto`, `/?seccion=movimientos`, etc.
  */
-function accionDeUrl(): { accion?: TipoFormulario; seccion?: Seccion } {
+function accionDeUrl(): { accion?: TipoFormulario; seccion?: Seccion; compartido: boolean } {
   const params = new URLSearchParams(window.location.search)
   const accion = params.get('accion')
   const seccion = params.get('seccion')
   return {
     accion: accion === 'gasto' || accion === 'ingreso' || accion === 'transferencia' ? accion : undefined,
     seccion: SECCIONES.some((s) => s.id === seccion) ? (seccion as Seccion) : undefined,
+    // Algo compartido desde otra app (Web Share Target).
+    compartido: hayCompartidoEnUrl(),
   }
 }
 
@@ -127,6 +130,8 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   const [registroRapido, setRegistroRapido] = useState<TipoFormulario | null>(desdeUrl.accion ?? null)
   /** Plantilla sin monto fijo con la que se abrió el registro. */
   const [plantillaRegistro, setPlantillaRegistro] = useState<Plantilla | undefined>()
+  /** Texto o foto compartidos a la app con los que se abrió el registro. */
+  const [compartido, setCompartido] = useState<Compartido | undefined>()
   /** Filtro de cuenta de Análisis. */
   const [cuentaFiltro, setCuentaFiltro] = useState<string>(FILTRO_TODAS)
 
@@ -198,7 +203,26 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
   const cerrarRegistroRapido = useCallback(() => {
     setRegistroRapido(null)
     setPlantillaRegistro(undefined)
+    setCompartido(undefined)
   }, [])
+
+  // "Compartir → Gestor de Gastos": abre el registro con la foto o el texto.
+  useEffect(() => {
+    if (!desdeUrl.compartido) return
+    let vigente = true
+    void leerCompartido().then((c) => {
+      if (!vigente) return
+      if (!c) {
+        avisar('No llegó nada para registrar desde lo compartido.', 'info')
+        return
+      }
+      setCompartido(c)
+      setRegistroRapido('gasto')
+    })
+    return () => {
+      vigente = false
+    }
+  }, [desdeUrl, avisar])
 
   // Quita ?accion=… de la barra de direcciones (ya se usó al abrir).
   useEffect(() => {
@@ -487,6 +511,8 @@ function Dashboard({ usuarioId, email, sincronizarAhora }: DashboardProps) {
             reglas={reglas}
             plantillas={plantillas}
             plantillaInicial={plantillaRegistro}
+            textoInicial={compartido?.texto}
+            imagenInicial={compartido?.imagen}
             valorHora={hora?.valor}
             onListo={cerrarRegistroRapido}
             onGestionarCategorias={() => {
