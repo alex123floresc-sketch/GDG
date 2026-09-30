@@ -17,6 +17,7 @@ import {
   type Tema,
 } from '../utils/preferencias'
 import { aplicarTema } from '../utils/tema'
+import Recordatorios from './Recordatorios'
 
 interface PersonalizarProps {
   usuarioId: string
@@ -231,6 +232,8 @@ function Personalizar({ usuarioId, ajustes }: PersonalizarProps) {
           </button>
         )}
       </section>
+
+      <Recordatorios usuarioId={usuarioId} />
     </>
   )
 }

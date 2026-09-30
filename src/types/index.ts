@@ -92,8 +92,26 @@ export interface Transaccion {
   etiquetas?: string[]
   /** Dónde fue el gasto (se toma del GPS al registrar, si el usuario quiere). */
   ubicacion?: Ubicacion
+  /**
+   * Foto del recibo: ruta en el bucket 'recibos' de Supabase Storage
+   * (`<usuarioId>/<id>.jpg`). La imagen vive en la tabla local `recibos`
+   * hasta que se sube (reciboService).
+   */
+  recibo?: string
   sincronizado: boolean
   fechaActualizacion: Date
+}
+
+/** Foto del recibo guardada en el dispositivo (id = id de la transacción). */
+export interface ReciboLocal {
+  id: string
+  usuarioId: string
+  /** Sin imagen: solo falta borrarla del servidor. */
+  imagen?: Blob
+  /** Ya está en Supabase Storage. */
+  subido: boolean
+  /** Desde cuándo su movimiento no existe o ya no la usa (ms). */
+  huerfanoDesde?: number
 }
 
 export interface Ubicacion {

@@ -1,12 +1,14 @@
 /*
- * Web Share Target: "Compartir → Gestor de Gastos" desde otra app (una foto
+ * Código propio del Service Worker (lo importa el SW generado por Workbox
+ * con workbox.importScripts en vite.config.ts):
+ *   1. Web Share Target (abajo) y 2. notificaciones push (al final).
+ *
+ * 1. Web Share Target: "Compartir → Gestor de Gastos" desde otra app (una foto
  * de la boleta o el texto de una notificación de Yape). El manifest manda
  * un POST multipart a /compartir; aquí se guarda lo recibido en la caché
  * 'gg-compartido' y se redirige a /?compartido=1, donde Dashboard lo lee
  * (utils/compartir.ts) y abre el registro con eso.
- *
- * Lo importa el Service Worker generado por Workbox (workbox.importScripts
- * en vite.config.ts). Workbox solo enruta GET, así que este POST no choca.
+ * Workbox solo enruta GET, así que este POST no choca.
  */
 const CACHE_COMPARTIDO = 'gg-compartido'
 
@@ -38,6 +40,45 @@ self.addEventListener('fetch', (event) => {
         console.error('[compartir]', e)
       }
       return Response.redirect(new URL('/?compartido=1', self.location.origin).href, 303)
+    })(),
+  )
+})
+
+/*
+ * 2. Recordatorios push (Edge Function supabase/functions/recordatorios).
+ * El mensaje es JSON { title, body, url, tag }.
+ */
+self.addEventListener('push', (event) => {
+  let datos = {}
+  try {
+    datos = event.data ? event.data.json() : {}
+  } catch {
+    datos = { body: event.data ? event.data.text() : '' }
+  }
+  event.waitUntil(
+    self.registration.showNotification(datos.title || 'Gestor de Gastos', {
+      body: datos.body || '',
+      icon: '/pwa-192x192.png',
+      badge: '/pwa-64x64.png',
+      tag: datos.tag || 'recordatorio',
+      data: { url: datos.url || '/' },
+    }),
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const destino = new URL(event.notification.data?.url || '/', self.location.origin).href
+  event.waitUntil(
+    (async () => {
+      const ventanas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      const abierta = ventanas.find((c) => new URL(c.url).origin === self.location.origin)
+      if (abierta) {
+        await abierta.focus()
+        if ('navigate' in abierta) await abierta.navigate(destino).catch(() => {})
+        return
+      }
+      await self.clients.openWindow(destino)
     })(),
   )
 })

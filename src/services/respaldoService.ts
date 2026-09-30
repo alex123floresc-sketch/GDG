@@ -130,6 +130,9 @@ export async function restaurarRespaldo(respaldo: Respaldo, usuarioId: string): 
         if (typeof fila[campo] === 'string') fila[campo] = idDe(fila[campo] as string)
       }
       if (typeof fila.transferenciaId === 'string') fila.transferenciaId = idDe(fila.transferenciaId)
+      // Las fotos de recibos no van en el respaldo; las de otro usuario
+      // están en su carpeta de Storage (inaccesible), así que se quitan.
+      if (!mismoUsuario && 'recibo' in fila) delete fila.recibo
       return fila
     })
     return { nombre, filas }

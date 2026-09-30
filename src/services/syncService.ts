@@ -30,6 +30,7 @@ import type {
   Transaccion,
   Ubicacion,
 } from '../types'
+import { sincronizarRecibos } from './reciboService'
 import { registrarBorrado } from './sincronizable'
 import { supabase } from './supabaseClient'
 
@@ -203,6 +204,14 @@ const MIGRACIONES: { archivo: string; comprobar: () => PromiseLike<{ error: unkn
     archivo: 'v0.21.sql',
     comprobar: () => [supabase!.from('transacciones').select('ubicacion').limit(0)],
   },
+  {
+    // Foto del recibo (columna + bucket 'recibos') y recordatorios push.
+    archivo: 'v0.23.sql',
+    comprobar: () => [
+      supabase!.from('transacciones').select('recibo').limit(0),
+      supabase!.from('suscripciones_push').select('id').limit(0),
+    ],
+  },
 ]
 
 /** Migraciones ya confirmadas en esta sesión (no se vuelven a consultar). */
@@ -239,6 +248,7 @@ async function subirLoQueFaltaba(usuarioId: string): Promise<void> {
     ['v0.17.sql', () => db.categorias.where('usuarioId').equals(usuarioId).filter((c) => c.sincronizado === true && !!c.clase).modify({ sincronizado: false })],
     ['v0.20.sql', () => db.cuentas.where('usuarioId').equals(usuarioId).filter((c) => c.sincronizado === true && !!(c.icono || c.color)).modify({ sincronizado: false })],
     ['v0.21.sql', () => db.transacciones.where('usuarioId').equals(usuarioId).filter((t) => t.sincronizado && !!t.ubicacion).modify({ sincronizado: false })],
+    ['v0.23.sql', () => db.transacciones.where('usuarioId').equals(usuarioId).filter((t) => t.sincronizado && !!t.recibo).modify({ sincronizado: false })],
   ]
   for (const [archivo, tarea] of tareas) {
     if (!esquemaListo(archivo)) continue
@@ -349,6 +359,7 @@ function aFilaTransaccion(t: Transaccion, userId: string): FilaRemota {
   // Columnas posteriores: solo si Supabase ya las tiene (si no, la fila
   // fallaría); mientras tanto se quedan en el dispositivo.
   if (esquemaListo('v0.21.sql')) fila.ubicacion = t.ubicacion ?? null
+  if (esquemaListo('v0.23.sql')) fila.recibo = t.recibo ?? null
 
   return fila
 }
@@ -367,8 +378,9 @@ function aUbicacion(valor: unknown): Ubicacion | undefined {
  * remota no trae la columna (falta el SQL), la descarga conserva el valor
  * local en vez de borrarlo.
  */
-const COLUMNAS_TRANSACCION_POSTERIORES: { columna: string; campo: 'ubicacion' }[] = [
+const COLUMNAS_TRANSACCION_POSTERIORES: { columna: string; campo: 'ubicacion' | 'recibo' }[] = [
   { columna: 'ubicacion', campo: 'ubicacion' },
+  { columna: 'recibo', campo: 'recibo' },
 ]
 
 function aOrigen(valor: unknown): OrigenTransaccion {
@@ -398,6 +410,7 @@ function aTransaccionLocal(fila: Record<string, unknown>): Transaccion {
     etiquetas:
       Array.isArray(fila.etiquetas) && fila.etiquetas.length > 0 ? (fila.etiquetas as string[]) : undefined,
     ubicacion: aUbicacion(fila.ubicacion),
+    recibo: typeof fila.recibo === 'string' && fila.recibo ? fila.recibo : undefined,
     sincronizado: true,
     fechaActualizacion: new Date(fila.fecha_actualizacion as string),
   }
@@ -1480,7 +1493,9 @@ export async function descargarTransaccionesRecientes(
     const locales = await db.transacciones.bulkGet(transacciones.map((t) => t.id))
     transacciones.forEach((t, i) => {
       const local = locales[i]
-      if (local) for (const { campo } of faltantes) if (local[campo] !== undefined) t[campo] = local[campo]
+      if (!local) return
+      // Asignación por campo (cada uno con su tipo).
+      for (const { campo } of faltantes) if (local[campo] !== undefined) Object.assign(t, { [campo]: local[campo] })
     })
   }
 
@@ -1626,6 +1641,10 @@ export async function sincronizar(usuarioId: string): Promise<ResultadoSincroniz
   } catch (err) {
     errores.push((err as Error).message)
   }
+
+  // Fotos de recibos (Storage): después de las transacciones, así ya se
+  // sabe cuáles siguen existiendo. Sin el SQL se quedan en el dispositivo.
+  if (esquemaListo('v0.23.sql')) agregar(await sincronizarRecibos(usuarioId, userId))
 
   if (errores.length > 0) throw new Error(errores.join(' · '))
 

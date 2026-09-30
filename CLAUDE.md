@@ -82,10 +82,11 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   `Modal` (modal de Fomantic sin jQuery, vía portal), `Avisos` (toasts;
   se usan con `useAvisos().avisar(...)`), `graficos/`, `YapeImporter`
   (cargado con `React.lazy`, ver Rendimiento)
-- `src/db/database.ts` — esquema Dexie v13 (`GestorGastosDB`, tablas
+- `src/db/database.ts` — esquema Dexie v14 (`GestorGastosDB`, tablas
   `transacciones`, `categorias`, `cuentas`, `presupuestos`, `metas`,
   `deudas`, `recurrentes`, `chanchitos`, `reglas`, `plantillas`,
-  `ajustes`, `cuotas`, `deseos`, `eliminacionesPendientes`). `TABLAS_SINCRONIZABLES` es la lista única
+  `ajustes`, `cuotas`, `deseos`, `eliminacionesPendientes`, `recibos`
+  (fotos; no es "sincronizable", ver v0.23)). `TABLAS_SINCRONIZABLES` es la lista única
   de tablas del usuario (la usan `useSync` para contar pendientes,
   `respaldoService` y `limpiarDatosLocales`): una tabla nueva se agrega
   ahí.
@@ -406,7 +407,7 @@ Repo: https://github.com/alex123floresc-sketch/GDG
 ## Compartir a la app y mapa (v0.22)
 
 - **Web Share Target**: manifest `share_target` (POST multipart a
-  `/compartir`, campos title/text/url + `imagen`). `public/sw-compartir.js`
+  `/compartir`, campos title/text/url + `imagen`). `public/sw-extra.js`
   (importado por el SW de Workbox con `workbox.importScripts`) lo guarda
   en la caché `gg-compartido` y redirige a `/?compartido=1`;
   `utils/compartir.ts` (`leerCompartido`, una sola lectura aunque se llame
@@ -420,6 +421,29 @@ Repo: https://github.com/alex123floresc-sketch/GDG
   tabla "Dónde gastas más" (clic = centrar el lugar). Teselas de
   OpenStreetMap (invertidas en tema oscuro); popups armados con
   `textContent` (el nombre lo escribe el usuario).
+
+## Foto del recibo y recordatorios push (v0.23)
+
+- **Foto del recibo**: `Transaccion.recibo` = ruta en el bucket privado
+  `recibos` de Storage (`<user_id>/<id>.jpg`; política: solo la carpeta
+  propia). `reciboService`: `guardarRecibo` comprime (`utils/imagen.ts`,
+  JPEG ≤ 1600 px) y guarda el Blob en la tabla local `recibos`;
+  `sincronizarRecibos` (al final de `sincronizar`, solo con `v0.23.sql`)
+  sube lo pendiente y borra las **huérfanas** (su movimiento ya no existe
+  o ya no la usa) pasados 3 min — así "Deshacer" la recupera y no hace
+  falta tocar `eliminarTransaccion`. `obtenerRecibo` la descarga bajo
+  demanda en otro dispositivo. Las fotos pendientes cuentan en `useSync`.
+  UI: `CampoRecibo` en el formulario (la foto de "Leer boleta" queda
+  como recibo), clip en `ListaTransacciones`. No van en el respaldo JSON.
+- **Recordatorios push**: `pushService` (Web Push con
+  `VITE_VAPID_PUBLIC_KEY`; tabla `suscripciones_push`, única por
+  usuario+endpoint, con `hora` local y `zona`), UI `Recordatorios` en Más
+  → Personalizar; al cerrar sesión se da de baja el dispositivo. Edge
+  Function `supabase/functions/recordatorios` (Deno; lógica pura en
+  `eventos.ts`: recurrentes, cuotas, pago de tarjetas y deudas que vencen
+  hoy/mañana → un aviso por día) llamada cada hora por pg_cron (sección 4
+  de `BASE_DE_DATOS.sql`, comentada). Despliegue: su `LEEME.md`.
+  `sw-extra.js` muestra la notificación y al tocarla abre `?seccion=…`.
 
 ## Reporte mensual (v0.12)
 
@@ -507,6 +531,7 @@ Repo: https://github.com/alex123floresc-sketch/GDG
 ```
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
+VITE_VAPID_PUBLIC_KEY=   # opcional: recordatorios push
 ```
 
 ## Esquema remoto (Supabase)
@@ -558,6 +583,8 @@ la migración).
 - `v0.19.sql`: tabla `deseos`.
 - `v0.20.sql`: `cuentas.icono`, `cuentas.color`.
 - `v0.21.sql`: `transacciones.ubicacion`.
+- `v0.23.sql`: `transacciones.recibo`, bucket `recibos`, tabla
+  `suscripciones_push`.
   `esquemaListo(archivo)` dice si ya está confirmada (las columnas nuevas
   de tablas existentes solo se envían entonces). El aviso de App.tsx
   usa `FUNCIONES_POR_MIGRACION`.

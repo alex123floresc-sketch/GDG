@@ -1,5 +1,5 @@
 /*
- * Lo compartido a la app (Web Share Target, ver public/sw-compartir.js): el
+ * Lo compartido a la app (Web Share Target, ver public/sw-extra.js): el
  * Service Worker lo deja en la caché 'gg-compartido' y abre /?compartido=1.
  */
 

@@ -50,7 +50,7 @@ export default defineConfig({
         // Atajos al mantener presionado el ícono de la app instalada. Los
         // abre Dashboard.tsx (`accionDeUrl`). Íconos en public/atajos/.
         // "Compartir → Gestor de Gastos" (foto de la boleta o texto de una
-        // notificación). Lo recibe public/sw-compartir.js.
+        // notificación). Lo recibe public/sw-extra.js.
         share_target: {
           action: '/compartir',
           method: 'POST',
@@ -95,8 +95,8 @@ export default defineConfig({
         // cuando no hay conexión (en vez de fallar la navegación).
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
-        // Recibe lo compartido a la app (Web Share Target).
-        importScripts: ['sw-compartir.js'],
+        // Recibe lo compartido a la app (Web Share Target) y las notificaciones push.
+        importScripts: ['sw-extra.js'],
       },
       devOptions: {
         // Activa el Service Worker también en `npm run dev` para poder

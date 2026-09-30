@@ -32,6 +32,8 @@ import {
 import { guardarTipoCambio, leerTipoCambio } from '../utils/preferencias'
 import { obtenerTipoCambioDia, type TipoCambioDia } from '../utils/tipoCambio'
 import CampoEtiquetas from './CampoEtiquetas'
+import CampoRecibo from './CampoRecibo'
+import { guardarRecibo } from '../services/reciboService'
 import DividirGasto from './DividirGasto'
 import TecladoNumerico from './TecladoNumerico'
 
@@ -147,6 +149,9 @@ function FormularioTransaccion({
   const [usarTeclado] = useState(esTactil)
   const [ubicacion, setUbicacion] = useState<Ubicacion | undefined>(transaccion?.ubicacion)
   const [buscandoUbicacion, setBuscandoUbicacion] = useState(false)
+  /** Foto del recibo elegida aquí (se guarda al enviar) y si se quitó la que había. */
+  const [fotoNueva, setFotoNueva] = useState<Blob | undefined>()
+  const [fotoQuitada, setFotoQuitada] = useState(false)
   /** Progreso del OCR (0–1) mientras se lee una boleta. */
   const [leyendoBoleta, setLeyendoBoleta] = useState<number | null>(null)
   /** Qué se entendió del dictado o de la boleta (para que el usuario revise). */
@@ -333,6 +338,8 @@ function FormularioTransaccion({
     setError(null)
     setNotaCaptura(null)
     setLeyendoBoleta(0)
+    // La foto de la boleta queda también como foto del recibo.
+    setFotoNueva(archivo)
     try {
       const r = await leerBoleta(archivo, setLeyendoBoleta)
       if (r.total) {
@@ -399,6 +406,8 @@ function FormularioTransaccion({
     setRecordarRegla(false)
     setComoPlantilla(false)
     setUbicacion(undefined)
+    setFotoNueva(undefined)
+    setFotoQuitada(false)
     setNotaCaptura(null)
     if (!usarTeclado) montoRef.current?.focus()
   }
@@ -488,13 +497,24 @@ function FormularioTransaccion({
           etiquetas: etiquetasFinal,
           ubicacion: ubicacion ? { ...ubicacion, lugar: ubicacion.lugar?.trim() || undefined } : undefined,
         }
+        let idGuardado: string
         if (transaccion) {
-          await actualizarTransaccion(transaccion.id, datos)
-          avisar('Movimiento actualizado')
+          // Quitar la foto: `recibo: undefined` (viaja como null a Supabase).
+          await actualizarTransaccion(transaccion.id, fotoQuitada && !fotoNueva ? { ...datos, recibo: undefined } : datos)
+          idGuardado = transaccion.id
         } else {
-          await crearTransaccion({ ...datos, origen: 'manual' }, usuarioId)
-          avisar(tipo === 'gasto' ? 'Gasto registrado' : 'Ingreso registrado')
+          idGuardado = (await crearTransaccion({ ...datos, origen: 'manual' }, usuarioId)).id
         }
+        if (fotoNueva) {
+          try {
+            const ruta = await guardarRecibo(usuarioId, idGuardado, fotoNueva)
+            await actualizarTransaccion(idGuardado, { recibo: ruta })
+          } catch {
+            avisar('El movimiento se guardó, pero no la foto del recibo.', 'error')
+          }
+        }
+        if (transaccion) avisar('Movimiento actualizado')
+        else avisar(tipo === 'gasto' ? 'Gasto registrado' : 'Ingreso registrado')
       }
 
       // Extras al crear: recordar la categoría como regla y/o guardar como
@@ -912,6 +932,22 @@ function FormularioTransaccion({
             </button>
           )}
         </div>
+      )}
+
+      {!esTransferencia && !dividiendo && (
+        <CampoRecibo
+          transaccion={transaccion}
+          fotoNueva={fotoNueva}
+          quitada={fotoQuitada}
+          onElegir={(f) => {
+            setFotoNueva(f)
+            setFotoQuitada(false)
+          }}
+          onQuitar={() => {
+            setFotoNueva(undefined)
+            setFotoQuitada(true)
+          }}
+        />
       )}
 
       {tipo === 'gasto' && !editando && (

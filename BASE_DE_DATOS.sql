@@ -2,7 +2,7 @@
 --  GESTOR DE GASTOS — BASE DE DATOS COMPLETA (Supabase / PostgreSQL)
 -- =============================================================================
 --
---  Esquema al día con la app v0.21.0.
+--  Esquema al día con la app v0.23.0.
 --
 --  CÓMO USARLO
 --  -----------
@@ -35,6 +35,9 @@
 --  v0.19  tabla deseos (lista de deseos)
 --  v0.20  cuentas.icono y cuentas.color (ícono o logo de cada cuenta)
 --  v0.21  transacciones.ubicacion (dónde fue el gasto)
+--  v0.23  transacciones.recibo + bucket de Storage 'recibos' (foto del
+--         recibo); tabla suscripciones_push (recordatorios en el celular);
+--         sección 4 (opcional): programar los recordatorios con pg_cron
 -- =============================================================================
 
 
@@ -130,6 +133,9 @@ CREATE TABLE IF NOT EXISTS public.transacciones (
   transferencia_id    uuid,
   recurrente_id       uuid,
   etiquetas           text[] NOT NULL DEFAULT '{}',
+  ubicacion           jsonb,
+  -- Ruta de la foto en el bucket 'recibos' ('<user_id>/<id>.jpg') o NULL
+  recibo              text,
   fecha_actualizacion timestamptz NOT NULL DEFAULT now()
 );
 
@@ -144,7 +150,8 @@ ALTER TABLE public.transacciones
   ADD COLUMN IF NOT EXISTS etiquetas           text[] NOT NULL DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS fecha_actualizacion timestamptz NOT NULL DEFAULT now(),
   -- { lat, lng, lugar } o NULL
-  ADD COLUMN IF NOT EXISTS ubicacion           jsonb;
+  ADD COLUMN IF NOT EXISTS ubicacion           jsonb,
+  ADD COLUMN IF NOT EXISTS recibo              text;
 
 -- Las transferencias no tienen categoría; las descargadas antiguas, cuenta.
 ALTER TABLE public.transacciones ALTER COLUMN categoria_id DROP NOT NULL;
@@ -343,6 +350,24 @@ CREATE TABLE IF NOT EXISTS public.deseos (
 );
 
 -- -----------------------------------------------------------------------------
+-- 1.14 Recordatorios push: un dispositivo suscrito por fila
+-- -----------------------------------------------------------------------------
+-- Los envía la Edge Function "recordatorios" (ver sección 4). hora = hora
+-- local (0-23) del aviso diario; ultimo_envio evita repetirlo el mismo día.
+CREATE TABLE IF NOT EXISTS public.suscripciones_push (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id             uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users (id) ON DELETE CASCADE,
+  endpoint            text NOT NULL,
+  p256dh              text NOT NULL,
+  auth                text NOT NULL,
+  hora                smallint NOT NULL DEFAULT 8 CHECK (hora BETWEEN 0 AND 23),
+  zona                text NOT NULL DEFAULT 'America/Lima',
+  ultimo_envio        date,
+  fecha_creacion      timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, endpoint)
+);
+
+-- -----------------------------------------------------------------------------
 -- 1.11 Ajustes del usuario (una fila por usuario: id = user_id)
 -- -----------------------------------------------------------------------------
 -- datos: { fondoMeses, fondoOrigen, fondoId, reparto: {necesidades, deseos,
@@ -380,6 +405,7 @@ CREATE INDEX IF NOT EXISTS plantillas_user_idx    ON public.plantillas (user_id)
 CREATE INDEX IF NOT EXISTS ajustes_user_idx       ON public.ajustes (user_id);
 CREATE INDEX IF NOT EXISTS cuotas_user_idx        ON public.cuotas (user_id);
 CREATE INDEX IF NOT EXISTS deseos_user_idx        ON public.deseos (user_id);
+CREATE INDEX IF NOT EXISTS suscripciones_push_user_idx ON public.suscripciones_push (user_id);
 
 -- Anti-duplicados del importador de Yape: un nro_operacion por usuario.
 -- (Los NULL no chocan entre sí.) Solo se crea si la base no tiene ya un
@@ -408,7 +434,7 @@ BEGIN
   FOREACH tabla IN ARRAY ARRAY[
     'categorias', 'cuentas', 'transacciones', 'presupuestos',
     'metas', 'deudas', 'recurrentes', 'chanchitos', 'reglas', 'plantillas',
-    'ajustes', 'cuotas', 'deseos'
+    'ajustes', 'cuotas', 'deseos', 'suscripciones_push'
   ] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tabla);
     EXECUTE format('DROP POLICY IF EXISTS "Acceso personal" ON public.%I', tabla);
@@ -424,12 +450,26 @@ BEGIN
 END $$;
 
 -- -----------------------------------------------------------------------------
--- 2.3 Recarga el caché de la API para que vea los cambios de inmediato
+-- 2.3 Fotos de recibos: bucket PRIVADO 'recibos' en Supabase Storage
+-- -----------------------------------------------------------------------------
+-- Cada usuario solo ve y toca su carpeta ('<user_id>/...'). Máx. 5 MB por
+-- foto (la app las comprime a ~300 kB).
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('recibos', 'recibos', false, 5242880, ARRAY['image/*'])
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Recibos propios" ON storage.objects;
+CREATE POLICY "Recibos propios" ON storage.objects FOR ALL TO authenticated
+  USING (bucket_id = 'recibos' AND (storage.foldername(name))[1] = (SELECT auth.uid())::text)
+  WITH CHECK (bucket_id = 'recibos' AND (storage.foldername(name))[1] = (SELECT auth.uid())::text);
+
+-- -----------------------------------------------------------------------------
+-- 2.4 Recarga el caché de la API para que vea los cambios de inmediato
 -- -----------------------------------------------------------------------------
 NOTIFY pgrst, 'reload schema';
 
 -- -----------------------------------------------------------------------------
--- 2.4 Comprobación: debe mostrar 13 filas, todas con rls = true
+-- 2.5 Comprobación: debe mostrar 14 filas, todas con rls = true
 -- -----------------------------------------------------------------------------
 SELECT c.relname                                   AS tabla,
        c.relrowsecurity                            AS rls,
@@ -440,7 +480,8 @@ JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public'
   AND c.relname IN ('categorias', 'cuentas', 'transacciones', 'presupuestos',
                     'metas', 'deudas', 'recurrentes', 'chanchitos',
-                    'reglas', 'plantillas', 'ajustes', 'cuotas', 'deseos')
+                    'reglas', 'plantillas', 'ajustes', 'cuotas', 'deseos',
+                    'suscripciones_push')
 ORDER BY 1;
 
 
@@ -460,6 +501,7 @@ ORDER BY 1;
 /*
 -- ---------- 3A. VACIAR: borra TODOS los datos, conserva tablas y usuarios --
 TRUNCATE TABLE
+  public.suscripciones_push,
   public.cuotas,
   public.deseos,
   public.transacciones,
@@ -474,11 +516,14 @@ TRUNCATE TABLE
   public.categorias,
   public.cuentas
 RESTART IDENTITY CASCADE;
+-- Las fotos de recibos no se borran con SQL: Storage → recibos → selecciona
+-- todo → Delete (o elimina el bucket completo).
 */
 
 /*
 -- ---------- 3B. ELIMINAR TODO: tablas, datos y (opcional) usuarios --------
 -- Primero lo que apunta a otras tablas, al final categorias/cuentas.
+DROP TABLE IF EXISTS public.suscripciones_push CASCADE;
 DROP TABLE IF EXISTS public.cuotas        CASCADE;
 DROP TABLE IF EXISTS public.deseos        CASCADE;
 DROP TABLE IF EXISTS public.transacciones CASCADE;
@@ -505,4 +550,36 @@ NOTIFY pgrst, 'reload schema';
 -- OPCIONAL: borra también TODAS las cuentas de usuario (correo/contraseña).
 -- Quita los dos guiones de la línea siguiente solo si de verdad lo quieres.
 -- DELETE FROM auth.users;
+
+-- Fotos de recibos y recordatorios programados: vacía y elimina el bucket
+-- 'recibos' desde Storage, y quita la tarea programada:
+-- SELECT cron.unschedule('gestor-gastos-recordatorios');
+*/
+
+
+-- #############################################################################
+-- 4. RECORDATORIOS PUSH (OPCIONAL)
+-- #############################################################################
+-- Solo si desplegaste la Edge Function "recordatorios" (instrucciones en
+-- supabase/functions/recordatorios/LEEME.md). Programa una llamada por hora;
+-- la función avisa a cada dispositivo en la hora que eligió.
+--   1. Database → Extensions: activa pg_cron y pg_net.
+--   2. Copia el bloque de abajo SIN las líneas /* y */, reemplaza
+--      TU-PROYECTO y TU_SECRETO (el mismo CRON_SECRET de la función) y
+--      ejecútalo en una consulta NUEVA. Repetirlo solo actualiza la tarea.
+
+/*
+SELECT cron.schedule(
+  'gestor-gastos-recordatorios',
+  '5 * * * *',
+  $$
+  SELECT net.http_post(
+    url     := 'https://TU-PROYECTO.supabase.co/functions/v1/recordatorios',
+    headers := jsonb_build_object('Content-Type', 'application/json',
+                                  'x-cron-secret', 'TU_SECRETO'),
+    body    := '{}'::jsonb,
+    timeout_milliseconds := 30000
+  );
+  $$
+);
 */

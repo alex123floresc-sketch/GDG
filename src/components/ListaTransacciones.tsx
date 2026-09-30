@@ -175,6 +175,12 @@ function ListaTransacciones({
                 Auto
               </span>
             )}
+            {t.recibo && (
+              <span className="ui mini basic label" title="Tiene foto del recibo">
+                <i className="paperclip icon" />
+                <span className="visualmente-oculto">Con foto del recibo</span>
+              </span>
+            )}
             {!t.sincronizado && (
               <span className="ui mini orange basic label" title="Pendiente de sincronizar">
                 <i className="clock outline icon" />

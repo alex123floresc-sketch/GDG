@@ -4352,3 +4352,43 @@ i.icon.rotado {
 .enlace-tabla:focus-visible {
   text-decoration: underline;
 }
+
+/* ---- Foto del recibo (v0.23) ---- */
+.fila-recibo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em;
+}
+.miniatura-recibo {
+  padding: 0;
+  border: 1px solid var(--color-borde);
+  border-radius: 8px;
+  background: var(--color-superficie);
+  overflow: hidden;
+  cursor: zoom-in;
+  line-height: 0;
+}
+.miniatura-recibo img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+}
+.miniatura-recibo.ampliada {
+  flex-basis: 100%;
+  cursor: zoom-out;
+}
+.miniatura-recibo.ampliada img {
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+  object-fit: contain;
+}
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

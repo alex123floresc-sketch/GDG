@@ -11,6 +11,7 @@ import type {
   Meta,
   Plantilla,
   Presupuesto,
+  ReciboLocal,
   Recurrente,
   Regla,
   TablaSincronizable,
@@ -61,6 +62,7 @@ export class GestorGastosDB extends Dexie {
   ajustes!: Table<Ajustes, string>
   cuotas!: Table<CompraCuotas, string>
   deseos!: Table<Deseo, string>
+  recibos!: Table<ReciboLocal, string>
 
   constructor() {
     super('GestorGastosDB')
@@ -176,6 +178,12 @@ export class GestorGastosDB extends Dexie {
     // v13: lista de deseos.
     this.version(13).stores({
       deseos: 'id, usuarioId',
+    })
+
+    // v14: fotos de recibos (Blob local hasta subirlas a Supabase Storage;
+    // no es una tabla "sincronizable": la sube reciboService).
+    this.version(14).stores({
+      recibos: 'id, usuarioId',
     })
   }
 }

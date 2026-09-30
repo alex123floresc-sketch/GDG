@@ -2,6 +2,7 @@ import type { Table } from 'dexie'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { db, TABLAS_SINCRONIZABLES } from '../db/database'
+import { contarRecibosPendientes } from '../services/reciboService'
 import { sincronizar } from '../services/syncService'
 import type { EstadoSincronizacion } from '../types'
 
@@ -52,6 +53,7 @@ export function useSync(usuarioId: string | null): EstadoSincronizacion & {
             .count(),
         ),
         db.eliminacionesPendientes.where('usuarioId').equals(usuarioId).count(),
+        contarRecibosPendientes(usuarioId),
       ])
       return conteos.reduce((a, b) => a + b, 0)
     }, [usuarioId]) ?? 0

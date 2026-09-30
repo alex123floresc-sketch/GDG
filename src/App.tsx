@@ -9,6 +9,7 @@ import { useSync } from './hooks/useSync'
 import { asegurarCategoriasPorDefecto } from './services/categoriaService'
 import { asegurarCuentasPorDefecto } from './services/cuentaService'
 import { supabase } from './services/supabaseClient'
+import { desactivarPush } from './services/pushService'
 import { descargarCatalogos } from './services/syncService'
 import { limpiarDatosLocales } from './services/transaccionService'
 import { minutosParaBloquear, pinActivo, quitarPin } from './utils/pin'
@@ -26,6 +27,7 @@ const FUNCIONES_POR_MIGRACION: Record<string, string> = {
   'v0.19.sql': 'lista de deseos',
   'v0.20.sql': 'íconos y logos de las cuentas',
   'v0.21.sql': 'ubicación de los gastos',
+  'v0.23.sql': 'fotos de recibos y recordatorios en el celular',
 }
 
 function App() {
@@ -108,6 +110,8 @@ function App() {
     if (navigator.onLine) {
       await sincronizarAhora().catch(() => {})
     }
+    // Este dispositivo deja de recibir los recordatorios de este usuario.
+    if (usuarioId) await desactivarPush(usuarioId).catch(() => {})
 
     try {
       // scope: 'local' evita depender de red para cerrar sesión (esta es
