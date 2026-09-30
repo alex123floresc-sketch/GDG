@@ -188,7 +188,7 @@ function YapeImporter({
           <i className={`${cargandoArchivo ? 'spinner loading' : 'cloud upload'} icon`} />
           {nombreArchivo ?? (
             <>
-              Arrastra aquí tu <strong>ReporteTransacciones.xlsx</strong>
+              Elige o arrastra aquí tu <strong>ReporteTransacciones.xlsx</strong>
             </>
           )}
         </div>

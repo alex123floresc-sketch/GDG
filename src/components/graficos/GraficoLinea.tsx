@@ -104,7 +104,9 @@ function GraficoLinea({ puntos, serie, alto = 220 }: GraficoLineaProps) {
               ))}
 
               {puntos.map((p, i) =>
-                i % cadaCuanto === 0 || i === puntos.length - 1 ? (
+                // El último siempre; los demás, salvo que queden encima del último.
+                (i % cadaCuanto === 0 && puntos.length - 1 - i >= Math.ceil(cadaCuanto * 0.75)) ||
+                i === puntos.length - 1 ? (
                   <text
                     key={p.etiquetaLarga}
                     className="eje-texto"

@@ -23,14 +23,17 @@ export function formatearFecha(fecha: Date): string {
   return formateadorFecha.format(fecha)
 }
 
-const formateadorCompacto = new Intl.NumberFormat('es-PE', {
-  notation: 'compact',
-  maximumFractionDigits: 1,
-})
+const formateadorCompacto = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 1 })
 
-/** Monto abreviado para ejes de gráficos: `S/ 1.2 mil`. */
+/**
+ * Monto abreviado para ejes de gráficos: `S/ 1.2 K`, `S/ 3 M`. (El
+ * `notation: 'compact'` de es-PE mezcla "k" y "K" según el valor.)
+ */
 export function formatearMonedaCorta(monto: number): string {
   if (montosOcultos()) return `S/ ${OCULTO}`
+  const abs = Math.abs(monto)
+  if (abs >= 1_000_000) return `S/ ${formateadorCompacto.format(monto / 1_000_000)} M`
+  if (abs >= 1_000) return `S/ ${formateadorCompacto.format(monto / 1_000)} K`
   return `S/ ${formateadorCompacto.format(monto)}`
 }
 

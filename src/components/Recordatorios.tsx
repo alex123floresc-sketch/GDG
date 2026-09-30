@@ -86,9 +86,8 @@ function Recordatorios({ usuarioId }: { usuarioId: string }) {
         </p>
       )}
       {estado === 'sin-configurar' && (
-        <p className="texto-suave">
-          Los recordatorios aún no están configurados en esta instalación (falta la clave VAPID; ver
-          <code> supabase/functions/recordatorios/LEEME.md</code>).
+        <p className="texto-suave" title="Falta VITE_VAPID_PUBLIC_KEY (ver supabase/functions/recordatorios/LEEME.md)">
+          Los recordatorios todavía no están disponibles en esta versión de la app.
         </p>
       )}
       {estado === 'bloqueado' && (

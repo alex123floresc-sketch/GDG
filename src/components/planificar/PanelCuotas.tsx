@@ -169,7 +169,7 @@ function PanelCuotas({ usuarioId, cuotas, cuentas, categorias, transacciones }: 
             <strong>{formatearMoneda(c.montoCuota)}</strong> al mes
           </span>
           <span>
-            Cuota {Math.min(e.pagadas + 1, c.numeroCuotas)} de {c.numeroCuotas}
+            {e.pagadas} de {c.numeroCuotas} pagadas
           </span>
           <span>{e.completada ? '¡Pagada!' : `Falta ${formatearMoneda(e.pendiente)}`}</span>
         </div>

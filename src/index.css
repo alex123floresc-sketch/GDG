@@ -260,7 +260,9 @@ body {
   margin-bottom: 1.5em;
 }
 
-.ui.secondary.pointing.menu .active.item {
+.ui.secondary.pointing.menu .active.item,
+.ui.secondary.pointing.menu .active.item:hover,
+.ui.secondary.pointing.menu .active.item:focus {
   border-color: var(--color-marca);
   color: var(--color-marca);
 }
@@ -278,11 +280,30 @@ body {
 
   .app-header .marca {
     font-size: 1em;
+    min-width: 0;
+    flex-shrink: 1;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  /* El encabezado nunca debe ser más ancho que la pantalla: si lo es, el
+     navegador móvil aleja la vista y la barra inferior queda fuera. */
+  .app-header .ui.container {
+    width: 100% !important;
+    margin: 0 !important;
+    min-width: 0;
+  }
+
+  .app-header .right.menu {
+    flex-shrink: 0;
   }
 
   .ui.stackable.grid > .column:not(.row) {
     padding-top: 0.4rem !important;
     padding-bottom: 0.4rem !important;
+    /* Mismo ancho que las tarjetas sueltas (Fomantic deja 1rem a los lados). */
+    padding-left: 0 !important;
+    padding-right: 0 !important;
   }
 
   .nav-principal.ui.menu {
@@ -671,6 +692,16 @@ body {
 .lista-transacciones .monto {
   text-align: right;
   flex-shrink: 0;
+}
+
+.lista-transacciones .monto > strong {
+  display: block;
+  white-space: nowrap;
+}
+
+/* Botones de acción debajo del monto: el concepto conserva su ancho. */
+.lista-transacciones .monto > .ui.buttons {
+  margin-top: 0.35em;
 }
 
 .lista-transacciones .monto .ui.label {
@@ -1387,6 +1418,9 @@ body.con-modal {
 .pestanas-desplazables.ui.menu {
   overflow-x: auto;
   scrollbar-width: none;
+  /* Se desvanece en los bordes: indica que hay más pestañas al deslizar. */
+  mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 28px), transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 28px), transparent);
 }
 
 .pestanas-desplazables.ui.menu .item {
@@ -2377,8 +2411,10 @@ body.con-modal {
 
 .titulo-bloque {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 0.5em 1em;
   margin-bottom: 0.75em;
 }
 
@@ -4304,6 +4340,17 @@ i.icon.rotado {
   flex: 1 1 200px;
 }
 
+@media (max-width: 420px) {
+  .app-header .texto-marca {
+    display: none;
+  }
+
+  .app-header.ui.menu .item {
+    padding-left: 0.55em;
+    padding-right: 0.55em;
+  }
+}
+
 /* ---- Análisis → Mapa (v0.22) ---- */
 .mapa-gastos {
   height: 420px;
@@ -4502,4 +4549,52 @@ i.icon.rotado {
 }
 .fila-omitida td:last-child {
   text-decoration: none;
+}
+
+/* ---- Pulido visual (v0.26) ---- */
+.tabla-reparto td,
+.tabla-reparto th {
+  white-space: nowrap;
+}
+.tabla-reparto td:first-child {
+  white-space: normal;
+}
+
+/* En móvil las rejillas de KPI tienen 2 columnas: si sobra una tarjeta,
+   ocupa todo el ancho en vez de quedar sola a media fila. */
+@media (max-width: 767px) {
+  .rejilla-kpi > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+.categoria-lugar {
+  font-size: 0.85em;
+  margin-top: 0.15em;
+}
+/* Tablas de 4 columnas que deben caber en un celular sin desplazarse. */
+.ui.table.tabla-compacta td:not(:first-child),
+.ui.table.tabla-compacta th:not(:first-child) {
+  white-space: nowrap;
+}
+@media (max-width: 767px) {
+  .ui.table.tabla-compacta {
+    font-size: 0.86em;
+  }
+  .ui.table.tabla-compacta td,
+  .ui.table.tabla-compacta th {
+    padding-left: 0.3em !important;
+    padding-right: 0.3em !important;
+  }
+}
+.ui.table abbr {
+  text-decoration: none;
+}
+.ui.button.mostrar-mas {
+  margin-top: 1em;
+}
+.formulario-movimiento .selector-tipo {
+  margin-bottom: 1.25em !important;
+}
+.titulo-bloque .ui.button {
+  white-space: nowrap;
 }

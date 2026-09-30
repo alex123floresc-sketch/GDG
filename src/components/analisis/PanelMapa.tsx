@@ -163,10 +163,9 @@ function PanelMapa({ transacciones, categorias }: PanelMapaProps) {
                 <thead>
                   <tr>
                     <th>Lugar</th>
-                    <th>Categoría</th>
                     <th className="right aligned">Veces</th>
                     <th className="right aligned">Total</th>
-                    <th className="right aligned">Última</th>
+                    <th className="right aligned solo-escritorio">Última</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -178,14 +177,14 @@ function PanelMapa({ transacciones, categorias }: PanelMapaProps) {
                           <button type="button" className="enlace-tabla" onClick={() => verLugar(l)}>
                             {l.nombre}
                           </button>
-                        </td>
-                        <td>
-                          <span className="punto-leyenda" style={{ background: cat?.color || COLOR_SIN_CATEGORIA }} />
-                          {cat?.nombre ?? 'Sin categoría'}
+                          <div className="texto-suave categoria-lugar">
+                            <span className="punto-leyenda" style={{ background: cat?.color || COLOR_SIN_CATEGORIA }} />
+                            {cat?.nombre ?? 'Sin categoría'}
+                          </div>
                         </td>
                         <td className="right aligned">{l.veces}</td>
-                        <td className="right aligned">{formatearMoneda(l.total)}</td>
-                        <td className="right aligned">{formatearFecha(l.ultima)}</td>
+                        <td className="right aligned single line">{formatearMoneda(l.total)}</td>
+                        <td className="right aligned single line solo-escritorio">{formatearFecha(l.ultima)}</td>
                       </tr>
                     )
                   })}

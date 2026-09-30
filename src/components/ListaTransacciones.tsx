@@ -13,6 +13,8 @@ interface ListaTransaccionesProps {
   limite?: number
   /** Acción opcional junto al título (p. ej. "Ver todas"). */
   accion?: { texto: string; onClick: () => void }
+  /** La acción va al final de la lista (p. ej. "Mostrar más"). */
+  accionAlFinal?: boolean
   /** Muestra la suma de ingresos y gastos de la lista junto al título. */
   mostrarTotales?: boolean
   /** Al tocar un movimiento (p. ej. para editarlo). */
@@ -49,6 +51,7 @@ function ListaTransacciones({
   titulo = 'Transacciones recientes',
   limite = 15,
   accion,
+  accionAlFinal = false,
   mostrarTotales = false,
   onSeleccionar,
   extra,
@@ -184,7 +187,7 @@ function ListaTransacciones({
             {!t.sincronizado && (
               <span className="ui mini orange basic label" title="Pendiente de sincronizar">
                 <i className="clock outline icon" />
-                Pendiente
+                <span className="solo-escritorio">Pendiente</span>
               </span>
             )}
           </div>
@@ -228,7 +231,7 @@ function ListaTransacciones({
             </span>
           </div>
         )}
-        {accion && filas.length > limite && (
+        {accion && !accionAlFinal && filas.length > limite && (
           <button type="button" className="ui basic tiny button" onClick={accion.onClick}>
             {accion.texto}
             <i className="right chevron icon" />
@@ -257,6 +260,12 @@ function ListaTransacciones({
             <div className="lista-transacciones ui divided list">{g.items.map(renderFila)}</div>
           </div>
         ))
+      )}
+      {accion && accionAlFinal && filas.length > limite && (
+        <button type="button" className="ui fluid basic button mostrar-mas" onClick={accion.onClick}>
+          {accion.texto} ({filas.length - limite} más)
+          <i className="angle down icon" />
+        </button>
       )}
     </div>
   )

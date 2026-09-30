@@ -217,7 +217,7 @@ function ImportarExtracto({ usuarioId, cuentas, categorias, reglas, sincronizarA
       >
         <div className="ui icon header">
           <i className={`${leyendo ? 'spinner loading' : 'cloud upload'} icon`} />
-          {nombreArchivo ?? 'Arrastra aquí el extracto (.xlsx o .csv)'}
+          {nombreArchivo ?? 'Elige o arrastra aquí el extracto (.xlsx o .csv)'}
         </div>
         <span className="ui basic button">
           <i className="folder open outline icon" />

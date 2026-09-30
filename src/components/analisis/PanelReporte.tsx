@@ -163,13 +163,15 @@ function PanelReporte({ email, transacciones, categorias, cuentas, presupuestos,
 
             <section className="seccion-reporte">
               <h3>Cambios frente a {rangoAnterior.etiqueta}</h3>
-              <table className="ui very basic compact unstackable table">
+              <table className="ui very basic compact unstackable table tabla-compacta">
                 <thead>
                   <tr>
                     <th>Categoría</th>
                     <th className="right aligned">{rangoAnterior.etiqueta.split(' ')[0]}</th>
                     <th className="right aligned">{rango.etiqueta.split(' ')[0]}</th>
-                    <th className="right aligned">Diferencia</th>
+                    <th className="right aligned">
+                      <abbr title="Diferencia">Dif.</abbr>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>

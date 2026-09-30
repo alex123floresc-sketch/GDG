@@ -56,7 +56,8 @@ function Header({
   const estado = sincronizando
     ? { etiqueta: 'Sincronizando', color: 'blue', icono: 'sync loading' }
     : !enLinea
-      ? { etiqueta: 'Sin conexión', color: 'red', icono: 'plug' }
+      ? // Sin red la app sigue funcionando (offline-first): no es un error.
+        { etiqueta: 'Sin conexión', color: 'grey', icono: 'wifi' }
       : error
         ? { etiqueta: 'Error al sincronizar', color: 'red', icono: 'exclamation triangle' }
         : pendientes > 0
@@ -90,7 +91,7 @@ function Header({
       <div className="ui container">
         <div className="marca header item">
           <img src="/favicon.svg" alt="" />
-          Gestor de Gastos
+          <span className="texto-marca">Gestor de Gastos</span>
         </div>
 
         <div className="right menu">

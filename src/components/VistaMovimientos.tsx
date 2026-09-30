@@ -283,6 +283,7 @@ function VistaMovimientos({ transacciones, categorias, cuentas, onSeleccionar }:
             limite={limite}
             onSeleccionar={onSeleccionar}
             accion={{ texto: 'Mostrar más', onClick: () => setLimite((l) => l + PASO_LISTA) }}
+            accionAlFinal
             vacio={
               transacciones.length === 0
                 ? 'Aún no hay movimientos. Registra el primero con el botón "+".'

@@ -237,7 +237,7 @@ function PanelSalud(props: PanelSaludProps) {
                 <tr>
                   <th />
                   <th className="right aligned">Real</th>
-                  <th className="right aligned">% de ingresos</th>
+                  <th className="right aligned">% ingresos</th>
                   <th className="right aligned">Meta</th>
                 </tr>
               </thead>

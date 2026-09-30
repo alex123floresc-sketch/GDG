@@ -87,10 +87,10 @@ function PanelComparar({ transacciones, categorias }: PanelCompararProps) {
       <div className="fila-filtros ui form">
         <div className="ui small buttons">
           <button type="button" className={`ui button ${modo === 'mes' ? 'primary' : 'basic'}`} onClick={() => setModo('mes')}>
-            Este mes vs. anterior
+            Este mes
           </button>
           <button type="button" className={`ui button ${modo === 'anio' ? 'primary' : 'basic'}`} onClick={() => setModo('anio')}>
-            Este año vs. anterior
+            Este año
           </button>
           <button
             type="button"
